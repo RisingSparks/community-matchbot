@@ -2,42 +2,47 @@
 
 ## Context
 
-**The Challenge**: Burning Man has a continuity risk:
-- First-timers are still a meaningful share (~30%), but under-30 participation has dropped from ~30% (2014) to ~12% (recent).
-- New participants face high access friction (social, logistical, financial).
-- Camps need new contributors to survive leadership burnout and succession risk.
-- Institutional/cultural knowledge is lost when camps fold or fail to onboard new members.
+**The Challenge**: Burning Man has a builder-capacity risk:
+- **The Builder Crisis**: Burning Man’s existential threat isn’t just an aging population; it’s a decline in the number of active **builders**—the people who create the art, build the infrastructure, and maintain the complex systems of Black Rock City.
+- **Participation Gap**: While roughly 30% of participants are first-timers ("birgins"), under-30 participation has dropped from ~30% in 2014 to ~12% today.
+- **Friction to Action**: New participants face high barriers to entry, not just socially, but in learning the **how-to** of Burning Man: how to build for the desert, how to manage logistics, and how to contribute to large-scale art.
+- **Loss of Institutional Knowledge**: As experienced builders and TCOs face burnout, the tacit knowledge of *how to build the city* risks being lost.
 
 ## The Insight: Camps Are the Leverage Point
 
-Leverage Theme Camps as the natural connective tissue of Black Rock City. Theme camps are already:
-- **Self-interested**: they need new blood to survive, so they are motivated participants.
-- **Financially enabling**: shared infrastructure (power, water, shade, food) dramatically lowers the cost barrier for newcomers.
+The high-level goal is to move beyond "recruitment" to **cultivating the next generation of builders**. We are not just trying to fill camp slots; we are helping people learn how to build.
+
+**Theme camps** are the natural classrooms and connective tissue of Black Rock City. They are:
+
+Theme camps are already:
+- **Skill-Transfer Hubs**: High-trust environments where experienced builders can mentor newcomers in desert-specific engineering, logistics, and art production.
+- **Financially enabling**: shared infrastructure (power, water, shade, food) dramatically lowers the cost barrier for newcomers. By lowering the financial and logistical barriers (shared food, water, shade), camps free up newcomers' energy to focus on **building and contributing** to the art or infrastructure projects.
+- **Self-interested Mentors**: Camps need new builders to survive leadership burnout and ensure their projects continue into the future.
 - **Acculturation incubators**: high-trust, high-accountability micro-communities where people *become* burners.
 
 The project doesn't build new infrastructure—it strengthens the connective tissue that already works.
 
-## Problem Statement**: Address a "cold start" issue for newcomers and a "pipeline" issue for camps:
-1. **Newcomers:** Face high barriers (cost, logistics, social access).
-2. **Camps/TCOs:** Need new participatory energy to combat burnout and loss of institutional knowledge.
-3. **Ecosystem:** Shrinking under-30 cohort and declining cultural continuity.
+## Problem Statement: Solving the "Builder Pipeline"
+1. **Newcomers/Seekers:** Want to contribute but don't know *how* or *where* their skills fit. They need mentorship to transition from "attendee" to "builder."
+2. **Camps/TCOs/Art Leads:** Need reliable, motivated hands to execute complex projects but are often too busy to find and vet people outside their immediate circles.
+3. **The Ecosystem:** Facing a "cold start" problem for new art and infrastructure as the pool of experienced builders shrinks.
+
 
 ## Project Summary
 
-**Theme Camp Connection & Community Finder** is a lightweight matchmaking service that reduces friction for self-motivated birgins to find theme camps matching their values and contribution style. It is part of the **Rising Sparks** initiative (intergenerational collaboration, mentorship, cultural continuity).
+**Theme Camp Connection & Community Finder** is a lightweight matchmaking service that reduces friction for self-motivated newcomers to find theme camps and **art projects** that match their values, skills, and **desire to learn**.
 
 Goals:
-- self-motivated newcomers find camps where they can contribute, and
-- camps find aligned contributors without creating heavy admin overhead.
+- **Discover Mentorship**: Help newcomers find projects where they can learn builder skills.
+- **Support the Builders**: Connect art projects and camps with the hands they need to thrive.
+- **Low Overhead**: Facilitate introductions without creating administrative debt for busy TCOs/Leads.
 
-The product introduces people. Camps own vetting, intake, and final vibe check.
+The product introduces people. Camps and projects own the vetting, intake, and mentorship relationship.
 
-The v1 pilot uses **existing community platforms** (Discord, Reddit, Burner Profiles) with structured templates—no custom software required in Phase 1.
-
-**Framing matters**: this is not "recruitment." It is *reducing friction for the interested.* The tool only makes the introduction; camps own all vetting, intake, and vibe-checking.
+**Framing matters**: This is not "recruitment." It is **reducing friction for the interested builder.**
 - *"This isn't 'recruitment.' This is 'reducing friction for the interested.'"*
-- *"We're helping self-motivated people find their people."*
-- *"Strengthening theme camps by solving their succession problems."*
+- *"We're helping self-motivated people find their people and their projects."*
+- *"We're creating more support for the builders—helping people learn how to build the city."*
 
 
 ## 4. Product Principles (Non-Negotiables)
@@ -65,19 +70,32 @@ Pain points:
 - Unclear norms (dues, shifts, accountability, contribution expectations).
 - Fear of rejection or mismatch.
 
-### User Type B: Camps / TCOs
+### User Type A.2: Seekers (Aspiring Builders)
+
+Jobs to be done:
+- Understand how to transition from a "tourist" to a "contributor/builder."
+- Discover projects looking for specific skills (or a willingness to learn).
+- Find mentors who can teach desert-hardened building/logistics.
+
+Pain points:
+- Don't know where to start or who to ask.
+- Unsure if their "default world" skills translate to the playa.
+- Fear of being a burden on an already stressed art team.
+
+### User Type B: Camps / TCOs / Art Leads (The Mentors)
 
 Jobs to be done:
 
-- Find reliable, aligned contributors.
+- Find reliable, motivated hands to support build/strike/ops.
+- Identify potential successors or leads for specific sub-projects.
 - Reduce time spent on ad hoc pipeline building.
-- Preserve camp continuity and succession.
 
 Pain points:
 
 - Existing networks tapped out.
-- Burnout from repeated onboarding.
 - Concern about seeker mismatch (tourist mindset vs contributor mindset).
+- Burnout from "doing everything" because they don't have enough builders.
+- Lack of a low-effort way to signal they are "open to mentoring new builders."
 
 ### User Type C: Ecosystem Stakeholders (Sparks, Placement, BMP teams)
 
@@ -85,6 +103,7 @@ Jobs to be done:
 
 - Strengthen intergenerational continuity.
 - Capture learnings for scalable policy/product integration.
+- Capture data on what skills are in demand vs. what skills are available.
 - Maintain culture and trust while improving access.
 
 ## 6. Scope by Phase
