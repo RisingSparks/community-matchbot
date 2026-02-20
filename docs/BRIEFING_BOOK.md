@@ -1,8 +1,21 @@
 # Theme Camp Community Finder - Briefing Book and Product Doc
 
-## Context
+### Rising Sparks Strategy / Mission
 
-**The Challenge**: Burning Man has a builder-capacity risk:
+**A preparation \+ matchmaking \+ resource layer for new builders and participants.**
+
+**Framing & Activities**
+
+* onboarding infrastructure  
+  * Preparing participants  
+* discovery layer  
+  * Matching participants → existing camps  
+* Ecosystem growth engine  
+  * Supporting theme camps’ recruitment pipeline
+
+## Problem Context
+
+Burning Man has a builder-capacity risk:
 - **The Builder Crisis**: Burning Man’s existential threat isn’t just an aging population; it’s a decline in the number of active **builders**—the people who create the art, build the infrastructure, and maintain the complex systems of Black Rock City.
 - **Participation Gap**: While roughly 30% of participants are first-timers ("birgins"), under-30 participation has dropped from ~30% in 2014 to ~12% today.
 - **Friction to Action**: New participants face high barriers to entry, not just socially, but in learning the **how-to** of Burning Man: how to build for the desert, how to manage logistics, and how to contribute to large-scale art.
