@@ -225,9 +225,10 @@ Avoid:
 
 ## 10. Functional Requirements for v1 Workflow
 
-1. Camp posts profile using structured template.
-2. Seeker posts profile using structured template.
-3. Moderator performs lightweight compatibility triage.
+1. Camp posts "we're looking for X"; Seeker posts "I'm looking for Y"
+3. Matchmaker bot reads the post, logs key elements, e.g. location, vibe what, they're offering or looking for, etc.
+3b. Joins camp data against whatever we can extract from What Where When Guide (The WWW lists a camp's public events, which gives you a good sense of the camp's vibe - e.g. is it woo/wellness, sober, party focused, sex-oriented, etc)
+4. performs lightweight compatibility triage.
 4. Intro message sent to both parties with expectations checklist.
 5. Outcome tracked with simple statuses:
    - intro_sent
@@ -237,7 +238,7 @@ Avoid:
    - onboarded
 6. Feedback survey triggered after outcome window.
 
-Required template fields (minimum):
+Possibly use a template? If so, template fields could be:
 
 - Contribution style (build/strike/kitchen/hosting/art/support/etc).
 - Values/ethos alignment statement.
