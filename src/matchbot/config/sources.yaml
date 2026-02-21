@@ -6,11 +6,25 @@ reddit:
 
 discord:
   guilds:
-    - guild_id: "GUILD_ID_HERE"
-      name: "Rising Sparks"
+    - guild_id: "1474796124630941787"
+      name: "BurningManMatchBotTestServer"
       allowed_channel_ids:
-        - "CHANNEL_ID_1"   # #camp-finder
-        - "CHANNEL_ID_2"   # #seeking-camp
+        - "1474796125859876949"   # #general
+
+    - guild_id: "1125521048411062293"
+      name: "DC Burners"
+      allowed_channel_ids:
+        - "1125521049182806051"   # #general
+
+    - guild_id: "1297724065468911656"
+      name: "Buckeye Burners of Ohio"
+      allowed_channel_ids:
+        - "1297724066114830442"   # #general
+
+    - guild_id: "1020108216081842276"
+      name: "POrtalBurn"
+      allowed_channel_ids:
+        - "1020108216081842280"   # #general
 
 facebook:
   group_ids:
