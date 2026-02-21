@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -67,7 +68,9 @@ async def facebook_event(request: Request) -> dict:
     for entry in payload.get("entry", []):
         for change in entry.get("changes", []):
             if change.get("field") == "feed":
-                await _handle_feed_change(change.get("value", {}))
+                # Fire-and-forget: Facebook requires a 200 response within 20 seconds.
+                # LLM extraction can exceed that, so defer processing to a background task.
+                asyncio.ensure_future(_handle_feed_change(change.get("value", {})))
 
     return {"status": "ok"}
 

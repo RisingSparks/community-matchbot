@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import json
 
-from matchbot.db.models import Match, Post
-from matchbot.extraction.base import LLMExtractor
-from matchbot.extraction.base import ExtractionError
-
+from matchbot.db.models import Post
+from matchbot.extraction.base import ExtractionError, LLMExtractor
 
 TRIAGE_SYSTEM_PROMPT = """\
 You are helping a human moderator review potential matches between Burning Man camp seekers and camps with openings.
@@ -72,18 +70,21 @@ async def _call_triage(extractor: LLMExtractor, user_content: str) -> dict:
         from matchbot.extraction.anthropic_extractor import AnthropicExtractor
 
         assert isinstance(extractor, AnthropicExtractor)
-        response = await extractor._client.messages.create(
+        anthropic_response = await extractor._client.messages.create(
             model=extractor._model,
             max_tokens=512,
             system=TRIAGE_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
         )
-        raw = response.content[0].text.strip()
+        first_block = anthropic_response.content[0]
+        if not hasattr(first_block, "text"):
+            raise ExtractionError(f"Unexpected response block type: {type(first_block).__name__}")
+        raw = first_block.text.strip()
     elif provider == "openai":
         from matchbot.extraction.openai_extractor import OpenAIExtractor
 
         assert isinstance(extractor, OpenAIExtractor)
-        response = await extractor._client.chat.completions.create(
+        openai_response = await extractor._client.chat.completions.create(
             model=extractor._model,
             max_tokens=512,
             response_format={"type": "json_object"},
@@ -92,7 +93,7 @@ async def _call_triage(extractor: LLMExtractor, user_content: str) -> dict:
                 {"role": "user", "content": user_content},
             ],
         )
-        raw = response.choices[0].message.content or ""
+        raw = openai_response.choices[0].message.content or ""
     else:
         raise ExtractionError(f"Unknown provider for triage: {provider}")
 

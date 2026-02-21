@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from matchbot.db.models import InfraRole, Match, Platform, Post, PostStatus, PostType
+from matchbot.db.models import InfraRole, Platform, Post, PostStatus, PostType
 from matchbot.matching.infra_scorer import score_infra_match
-
 
 # ---------------------------------------------------------------------------
 # Helpers

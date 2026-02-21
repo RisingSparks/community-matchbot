@@ -110,7 +110,6 @@ def create_bot() -> commands.Bot:
 
 async def _handle_discord_message(message: discord.Message) -> None:
     """Process a Discord message as a potential post."""
-    from sqlmodel import select
 
     platform_post_id = f"{message.channel.id}_{message.id}"
 

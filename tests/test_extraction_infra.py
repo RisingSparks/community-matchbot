@@ -6,10 +6,9 @@ import pytest
 
 from matchbot.db.models import Platform, Post, PostStatus, PostType
 from matchbot.extraction import process_post
-from matchbot.extraction.keywords import KeywordResult, keyword_filter
+from matchbot.extraction.keywords import keyword_filter
 from matchbot.extraction.schemas import ExtractedPost
-from matchbot.taxonomy import INFRASTRUCTURE_CATEGORIES, INFRASTRUCTURE_CONDITIONS
-
+from matchbot.taxonomy import INFRASTRUCTURE_CONDITIONS
 
 # ---------------------------------------------------------------------------
 # ExtractedPost schema — infrastructure fields

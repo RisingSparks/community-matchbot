@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from matchbot.db.models import InfraRole, Post
 
@@ -29,9 +29,9 @@ def _recency_score(detected_at: datetime | None) -> float:
     """Exponential decay with 30-day half-life; 0.0 after 60 days."""
     if detected_at is None:
         return 0.0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if detected_at.tzinfo is None:
-        detected_at = detected_at.replace(tzinfo=timezone.utc)
+        detected_at = detected_at.replace(tzinfo=UTC)
     age_days = (now - detected_at).total_seconds() / 86400
     if age_days > 60:
         return 0.0
@@ -65,8 +65,8 @@ def score_infra_match(post_a: Post, post_b: Post) -> tuple[float, dict]:
         return 0.0, {}
 
     older_date = min(
-        post_a.detected_at or datetime.now(timezone.utc),
-        post_b.detected_at or datetime.now(timezone.utc),
+        post_a.detected_at or datetime.now(UTC),
+        post_b.detected_at or datetime.now(UTC),
     )
     recency = _recency_score(older_date)
     role_match = 1.0  # already validated above

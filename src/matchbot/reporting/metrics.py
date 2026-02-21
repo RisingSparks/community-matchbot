@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 import json
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlmodel import select
@@ -20,12 +20,12 @@ async def compute_metrics(session: AsyncSession) -> dict:
     # Profile counts
     active_camps = len(
         (await session.exec(
-            select(Profile).where(Profile.role == PostRole.CAMP, Profile.is_active == True)
+            select(Profile).where(Profile.role == PostRole.CAMP, Profile.is_active)
         )).all()
     )
     active_seekers = len(
         (await session.exec(
-            select(Profile).where(Profile.role == PostRole.SEEKER, Profile.is_active == True)
+            select(Profile).where(Profile.role == PostRole.SEEKER, Profile.is_active)
         )).all()
     )
 
@@ -74,7 +74,7 @@ async def compute_metrics(session: AsyncSession) -> dict:
                 contrib_counts[ct] += 1
 
     return {
-        "computed_at": datetime.now(timezone.utc).isoformat(),
+        "computed_at": datetime.now(UTC).isoformat(),
         "active_camp_profiles": active_camps,
         "active_seeker_profiles": active_seekers,
         "total_posts_indexed": indexed_posts,

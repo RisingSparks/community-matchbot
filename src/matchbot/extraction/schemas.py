@@ -1,7 +1,12 @@
 from pydantic import BaseModel, field_validator
 
 from matchbot.db.models import PostType
-from matchbot.taxonomy import CONTRIBUTION_TYPES, INFRASTRUCTURE_CATEGORIES, INFRASTRUCTURE_CONDITIONS, VIBES
+from matchbot.taxonomy import (
+    CONTRIBUTION_TYPES,
+    INFRASTRUCTURE_CATEGORIES,
+    INFRASTRUCTURE_CONDITIONS,
+    VIBES,
+)
 
 
 class ExtractedPost(BaseModel):

@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from httpx import AsyncClient, Response
 
 from matchbot.db.models import Platform, Post, PostRole, PostStatus, PostType
 from matchbot.enrichment.www_guide import (
@@ -17,7 +15,6 @@ from matchbot.enrichment.www_guide import (
     enrich_camp_posts,
     fetch_guide_camps,
 )
-
 
 # ---------------------------------------------------------------------------
 # _normalise
@@ -226,7 +223,6 @@ async def test_enrich_camp_posts_dry_run_does_not_commit(db_session):
     db_session.add(post)
     await db_session.commit()
     await db_session.refresh(post)
-    original_size = post.camp_size_min
 
     guide_camps = [GuideCamp(uid="gc2", name="Solar Circus", camp_size=60, year=2026)]
 
@@ -323,6 +319,7 @@ async def test_enrich_camp_posts_skips_infra_posts(db_session):
 def test_intake_landing_page():
     """GET /forms/ returns HTML with links."""
     from fastapi.testclient import TestClient
+
     from matchbot.server import create_app
 
     client = TestClient(create_app())
@@ -336,6 +333,7 @@ def test_intake_landing_page():
 def test_intake_seeker_form_renders():
     """GET /forms/seeker returns the seeker form HTML."""
     from fastapi.testclient import TestClient
+
     from matchbot.server import create_app
 
     client = TestClient(create_app())
@@ -348,6 +346,7 @@ def test_intake_seeker_form_renders():
 def test_intake_camp_form_renders():
     """GET /forms/camp returns the camp form HTML."""
     from fastapi.testclient import TestClient
+
     from matchbot.server import create_app
 
     client = TestClient(create_app())
@@ -360,6 +359,7 @@ def test_intake_camp_form_renders():
 def test_intake_seeker_submit_redirects():
     """POST /forms/seeker creates a Post and redirects to /forms/thanks."""
     from fastapi.testclient import TestClient
+
     from matchbot.server import create_app
 
     client = TestClient(create_app(), follow_redirects=False)
@@ -382,6 +382,7 @@ def test_intake_seeker_submit_redirects():
 def test_intake_camp_submit_redirects():
     """POST /forms/camp creates a Post and redirects to /forms/thanks."""
     from fastapi.testclient import TestClient
+
     from matchbot.server import create_app
 
     client = TestClient(create_app(), follow_redirects=False)
@@ -406,6 +407,7 @@ def test_intake_camp_submit_redirects():
 def test_intake_thanks_page():
     """GET /forms/thanks returns confirmation page."""
     from fastapi.testclient import TestClient
+
     from matchbot.server import create_app
 
     client = TestClient(create_app())

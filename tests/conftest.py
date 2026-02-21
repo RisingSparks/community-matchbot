@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
-from unittest.mock import AsyncMock, MagicMock
 
-from matchbot.db.models import Post, Platform, PostRole, PostStatus
+from matchbot.db.models import Platform, Post, PostRole, PostStatus
 from matchbot.extraction.schemas import ExtractedPost
-
 
 # ---------------------------------------------------------------------------
 # Database fixtures

@@ -11,9 +11,8 @@ The scheduler is created once and started by the FastAPI lifespan hook.
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlmodel import select
@@ -45,7 +44,7 @@ async def expire_stale_posts(_engine=None) -> int:
 
     Returns the number of posts expired.
     """
-    cutoff = datetime.now(timezone.utc) - timedelta(days=STALE_POST_DAYS)
+    cutoff = datetime.now(UTC) - timedelta(days=STALE_POST_DAYS)
     engine = _engine or get_engine()
     expired = 0
 
@@ -78,7 +77,7 @@ async def trigger_feedback_surveys(_engine=None) -> int:
 
     Returns the number of matches flagged.
     """
-    cutoff = datetime.now(timezone.utc) - timedelta(days=FEEDBACK_WINDOW_DAYS)
+    cutoff = datetime.now(UTC) - timedelta(days=FEEDBACK_WINDOW_DAYS)
     engine = _engine or get_engine()
     flagged = 0
 
@@ -112,7 +111,7 @@ async def enforce_data_retention(_engine=None) -> int:
 
     Returns the number of posts anonymised.
     """
-    cutoff = datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS)
+    cutoff = datetime.now(UTC) - timedelta(days=RETENTION_DAYS)
     engine = _engine or get_engine()
     anonymised = 0
 

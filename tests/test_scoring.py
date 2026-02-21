@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -31,16 +31,16 @@ class TestJaccard:
 
 class TestRecencyScore:
     def test_fresh_post(self):
-        score = _recency_score(datetime.now(timezone.utc))
+        score = _recency_score(datetime.now(UTC))
         assert score == pytest.approx(1.0, abs=0.01)
 
     def test_30_day_half_life(self):
-        ts = datetime.now(timezone.utc) - timedelta(days=30)
+        ts = datetime.now(UTC) - timedelta(days=30)
         score = _recency_score(ts)
         assert score == pytest.approx(0.5, abs=0.02)
 
     def test_after_60_days_is_zero(self):
-        ts = datetime.now(timezone.utc) - timedelta(days=61)
+        ts = datetime.now(UTC) - timedelta(days=61)
         assert _recency_score(ts) == 0.0
 
     def test_none_returns_zero(self):
@@ -69,7 +69,7 @@ def _make_indexed_post(
     year: int | None = 2025,
     age_days: int = 0,
 ) -> Post:
-    detected = datetime.now(timezone.utc) - timedelta(days=age_days)
+    detected = datetime.now(UTC) - timedelta(days=age_days)
     return Post(
         platform=Platform.REDDIT,
         platform_post_id=f"test_{id(object())}",
@@ -170,22 +170,22 @@ async def test_propose_matches_deduplicates(db_session, seeker_post_factory, cam
     await db_session.refresh(seeker)
     await db_session.refresh(camp)
 
-    matches1 = await propose_matches(db_session, seeker)
+    await propose_matches(db_session, seeker)
     matches2 = await propose_matches(db_session, seeker)
     assert len(matches2) == 0  # already exists
 
 
 @pytest.mark.asyncio
 async def test_propose_matches_skips_low_score(db_session, seeker_post_factory, camp_post_factory):
-    from matchbot.matching.queue import propose_matches
-
     # Totally different vibes/skills, and stale
     from datetime import timedelta
 
+    from matchbot.matching.queue import propose_matches
+
     seeker = seeker_post_factory(vibes=["sober"], contribution_types=["medical"])
-    seeker.detected_at = datetime.now(timezone.utc) - timedelta(days=61)  # stale
+    seeker.detected_at = datetime.now(UTC) - timedelta(days=61)  # stale
     camp = camp_post_factory(vibes=["party"], contribution_types=["sound"])
-    camp.detected_at = datetime.now(timezone.utc) - timedelta(days=61)  # stale
+    camp.detected_at = datetime.now(UTC) - timedelta(days=61)  # stale
 
     db_session.add(seeker)
     db_session.add(camp)

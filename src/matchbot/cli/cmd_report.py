@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich import print as rprint
@@ -20,12 +20,12 @@ console = Console()
 @app.command("metrics")
 def report_metrics(
     format: Annotated[str, typer.Option("--format", help="json|csv")] = "json",
-    output: Annotated[Optional[str], typer.Option("--output")] = None,
+    output: Annotated[str | None, typer.Option("--output")] = None,
 ) -> None:
     """Compute and output pilot metrics."""
 
     async def _run(session):
-        from matchbot.reporting.metrics import compute_metrics, export_metrics_json
+        from matchbot.reporting.metrics import compute_metrics
 
         metrics = await compute_metrics(session)
 
@@ -47,7 +47,7 @@ def report_metrics(
 @app.command("matches")
 def report_matches(
     format: Annotated[str, typer.Option("--format")] = "csv",
-    output: Annotated[Optional[str], typer.Option("--output")] = None,
+    output: Annotated[str | None, typer.Option("--output")] = None,
 ) -> None:
     """Export match data."""
 
@@ -64,7 +64,7 @@ def report_matches(
 
 @app.command("weekly")
 def report_weekly(
-    week: Annotated[Optional[str], typer.Option("--week", help="ISO week e.g. 2025-W34")] = None,
+    week: Annotated[str | None, typer.Option("--week", help="ISO week e.g. 2025-W34")] = None,
 ) -> None:
     """Generate weekly summary."""
 

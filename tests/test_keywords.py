@@ -1,6 +1,5 @@
 """Tests for keyword pre-filter (no LLM calls)."""
 
-import pytest
 
 from matchbot.db.models import PostRole
 from matchbot.extraction.keywords import keyword_filter

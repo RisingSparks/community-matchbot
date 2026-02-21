@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
-from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, Platform
+from matchbot.db.models import Match, MatchStatus, Platform, Post, PostRole, PostStatus
 from matchbot.reporting.metrics import compute_metrics, export_matches_csv, export_metrics_json
 
 

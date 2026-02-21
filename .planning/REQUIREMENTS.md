@@ -38,25 +38,25 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CORE-01 | Phase 2 | Pending |
-| CORE-02 | Phase 2 | Pending |
-| CORE-03 | Phase 1 | Pending |
-| CORE-04 | Phase 2 | Pending |
-| CORE-05 | Phase 2 | Pending |
-| CORE-06 | Phase 2 | Pending |
-| CORE-07 | Phase 1 | Pending |
-| MATCH-01 | Phase 3 | Pending |
-| MATCH-02 | Phase 3 | Pending |
-| MATCH-03 | Phase 4 | Pending |
-| MATCH-04 | Phase 4 | Pending |
-| MATCH-05 | Phase 4 | Pending |
-| MATCH-06 | Phase 4 | Pending |
-| ENH-01 | Phase 3 | Pending |
-| ENH-02 | Phase 7 | Pending |
-| ENH-03 | Phase 6 | Pending |
-| OPS-01 | Phase 1 | Pending |
-| OPS-02 | Phase 5 | Pending |
-| OPS-03 | Phase 5 | Pending |
-| NFR-01 | Phase 5 | Pending |
-| NFR-02 | Phase 4 | Pending |
-| NFR-03 | Phase 1 | Pending |
+| CORE-01 | Phase 2 | ✅ Complete |
+| CORE-02 | Phase 2 | ✅ Complete |
+| CORE-03 | Phase 1 | ✅ Complete |
+| CORE-04 | Phase 2 | ✅ Complete |
+| CORE-05 | Phase 2 | ✅ Complete |
+| CORE-06 | Phase 2 | ✅ Complete |
+| CORE-07 | Phase 1 | ✅ Complete |
+| MATCH-01 | Phase 3 | ✅ Complete |
+| MATCH-02 | Phase 3 | ✅ Complete |
+| MATCH-03 | Phase 4 | ⚠️ Stub (render works; platform posting not wired) |
+| MATCH-04 | Phase 4 | ✅ Complete |
+| MATCH-05 | Phase 4 | ✅ Complete |
+| MATCH-06 | Phase 4 | ⚠️ Partial (flagged in scheduler; no CLI trigger for surveys) |
+| ENH-01 | Phase 3 | ✅ Complete |
+| ENH-02 | Phase 7 | ✅ Complete |
+| ENH-03 | Phase 6 | ✅ Complete |
+| OPS-01 | Phase 1 | ✅ Complete |
+| OPS-02 | Phase 5 | ✅ Complete |
+| OPS-03 | Phase 5 | ✅ Complete |
+| NFR-01 | Phase 5 | ✅ Complete |
+| NFR-02 | Phase 4 | ✅ Complete |
+| NFR-03 | Phase 1 | ✅ Complete |

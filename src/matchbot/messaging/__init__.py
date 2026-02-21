@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from matchbot.db.models import Match, Post
-from matchbot.db.models import Platform
 from sqlmodel.ext.asyncio.session import AsyncSession
+
+from matchbot.db.models import Match, Platform, Post
 
 
 async def send_intro_message(

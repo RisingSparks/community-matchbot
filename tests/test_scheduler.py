@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from matchbot.db.models import Match, MatchStatus, Platform, Post, PostRole, PostStatus, PostType
+from matchbot.db.models import Match, MatchStatus, Platform, Post, PostStatus, PostType
 from matchbot.scheduler import (
     FEEDBACK_WINDOW_DAYS,
     RETENTION_DAYS,
@@ -18,14 +17,13 @@ from matchbot.scheduler import (
     trigger_feedback_surveys,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
 def _old_date(days: int) -> datetime:
-    return datetime.now(timezone.utc) - timedelta(days=days)
+    return datetime.now(UTC) - timedelta(days=days)
 
 
 def _make_indexed_post(days_old: int, platform_post_id: str = "test") -> Post:

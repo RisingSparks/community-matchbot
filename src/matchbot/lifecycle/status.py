@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -73,7 +73,7 @@ async def transition(
         )
 
     match.status = new_status
-    match.updated_at = datetime.now(timezone.utc)
+    match.updated_at = datetime.now(UTC)
 
     event = Event(
         event_type="match_status_changed",

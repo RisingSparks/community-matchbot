@@ -38,7 +38,10 @@ class AnthropicExtractor(LLMExtractor):
         except anthropic.APIError as exc:
             raise ExtractionError(f"Anthropic API error: {exc}") from exc
 
-        raw = response.content[0].text.strip()
+        first_block = response.content[0]
+        if not hasattr(first_block, "text"):
+            raise ExtractionError(f"Unexpected response block type: {type(first_block).__name__}")
+        raw = first_block.text.strip()
         # Strip markdown code fences if present
         if raw.startswith("```"):
             lines = raw.splitlines()

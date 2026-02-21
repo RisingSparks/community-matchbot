@@ -1,6 +1,11 @@
 """LLM prompt templates for post extraction."""
 
-from matchbot.taxonomy import CONTRIBUTION_TYPES, INFRASTRUCTURE_CATEGORIES, INFRASTRUCTURE_CONDITIONS, VIBES
+from matchbot.taxonomy import (
+    CONTRIBUTION_TYPES,
+    INFRASTRUCTURE_CATEGORIES,
+    INFRASTRUCTURE_CONDITIONS,
+    VIBES,
+)
 
 SYSTEM_PROMPT = """\
 You are an assistant helping to classify and extract structured information from community posts related to Burning Man.

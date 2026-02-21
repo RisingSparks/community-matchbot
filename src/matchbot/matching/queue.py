@@ -173,7 +173,7 @@ async def get_queue(
         await session.exec(
             select(Match)
             .where(Match.status == status, Match.score >= min_score)
-            .order_by(Match.score.desc())  # type: ignore[arg-type]
+            .order_by(Match.score.desc())  # type: ignore[attr-defined]
             .limit(limit)
         )
     ).all()

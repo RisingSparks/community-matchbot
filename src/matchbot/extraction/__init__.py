@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -11,7 +10,11 @@ from matchbot.db.models import Event, Post, PostStatus
 from matchbot.extraction.base import LLMExtractor
 from matchbot.extraction.keywords import keyword_filter
 from matchbot.settings import get_settings
-from matchbot.taxonomy import normalize_contribution_types, normalize_infra_categories, normalize_vibes
+from matchbot.taxonomy import (
+    normalize_contribution_types,
+    normalize_infra_categories,
+    normalize_vibes,
+)
 
 
 async def process_post(session: AsyncSession, post: Post, extractor: LLMExtractor) -> Post:

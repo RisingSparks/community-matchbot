@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from matchbot.db.models import Post, PostRole
+from matchbot.db.models import Post
 
 
 def _jaccard(a: set[str], b: set[str]) -> float:
@@ -24,10 +23,10 @@ def _recency_score(detected_at: datetime | None) -> float:
     """Exponential decay with 30-day half-life. 0.0 after 60 days."""
     if detected_at is None:
         return 0.0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     # Ensure timezone awareness
     if detected_at.tzinfo is None:
-        detected_at = detected_at.replace(tzinfo=timezone.utc)
+        detected_at = detected_at.replace(tzinfo=UTC)
     age_days = (now - detected_at).total_seconds() / 86400
     if age_days > 60:
         return 0.0
@@ -68,8 +67,8 @@ def score_match(seeker: Post, camp: Post) -> tuple[float, dict]:
 
     # Use the older (more stale) post for recency — penalise stale pairs
     older_date = min(
-        seeker.detected_at or datetime.now(timezone.utc),
-        camp.detected_at or datetime.now(timezone.utc),
+        seeker.detected_at or datetime.now(UTC),
+        camp.detected_at or datetime.now(UTC),
     )
     recency = _recency_score(older_date)
     year_match = _year_score(seeker.year, camp.year)

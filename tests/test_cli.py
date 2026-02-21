@@ -21,7 +21,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from typer.testing import CliRunner
 
 from matchbot.cli.app import app
-from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, Platform
+from matchbot.db.models import Match, MatchStatus
 
 runner = CliRunner()
 

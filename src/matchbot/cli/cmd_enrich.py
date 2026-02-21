@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich import print as rprint
@@ -17,8 +17,8 @@ console = Console()
 
 @app.command("www-guide")
 def enrich_www_guide(
-    url: Annotated[Optional[str], typer.Option("--url", help="Guide API URL (overrides settings)")] = None,
-    year: Annotated[Optional[int], typer.Option("--year", help="Burn year to tag records")] = None,
+    url: Annotated[str | None, typer.Option("--url", help="Guide API URL (overrides settings)")] = None,
+    year: Annotated[int | None, typer.Option("--year", help="Burn year to tag records")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview matches without writing")] = False,
 ) -> None:
     """Fetch WWW Guide camp data and enrich matched camp posts."""

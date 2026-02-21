@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich import print as rprint
@@ -19,10 +19,10 @@ console = Console()
 
 @app.command("list")
 def posts_list(
-    role: Annotated[Optional[str], typer.Option("--role", help="seeker|camp")] = None,
-    platform: Annotated[Optional[str], typer.Option("--platform")] = None,
-    status: Annotated[Optional[str], typer.Option("--status")] = None,
-    post_type: Annotated[Optional[str], typer.Option("--type", help="mentorship|infrastructure")] = None,
+    role: Annotated[str | None, typer.Option("--role", help="seeker|camp")] = None,
+    platform: Annotated[str | None, typer.Option("--platform")] = None,
+    status: Annotated[str | None, typer.Option("--status")] = None,
+    post_type: Annotated[str | None, typer.Option("--type", help="mentorship|infrastructure")] = None,
     limit: Annotated[int, typer.Option("--limit")] = 20,
 ) -> None:
     """List posts."""
@@ -147,7 +147,7 @@ def posts_re_extract(post_id: str) -> None:
 @app.command("flag")
 def posts_flag(
     post_id: str,
-    note: Annotated[Optional[str], typer.Option("--note")] = None,
+    note: Annotated[str | None, typer.Option("--note")] = None,
 ) -> None:
     """Flag a post for human review."""
 

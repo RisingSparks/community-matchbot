@@ -16,6 +16,12 @@ _MENTORSHIP_TEMPLATES = {
     "facebook": "intro_facebook.md.j2",
 }
 
+_MENTORSHIP_CAMP_TEMPLATES = {
+    "reddit": "intro_camp_reddit.md.j2",
+    "discord": "intro_camp_discord.md.j2",
+    "facebook": "intro_camp_facebook.md.j2",
+}
+
 _INFRA_TEMPLATES = {
     "reddit": "intro_infra_reddit.md.j2",
     "discord": "intro_infra_discord.md.j2",
@@ -30,16 +36,49 @@ _jinja_env = Environment(
 )
 
 
-def render_intro(seeker: Post, camp: Post, platform: str) -> str:
-    """Render an intro message for the given platform, dispatching on post_type."""
+def render_intro(seeker: Post, camp: Post, platform: str, for_camp: bool = False) -> str:
+    """Render an intro message for the given platform, dispatching on post_type.
+
+    Args:
+        seeker: The seeker/seeking post.
+        camp: The camp/offering post.
+        platform: Target platform (reddit, discord, facebook).
+        for_camp: If True, render the camp-facing version of the intro.
+    """
     # For infra matches, seeker=seeking post, camp=offering post (canonical naming in Match)
     if seeker.post_type == PostType.INFRASTRUCTURE or camp.post_type == PostType.INFRASTRUCTURE:
         return _render_infra_intro(seeker, camp, platform)
+    if for_camp:
+        return _render_mentorship_intro_camp(seeker, camp, platform)
     return _render_mentorship_intro(seeker, camp, platform)
 
 
 def _render_mentorship_intro(seeker: Post, camp: Post, platform: str) -> str:
     template_name = _MENTORSHIP_TEMPLATES.get(platform, "intro_reddit.md.j2")
+    template = _jinja_env.get_template(template_name)
+
+    shared_vibes = sorted(set(seeker.vibes_list()) & set(camp.vibes_list()))
+    shared_contrib = sorted(set(seeker.contribution_types_list()) & set(camp.contribution_types_list()))
+
+    from matchbot.settings import get_settings
+    settings = get_settings()
+
+    context = {
+        "seeker_username": seeker.author_display_name or seeker.platform_author_id or "burner",
+        "camp_name": camp.camp_name or "",
+        "camp_contact": camp.author_display_name or camp.platform_author_id or "camp",
+        "shared_vibes": shared_vibes,
+        "shared_contrib": shared_contrib,
+        "seeker_url": seeker.source_url or "",
+        "camp_url": camp.source_url or "",
+        "moderator_name": settings.moderator_name,
+    }
+
+    return template.render(**context)
+
+
+def _render_mentorship_intro_camp(seeker: Post, camp: Post, platform: str) -> str:
+    template_name = _MENTORSHIP_CAMP_TEMPLATES.get(platform, "intro_camp_reddit.md.j2")
     template = _jinja_env.get_template(template_name)
 
     shared_vibes = sorted(set(seeker.vibes_list()) & set(camp.vibes_list()))

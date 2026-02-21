@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
-from typing import Annotated, Optional
+from datetime import UTC
+from typing import Annotated
 
 import typer
 from rich import print as rprint
@@ -12,10 +12,9 @@ from rich.panel import Panel
 from rich.table import Table
 
 from matchbot.cli._db import with_session
-from matchbot.db.models import Match, MatchStatus, Post, PostType
+from matchbot.db.models import MatchStatus, Post
 from matchbot.lifecycle.status import transition
 from matchbot.matching.queue import get_match, get_queue
-from matchbot.settings import get_settings
 
 app = typer.Typer(help="Review and manage the match queue")
 console = Console()
@@ -30,12 +29,11 @@ def queue_list(
     status: Annotated[str, typer.Option("--status")] = MatchStatus.PROPOSED,
     min_score: Annotated[float, typer.Option("--min-score")] = 0.0,
     limit: Annotated[int, typer.Option("--limit")] = 25,
-    post_type: Annotated[Optional[str], typer.Option("--type", help="mentorship|infrastructure")] = None,
+    post_type: Annotated[str | None, typer.Option("--type", help="mentorship|infrastructure")] = None,
 ) -> None:
     """List matches in the queue."""
 
     async def _run(session):
-        from sqlmodel import select
 
         matches = await get_queue(session, status=status, min_score=min_score, limit=limit)
 
@@ -119,7 +117,7 @@ def queue_view(match_id: str) -> None:
 @app.command("approve")
 def queue_approve(
     match_id: str,
-    note: Annotated[Optional[str], typer.Option("--note")] = None,
+    note: Annotated[str | None, typer.Option("--note")] = None,
 ) -> None:
     """Approve a proposed match."""
 
@@ -128,7 +126,7 @@ def queue_approve(
         if not match:
             rprint(f"[red]Match {match_id!r} not found.[/red]")
             raise typer.Exit(1)
-        updated = await transition(session, match, MatchStatus.APPROVED, actor="moderator", note=note)
+        await transition(session, match, MatchStatus.APPROVED, actor="moderator", note=note)
         rprint(f"[green]Match {match_id[:8]} approved.[/green]")
         if note:
             rprint(f"  Note: {note}")
@@ -151,7 +149,7 @@ def queue_reject(
         match.mismatch_reason = reason or None
         session.add(match)
         await session.commit()
-        updated = await transition(session, match, MatchStatus.DECLINED, actor="moderator", note=reason)
+        await transition(session, match, MatchStatus.DECLINED, actor="moderator", note=reason)
         rprint(f"[yellow]Match {match_id[:8]} declined.[/yellow]")
         if reason:
             rprint(f"  Reason: {reason}")
@@ -162,7 +160,7 @@ def queue_reject(
 @app.command("send-intro")
 def queue_send_intro(
     match_id: str,
-    platform: Annotated[Optional[str], typer.Option("--platform", help="reddit|discord|facebook")] = None,
+    platform: Annotated[str | None, typer.Option("--platform", help="reddit|discord|facebook")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
 ) -> None:
     """Send intro message for an approved match."""
@@ -196,11 +194,12 @@ def queue_send_intro(
             rprint("[yellow]Aborted.[/yellow]")
             return
 
-        from datetime import datetime, timezone
+        from datetime import datetime
+
         from matchbot.messaging import send_intro_message
 
         await send_intro_message(session, match, seeker, camp, target_platform)
-        match.intro_sent_at = datetime.now(timezone.utc)
+        match.intro_sent_at = datetime.now(UTC)
         match.intro_platform = target_platform
         session.add(match)
         await transition(session, match, MatchStatus.INTRO_SENT, actor="moderator")
@@ -209,11 +208,62 @@ def queue_send_intro(
     with_session(_run)
 
 
+@app.command("triage")
+def queue_triage(
+    match_id: str,
+    dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+) -> None:
+    """Run LLM triage on an ambiguous match and update its record."""
+
+    async def _run(session):
+        match = await get_match(session, match_id)
+        if not match:
+            rprint(f"[red]Match {match_id!r} not found.[/red]")
+            raise typer.Exit(1)
+
+        seeker = await session.get(Post, match.seeker_post_id)
+        camp = await session.get(Post, match.camp_post_id)
+        if not seeker or not camp:
+            rprint("[red]Could not load seeker or camp post.[/red]")
+            raise typer.Exit(1)
+
+        from matchbot.extraction.anthropic_extractor import AnthropicExtractor
+        from matchbot.extraction.openai_extractor import OpenAIExtractor
+        from matchbot.matching.triage import llm_triage
+        from matchbot.settings import get_settings
+
+        settings = get_settings()
+        extractor = OpenAIExtractor() if settings.llm_provider == "openai" else AnthropicExtractor()
+
+        rprint(f"[cyan]Running LLM triage on match {match_id[:8]}…[/cyan]")
+        confidence, rationale = await llm_triage(seeker, camp, extractor)
+
+        rprint(f"  Confidence: {confidence:.3f}")
+        rprint(f"  Rationale: {rationale}")
+
+        if dry_run:
+            rprint("[dim]--dry-run: not updating.[/dim]")
+            return
+
+        # Update match record: store triage result and clear the "needs triage" note
+        notes = match.moderator_notes or ""
+        notes = notes.replace("[needs LLM triage]", "").strip()
+        notes = (notes + f" [triage: {confidence:.2f} — {rationale}]").strip()
+        match.moderator_notes = notes
+        match.match_method = "llm_triage"
+        match.confidence = confidence
+        session.add(match)
+        await session.commit()
+        rprint(f"[green]Triage complete. Match {match_id[:8]} updated.[/green]")
+
+    with_session(_run)
+
+
 @app.command("status")
 def queue_status(
     match_id: str,
     new_status: str,
-    note: Annotated[Optional[str], typer.Option("--note")] = None,
+    note: Annotated[str | None, typer.Option("--note")] = None,
 ) -> None:
     """Manually override match status."""
 
@@ -222,7 +272,7 @@ def queue_status(
         if not match:
             rprint(f"[red]Match {match_id!r} not found.[/red]")
             raise typer.Exit(1)
-        updated = await transition(session, match, new_status, actor="moderator", note=note)
+        await transition(session, match, new_status, actor="moderator", note=note)
         rprint(f"[green]Match {match_id[:8]} → {new_status}.[/green]")
 
     with_session(_run)

@@ -13,7 +13,7 @@ Routes:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form
@@ -46,9 +46,9 @@ button { margin-top: 20px; padding: 10px 24px; background: #c0392b; color: white
 .nav a { margin-right: 16px; color: #c0392b; }
 """
 
-_LANDING_HTML = """
+_LANDING_HTML = f"""
 <!DOCTYPE html><html><head><title>Matchbot Intake</title>
-<style>{css}</style></head><body>
+<style>{_BASE_CSS}</style></head><body>
 <h1>🔥 Matchbot Intake Forms</h1>
 <p>Submit your information to be included in the camp-matching pool for Burning Man.</p>
 <div class="nav">
@@ -56,11 +56,11 @@ _LANDING_HTML = """
   <a href="/forms/camp">My camp has openings →</a>
 </div>
 </body></html>
-""".format(css=_BASE_CSS)
+"""
 
-_SEEKER_FORM_HTML = """
+_SEEKER_FORM_HTML = f"""
 <!DOCTYPE html><html><head><title>Seeker Intake – Matchbot</title>
-<style>{css}</style></head><body>
+<style>{_BASE_CSS}</style></head><body>
 <div class="nav"><a href="/forms/">← Back</a></div>
 <h1>🔥 I'm Looking for a Camp</h1>
 <form method="post" action="/forms/seeker">
@@ -90,11 +90,11 @@ _SEEKER_FORM_HTML = """
   <button type="submit">Submit →</button>
 </form>
 </body></html>
-""".format(css=_BASE_CSS)
+"""
 
-_CAMP_FORM_HTML = """
+_CAMP_FORM_HTML = f"""
 <!DOCTYPE html><html><head><title>Camp Intake – Matchbot</title>
-<style>{css}</style></head><body>
+<style>{_BASE_CSS}</style></head><body>
 <div class="nav"><a href="/forms/">← Back</a></div>
 <h1>🔥 My Camp Has Openings</h1>
 <form method="post" action="/forms/camp">
@@ -129,17 +129,17 @@ _CAMP_FORM_HTML = """
   <button type="submit">Submit →</button>
 </form>
 </body></html>
-""".format(css=_BASE_CSS)
+"""
 
-_THANKS_HTML = """
+_THANKS_HTML = f"""
 <!DOCTYPE html><html><head><title>Thank you! – Matchbot</title>
-<style>{css}</style></head><body>
+<style>{_BASE_CSS}</style></head><body>
 <h1>🔥 Thank you!</h1>
 <p>Your submission has been received and will be reviewed shortly.</p>
 <p>If there's a good match, a moderator will reach out to make introductions.</p>
 <div class="nav"><a href="/forms/">Submit another →</a></div>
 </body></html>
-""".format(css=_BASE_CSS)
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -200,7 +200,7 @@ async def seeker_submit(
 
     post = Post(
         platform=Platform.MANUAL,
-        platform_post_id=f"intake_seeker_{datetime.now(timezone.utc).timestamp()}",
+        platform_post_id=f"intake_seeker_{datetime.now(UTC).timestamp()}",
         platform_author_id=display_name,
         author_display_name=display_name,
         source_url="",
@@ -265,7 +265,7 @@ async def camp_submit(
 
     post = Post(
         platform=Platform.MANUAL,
-        platform_post_id=f"intake_camp_{datetime.now(timezone.utc).timestamp()}",
+        platform_post_id=f"intake_camp_{datetime.now(UTC).timestamp()}",
         platform_author_id=display_name,
         author_display_name=display_name,
         source_url="",
@@ -298,12 +298,13 @@ def _schedule_extraction(post_id: str) -> None:
     import asyncio
 
     async def _run():
+        from sqlmodel.ext.asyncio.session import AsyncSession
+
         from matchbot.db.engine import get_engine
         from matchbot.extraction import process_post
         from matchbot.extraction.anthropic_extractor import AnthropicExtractor
         from matchbot.extraction.openai_extractor import OpenAIExtractor
         from matchbot.settings import get_settings
-        from sqlmodel.ext.asyncio.session import AsyncSession
 
         settings = get_settings()
         extractor = (

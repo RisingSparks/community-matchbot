@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from matchbot.db.models import Platform, Post, PostRole, PostStatus
 from matchbot.extraction import process_post
 from matchbot.extraction.schemas import ExtractedPost
-
 
 # ---------------------------------------------------------------------------
 # ExtractedPost schema validation
