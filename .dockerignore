@@ -1,10 +1,51 @@
+# Environments
 .env
-matchbot.db
-matchbot.db-journal
-reports/
-.git/
+.env.*
+.venv/
+env/
+venv/
+ENV/
+
+# Databases
+*.db
+*.db-journal
+*.sqlite3
+
+# Python artifacts
 __pycache__/
 *.pyc
-.venv/
-tests/
+*.pyo
+*.pyd
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+
+# Project specific
+reports/
+tests/
+.planning/
+docs/
+.git/
+.github/
+.agent/
+.claude/
+README.md
+GEMINI.md
+CLAUDE.md
+AGENTS.md
+PLAN-pilot-readiness.md
+PRIVACY.md
+TERMS.md
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
