@@ -8,6 +8,13 @@ import warnings
 from matchbot.settings import get_settings
 
 _LOG_FORMAT = "%(asctime)s %(levelname)-8s %(name)s - %(message)s"
+_APP_LOGGER = "matchbot"
+_QUIET_LOGGERS = (
+    "aiosqlite",
+    "httpcore",
+    "httpx",
+    "openai",
+)
 
 
 def configure_logging(verbose: bool | None = None) -> bool:
@@ -19,9 +26,15 @@ def configure_logging(verbose: bool | None = None) -> bool:
     if verbose is None:
         verbose = get_settings().verbose
 
-    level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(level=level, format=_LOG_FORMAT, force=True)
+    # Keep root at INFO so third-party DEBUG output stays quiet.
+    logging.basicConfig(level=logging.INFO, format=_LOG_FORMAT, force=True)
     logging.captureWarnings(True)
+
+    app_logger = logging.getLogger(_APP_LOGGER)
+    app_logger.setLevel(logging.DEBUG if verbose else logging.INFO)
+
+    for logger_name in _QUIET_LOGGERS:
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
 
     if verbose:
         # Ensure deprecations/runtime warnings are visible while debugging.
