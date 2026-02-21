@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,7 +19,10 @@ class Settings(BaseSettings):
     anthropic_model: str = Field(default="claude-haiku-4-5")
     openai_api_key: str = Field(default="")
     openai_model: str = Field(default="gpt-4o-mini")
-    openai_service_tier: str | None = Field(default=None, description="OpenAI service tier: 'priority', 'flex', or None for default")
+    openai_service_tier: str | None = Field(
+        default=None,
+        description="OpenAI service tier: 'priority', 'flex', or None for default",
+    )
     llm_extraction_confidence_threshold: float = Field(default=0.7)
 
     # Matching
@@ -49,7 +53,18 @@ class Settings(BaseSettings):
     verbose: bool = Field(default=False, description="Enable verbose logging/debug output")
 
     # Storage
+    database_backend: Literal["sqlite", "neon"] = Field(
+        default="sqlite",
+        description="Database backend to use: 'sqlite' or 'neon'.",
+    )
     db_path: str = Field(default="matchbot.db")
+    neon_database_url: str = Field(
+        default="",
+        description=(
+            "Optional Neon Postgres URL. Example: "
+            "postgresql://user:pass@host.neon.tech:5432/dbname?sslmode=require"
+        ),
+    )
     report_output_dir: str = Field(default="./reports")
 
     # Moderator

@@ -10,11 +10,27 @@ from matchbot.settings import get_settings
 _engine = None
 
 
+def _to_async_db_url(db_url: str) -> str:
+    """Ensure Postgres URLs use an async SQLAlchemy dialect."""
+    if db_url.startswith("postgresql://"):
+        return f"postgresql+asyncpg://{db_url.removeprefix('postgresql://')}"
+    if db_url.startswith("postgres://"):
+        return f"postgresql+asyncpg://{db_url.removeprefix('postgres://')}"
+    return db_url
+
+
 def get_engine():
     global _engine
     if _engine is None:
         settings = get_settings()
-        db_url = f"sqlite+aiosqlite:///{settings.db_path}"
+        if settings.database_backend == "neon":
+            if not settings.neon_database_url:
+                raise ValueError(
+                    "DATABASE_BACKEND is set to 'neon' but NEON_DATABASE_URL is empty."
+                )
+            db_url = _to_async_db_url(settings.neon_database_url)
+        else:
+            db_url = f"sqlite+aiosqlite:///{settings.db_path}"
         _engine = create_async_engine(db_url, echo=False)
     return _engine
 
