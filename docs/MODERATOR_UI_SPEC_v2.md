@@ -309,27 +309,127 @@ All endpoints under `/api/mod/`. Auth cookie required on all except
 ### Key response shapes (`schemas.py`)
 
 ```python
+# ── Auth ──────────────────────────────────────────────────────────────────
+
+# POST /api/mod/auth/login
+LoginRequest:
+  password: str
+
+LoginResponse:
+  ok: bool        # always True on 200; 401 returned on bad password instead
+# Side effect: sets cookie mod_session=<hmac-token>; HttpOnly; SameSite=Strict; Path=/api/mod
+
+# POST /api/mod/auth/logout
+# Request body: none
+LogoutResponse:
+  ok: bool        # always True
+# Side effect: clears mod_session cookie (Max-Age=0)
+
+
+# ── Queue & posts ─────────────────────────────────────────────────────────
+
 # GET /api/mod/queue → list[QueueItem]
+# Query params: post_type: str | None, platform: str | None, limit: int = 50
 QueueItem:
-  id, platform, post_type, role, title
-  detected_at, age_hours
-  extraction_confidence, extraction_method
+  id: int
+  platform: str             # reddit|discord|facebook
+  post_type: str            # mentorship|infrastructure
+  role: str                 # seeker|camp|unknown
+  title: str | None         # first line / subject of raw post
+  detected_at: datetime
+  age_hours: float
+  extraction_confidence: float | None
+  extraction_method: str | None   # llm|rule|manual
 
 # GET /api/mod/posts/{id} → PostDetail
 PostDetail:
-  # all Post fields
-  events: list[EventRecord]  # audit trail
+  # ── identity
+  id: int
+  platform: str
+  post_type: str
+  status: str               # NEEDS_REVIEW|INDEXED|SKIPPED|etc.
+  source_url: str | None
+  raw_text: str
+  # ── extraction
+  role: str | None
+  vibes: list[str]
+  contribution_types: list[str]
+  camp_name: str | None
+  year: int | None
+  seeker_intent: str | None
+  infra_role: str | None
+  infra_categories: list[str]
+  quantity: str | None
+  condition: str | None
+  extraction_confidence: float | None
+  extraction_method: str | None
+  # ── audit
+  detected_at: datetime
+  age_hours: float
+  events: list[EventRecord]
+
+EventRecord:
+  id: int
+  event_type: str           # approved|dismissed|edited|re_extracted|etc.
+  actor: str                # "moderator" in v1
+  note: str | None
+  created_at: datetime
 
 # POST /api/mod/posts/{id}/approve
 ApproveRequest:
   note: str | None
-  role, vibes, contribution_types, camp_name, year    # optional field overrides
-  infra_role, infra_categories, quantity, condition   # optional
+  # optional field overrides (only provided fields are updated)
+  role: str | None
+  vibes: list[str] | None
+  contribution_types: list[str] | None
+  camp_name: str | None
+  year: int | None
+  infra_role: str | None
+  infra_categories: list[str] | None
+  quantity: str | None
+  condition: str | None
+
+ApproveResponse:
+  ok: bool
+  post_id: int
+  new_status: str           # INDEXED
 
 # POST /api/mod/posts/{id}/dismiss
 DismissRequest:
-  reason: str   # required: spam|off-topic|duplicate|not-real|other
+  reason: str               # required: spam|off-topic|duplicate|not-real|other
   note: str | None
+
+DismissResponse:
+  ok: bool
+  post_id: int
+  new_status: str           # SKIPPED
+
+# POST /api/mod/posts/{id}/edit  (correct fields; status stays NEEDS_REVIEW)
+EditRequest:
+  # same optional overrides as ApproveRequest, at least one must be non-null
+  role: str | None
+  vibes: list[str] | None
+  contribution_types: list[str] | None
+  camp_name: str | None
+  year: int | None
+  infra_role: str | None
+  infra_categories: list[str] | None
+  quantity: str | None
+  condition: str | None
+  note: str | None
+
+EditResponse:
+  ok: bool
+  post_id: int
+
+# POST /api/mod/posts/{id}/re-extract  (fire-and-forget; no request body)
+ReExtractResponse:
+  ok: bool
+  post_id: int
+  message: str              # e.g. "re-extraction queued"
+
+
+# ── Supporting ────────────────────────────────────────────────────────────
 
 # GET /api/mod/taxonomy → TaxonomyResponse
 TaxonomyResponse:
@@ -337,7 +437,7 @@ TaxonomyResponse:
   contribution_types: list[str]
   infra_categories: list[str]
   conditions: list[str]
-  roles: list[str]   # seeker|camp|unknown
+  roles: list[str]          # seeker|camp|unknown
 
 # GET /api/mod/stats → QueueStats
 QueueStats:
