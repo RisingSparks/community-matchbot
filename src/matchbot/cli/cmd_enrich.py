@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 import typer
@@ -10,9 +11,11 @@ from rich.console import Console
 from rich.table import Table
 
 from matchbot.cli._db import with_session
+from matchbot.log_config import log_exception
 
 app = typer.Typer(help="Enrich camp posts from external data sources")
 console = Console()
+logger = logging.getLogger(__name__)
 
 
 @app.command("www-guide")
@@ -40,6 +43,7 @@ def enrich_www_guide(
         try:
             camps = await fetch_guide_camps(guide_url, year=guide_year)
         except Exception as exc:
+            log_exception(logger, "Failed to fetch WWW Guide data from %s: %s", guide_url, exc)
             rprint(f"[red]Failed to fetch guide: {exc}[/red]")
             raise typer.Exit(1)
 

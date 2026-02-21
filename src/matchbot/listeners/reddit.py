@@ -16,6 +16,7 @@ from matchbot.db.models import OptOut, Platform, Post, PostStatus
 from matchbot.extraction import process_post
 from matchbot.extraction.anthropic_extractor import AnthropicExtractor
 from matchbot.extraction.openai_extractor import OpenAIExtractor
+from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -104,7 +105,12 @@ async def run_reddit_listener() -> None:
                     try:
                         await _handle_submission(submission, session)
                     except Exception as exc:
-                        logger.error("Error processing Reddit submission %s: %s", submission.id, exc)
+                        log_exception(
+                            logger,
+                            "Error processing Reddit submission %s: %s",
+                            submission.id,
+                            exc,
+                        )
 
             await reddit.close()
 
@@ -112,7 +118,7 @@ async def run_reddit_listener() -> None:
             logger.info("Reddit listener cancelled.")
             return
         except Exception as exc:
-            logger.error("Reddit listener error: %s — reconnecting in %ss", exc, backoff)
+            log_exception(logger, "Reddit listener error: %s - reconnecting in %ss", exc, backoff)
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 600)
         else:
@@ -163,7 +169,7 @@ async def run_reddit_inbox_listener() -> None:
                     else:
                         await message.mark_read()
                 except Exception as exc:
-                    logger.error("Error processing Reddit inbox message: %s", exc)
+                    log_exception(logger, "Error processing Reddit inbox message: %s", exc)
 
             await reddit.close()
 
@@ -171,7 +177,12 @@ async def run_reddit_inbox_listener() -> None:
             logger.info("Reddit inbox listener cancelled.")
             return
         except Exception as exc:
-            logger.error("Reddit inbox listener error: %s — reconnecting in %ss", exc, backoff)
+            log_exception(
+                logger,
+                "Reddit inbox listener error: %s - reconnecting in %ss",
+                exc,
+                backoff,
+            )
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 600)
         else:

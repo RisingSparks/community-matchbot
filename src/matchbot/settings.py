@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     # Server
     server_host: str = Field(default="0.0.0.0")
     server_port: int = Field(default=8080)
+    verbose: bool = Field(default=False, description="Enable verbose logging/debug output")
 
     # Storage
     db_path: str = Field(default="matchbot.db")

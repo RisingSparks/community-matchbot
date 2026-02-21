@@ -17,6 +17,7 @@ from matchbot.db.models import OptOut, Platform, Post, PostStatus
 from matchbot.extraction import process_post
 from matchbot.extraction.anthropic_extractor import AnthropicExtractor
 from matchbot.extraction.openai_extractor import OpenAIExtractor
+from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -165,4 +166,9 @@ async def _handle_messages_change(value: dict) -> None:
                 "You won't receive any more match messages from us.",
             )
         except Exception as exc:
-            logger.error("Failed to send Facebook opt-out confirmation to %s: %s", sender_id, exc)
+            log_exception(
+                logger,
+                "Failed to send Facebook opt-out confirmation to %s: %s",
+                sender_id,
+                exc,
+            )

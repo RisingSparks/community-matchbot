@@ -25,6 +25,8 @@ Run scripts with `uv run` (no manual activation required):
 uv run python ...
 ```
 
+For debugging, enable verbose logging with `VERBOSE=true` (env) or `matchbot --verbose ...` (CLI).
+
 ## Privacy & Terms
 
 This is a volunteer-run community project. We value your privacy and only process public posts from community forums (Reddit, Discord, Facebook) to help match seekers with camps and infrastructure.

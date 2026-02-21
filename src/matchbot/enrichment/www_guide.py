@@ -63,8 +63,8 @@ def _parse_camp(record: dict, year: int | None) -> GuideCamp:
     try:
         if camp_size_raw is not None:
             camp_size = int(camp_size_raw)
-    except (ValueError, TypeError):
-        pass
+    except (ValueError, TypeError) as exc:
+        logger.debug("Invalid camp_size value %r for %r: %s", camp_size_raw, name, exc)
 
     hometown = record.get("hometown") or record.get("city") or ""
     url = record.get("url") or record.get("website") or ""

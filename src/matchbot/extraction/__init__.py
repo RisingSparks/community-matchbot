@@ -3,18 +3,22 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from matchbot.db.models import Event, Post, PostStatus
 from matchbot.extraction.base import LLMExtractor
 from matchbot.extraction.keywords import keyword_filter
+from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
 from matchbot.taxonomy import (
     normalize_contribution_types,
     normalize_infra_categories,
     normalize_vibes,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def process_post(session: AsyncSession, post: Post, extractor: LLMExtractor) -> Post:
@@ -60,10 +64,14 @@ async def process_post(session: AsyncSession, post: Post, extractor: LLMExtracto
             source_community=post.source_community,
         )
     except Exception as exc:
+        log_exception(logger, "Extraction failed for post %s: %s", post.id, exc)
         post.status = PostStatus.ERROR
         session.add(post)
         await _append_event(
-            session, post, "extraction_error", {"error": str(exc), "provider": extractor.provider_name()}
+            session,
+            post,
+            "extraction_error",
+            {"error": str(exc), "provider": extractor.provider_name()},
         )
         await session.commit()
         await session.refresh(post)

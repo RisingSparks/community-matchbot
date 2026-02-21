@@ -19,22 +19,20 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from matchbot.db.engine import create_db_and_tables
 from matchbot.listeners.discord_bot import run_discord_bot
 from matchbot.listeners.reddit import run_reddit_inbox_listener, run_reddit_listener
+from matchbot.log_config import configure_logging
 from matchbot.server import create_app
 from matchbot.settings import get_settings
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
-)
 logger = logging.getLogger("matchbot.run")
 
 
 async def main() -> None:
+    settings = get_settings()
+    verbose = configure_logging(settings.verbose)
+
     # Initialize DB schema
     await create_db_and_tables()
     logger.info("Database ready.")
-
-    settings = get_settings()
 
     # Configure uvicorn for the Facebook webhook server
     fastapi_app = create_app()
@@ -43,7 +41,7 @@ async def main() -> None:
         host=settings.server_host,
         port=settings.server_port,
         loop="asyncio",
-        log_level="warning",
+        log_level="debug" if verbose else "warning",
     )
     server = uvicorn.Server(uvicorn_config)
 

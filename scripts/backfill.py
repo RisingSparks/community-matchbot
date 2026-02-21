@@ -24,9 +24,9 @@ from matchbot.db.models import Platform, Post, PostStatus
 from matchbot.extraction import process_post
 from matchbot.extraction.anthropic_extractor import AnthropicExtractor
 from matchbot.extraction.openai_extractor import OpenAIExtractor
+from matchbot.log_config import configure_logging
 from matchbot.settings import get_settings
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("matchbot.backfill")
 
 app = typer.Typer()
@@ -37,8 +37,10 @@ def backfill(
     file: str = typer.Option(..., "--file", "-f", help="Path to CSV file"),
     extract: bool = typer.Option(True, "--extract/--no-extract", help="Run LLM extraction"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without writing to DB"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
     """Ingest historical posts from a CSV file."""
+    configure_logging(verbose=verbose or get_settings().verbose)
     asyncio.run(_backfill_async(file, extract, dry_run))
 
 
