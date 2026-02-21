@@ -1,4 +1,8 @@
 #!/bin/sh
 set -e
-uv run alembic upgrade head
-exec uv run python scripts/run_listeners.py
+
+# Run migrations
+/app/.venv/bin/alembic upgrade head
+
+# Start the application
+exec /app/.venv/bin/python scripts/run_listeners.py
