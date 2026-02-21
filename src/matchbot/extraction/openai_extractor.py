@@ -15,6 +15,7 @@ class OpenAIExtractor(LLMExtractor):
         settings = get_settings()
         self._client = client or openai.AsyncOpenAI(api_key=settings.openai_api_key)
         self._model = settings.openai_model
+        self._service_tier = settings.openai_service_tier
 
     def provider_name(self) -> str:
         return "openai"
@@ -28,6 +29,10 @@ class OpenAIExtractor(LLMExtractor):
     ) -> ExtractedPost:
         user_prompt = build_user_prompt(title, body, platform, source_community)
 
+        extra: dict = {}
+        if self._service_tier is not None:
+            extra["service_tier"] = self._service_tier
+
         try:
             response = await self._client.chat.completions.create(
                 model=self._model,
@@ -37,6 +42,7 @@ class OpenAIExtractor(LLMExtractor):
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
                 ],
+                **extra,
             )
         except openai.APIError as exc:
             raise ExtractionError(f"OpenAI API error: {exc}") from exc
