@@ -255,23 +255,24 @@ async def test_openai_extractor_parses_response():
     from matchbot.extraction.openai_extractor import OpenAIExtractor
 
     mock_response = MagicMock()
-    mock_response.output_text = json.dumps({
-        "role": "camp",
-        "camp_name": "Solar Circus",
-        "camp_size_min": 20,
-        "camp_size_max": 30,
-        "year": 2025,
-        "vibes": ["art", "party"],
-        "contribution_types": ["build", "kitchen"],
-        "location_preference": None,
-        "availability_notes": "Need builders for early arrival",
-        "contact_method": "Post in comments",
-        "confidence": 0.9,
-        "extraction_notes": None,
-    })
+    mock_response.output = []
+    mock_response.output_parsed = ExtractedPost(
+        role="camp",
+        camp_name="Solar Circus",
+        camp_size_min=20,
+        camp_size_max=30,
+        year=2025,
+        vibes=["art", "party"],
+        contribution_types=["build", "kitchen"],
+        location_preference=None,
+        availability_notes="Need builders for early arrival",
+        contact_method="Post in comments",
+        confidence=0.9,
+        extraction_notes=None,
+    )
 
     mock_client = AsyncMock()
-    mock_client.responses.create = AsyncMock(return_value=mock_response)
+    mock_client.responses.parse = AsyncMock(return_value=mock_response)
 
     extractor = OpenAIExtractor(client=mock_client)
     result = await extractor.extract("Camp has openings", "We are recruiting", "reddit", "BurningMan")
@@ -279,6 +280,30 @@ async def test_openai_extractor_parses_response():
     assert result.role == "camp"
     assert result.camp_name == "Solar Circus"
     assert result.camp_size_min == 20
+
+
+@pytest.mark.asyncio
+async def test_openai_extractor_raises_on_refusal():
+    from matchbot.extraction.base import ExtractionError
+    from matchbot.extraction.openai_extractor import OpenAIExtractor
+
+    refusal_item = MagicMock()
+    refusal_item.type = "refusal"
+    refusal_item.refusal = "I cannot help with that."
+    output_message = MagicMock()
+    output_message.type = "message"
+    output_message.content = [refusal_item]
+
+    mock_response = MagicMock()
+    mock_response.output = [output_message]
+    mock_response.output_parsed = None
+
+    mock_client = AsyncMock()
+    mock_client.responses.parse = AsyncMock(return_value=mock_response)
+
+    extractor = OpenAIExtractor(client=mock_client)
+    with pytest.raises(ExtractionError, match="refused extraction"):
+        await extractor.extract("title", "body", "reddit", "BurningMan")
 
 
 @pytest.mark.asyncio

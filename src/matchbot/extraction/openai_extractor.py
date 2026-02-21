@@ -1,13 +1,25 @@
 """OpenAI LLM extractor."""
 
-import json
-
 import openai
 
 from matchbot.extraction.base import ExtractionError, LLMExtractor
 from matchbot.extraction.prompts import SYSTEM_PROMPT, build_user_prompt
 from matchbot.extraction.schemas import ExtractedPost
 from matchbot.settings import get_settings
+
+
+def get_openai_refusal(response: object) -> str | None:
+    """Extract refusal text from a Responses API object, if present."""
+    output = getattr(response, "output", None)
+    if not output:
+        return None
+    for out in output:
+        if getattr(out, "type", None) != "message":
+            continue
+        for item in getattr(out, "content", []):
+            if getattr(item, "type", None) == "refusal":
+                return getattr(item, "refusal", None)
+    return None
 
 
 class OpenAIExtractor(LLMExtractor):
@@ -34,31 +46,30 @@ class OpenAIExtractor(LLMExtractor):
             extra["service_tier"] = self._service_tier
 
         try:
-            response = await self._client.responses.create(
+            response = await self._client.responses.parse(
                 model=self._model,
                 max_output_tokens=1024,
                 instructions=SYSTEM_PROMPT,
                 input=user_prompt,
-                text={"format": {"type": "json_object"}},
+                text_format=ExtractedPost,
                 **extra,
             )
         except openai.APIError as exc:
             raise ExtractionError(f"OpenAI API error: {exc}") from exc
 
-        raw = response.output_text or ""
-        if not raw:
+        refusal = get_openai_refusal(response)
+        if refusal:
             raise ExtractionError(
-                f"OpenAI returned empty content. Model: {self._model}. "
+                f"OpenAI refused extraction. Model: {self._model}. Refusal: {refusal}"
+            )
+
+        parsed = getattr(response, "output_parsed", None)
+        if parsed is None:
+            raise ExtractionError(
+                f"OpenAI returned no parsed extraction. Model: {self._model}. "
                 f"status={getattr(response, 'status', None)!r} "
                 f"incomplete_details={getattr(response, 'incomplete_details', None)!r}"
             )
-
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise ExtractionError(f"Failed to parse OpenAI JSON response: {exc}\nRaw: {raw}") from exc
-
-        try:
-            return ExtractedPost(**data)
-        except Exception as exc:
-            raise ExtractionError(f"ExtractedPost validation failed: {exc}") from exc
+        if isinstance(parsed, ExtractedPost):
+            return parsed
+        return ExtractedPost.model_validate(parsed)

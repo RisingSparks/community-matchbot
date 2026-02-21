@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+from pydantic import BaseModel, field_validator
+
 from matchbot.db.models import Post
 from matchbot.extraction.base import ExtractionError, LLMExtractor
 
@@ -19,6 +21,17 @@ Respond ONLY with JSON:
   "rationale": "brief explanation"
 }
 """
+
+
+class TriageDecision(BaseModel):
+    recommend: bool
+    confidence: float
+    rationale: str = ""
+
+    @field_validator("confidence")
+    @classmethod
+    def clamp_confidence(cls, v: float) -> float:
+        return max(0.0, min(1.0, v))
 
 
 def _summarize_post(post: Post, role: str) -> str:
@@ -81,17 +94,27 @@ async def _call_triage(extractor: LLMExtractor, user_content: str) -> dict:
             raise ExtractionError(f"Unexpected response block type: {type(first_block).__name__}")
         raw = first_block.text.strip()
     elif provider == "openai":
-        from matchbot.extraction.openai_extractor import OpenAIExtractor
+        from matchbot.extraction.openai_extractor import OpenAIExtractor, get_openai_refusal
 
         assert isinstance(extractor, OpenAIExtractor)
-        openai_response = await extractor._client.responses.create(
+        openai_response = await extractor._client.responses.parse(
             model=extractor._model,
             max_output_tokens=512,
             instructions=TRIAGE_SYSTEM_PROMPT,
             input=user_content,
-            text={"format": {"type": "json_object"}},
+            text_format=TriageDecision,
         )
-        raw = openai_response.output_text or ""
+        refusal = get_openai_refusal(openai_response)
+        if refusal:
+            raise ExtractionError(f"OpenAI refused triage response: {refusal}")
+
+        parsed = getattr(openai_response, "output_parsed", None)
+        if parsed is None:
+            raise ExtractionError("OpenAI returned no parsed triage response")
+
+        if isinstance(parsed, TriageDecision):
+            return parsed.model_dump()
+        return TriageDecision.model_validate(parsed).model_dump()
     else:
         raise ExtractionError(f"Unknown provider for triage: {provider}")
 
