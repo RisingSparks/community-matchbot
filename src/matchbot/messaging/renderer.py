@@ -40,6 +40,12 @@ _SKILLS_CAMP_TEMPLATES = {
     "facebook": "intro_skills_camp_facebook.md.j2",
 }
 
+_FEEDBACK_TEMPLATES = {
+    "reddit": "feedback_reddit.md.j2",
+    "discord": "feedback_discord.md.j2",
+    "facebook": "feedback_facebook.md.j2",
+}
+
 _jinja_env = Environment(
     loader=FileSystemLoader(str(_TEMPLATE_DIR)),
     undefined=StrictUndefined,
@@ -159,6 +165,23 @@ def _render_skills_intro_camp(seeker: Post, camp: Post, platform: str) -> str:
         "shared_contrib": shared_contrib,
         "seeker_url": seeker.source_url or "",
         "camp_url": camp.source_url or "",
+        "moderator_name": settings.moderator_name,
+    }
+
+    return template.render(**context)
+
+
+def render_feedback(post: Post, other_post: Post, platform: str) -> str:
+    """Render a feedback follow-up message for a match participant."""
+    template_name = _FEEDBACK_TEMPLATES.get(platform, "feedback_reddit.md.j2")
+    template = _jinja_env.get_template(template_name)
+
+    from matchbot.settings import get_settings
+    settings = get_settings()
+
+    context = {
+        "username": post.author_display_name or post.platform_author_id or "burner",
+        "other_party": other_post.author_display_name or other_post.platform_author_id or "your connection",
         "moderator_name": settings.moderator_name,
     }
 

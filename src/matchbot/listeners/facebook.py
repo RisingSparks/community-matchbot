@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from sqlmodel import select
 
 from matchbot.db.engine import get_session
-from matchbot.db.models import Platform, Post, PostStatus
+from matchbot.db.models import OptOut, Platform, Post, PostStatus
 from matchbot.extraction import process_post
 from matchbot.extraction.anthropic_extractor import AnthropicExtractor
 from matchbot.extraction.openai_extractor import OpenAIExtractor
@@ -71,6 +71,8 @@ async def facebook_event(request: Request) -> dict:
                 # Fire-and-forget: Facebook requires a 200 response within 20 seconds.
                 # LLM extraction can exceed that, so defer processing to a background task.
                 asyncio.ensure_future(_handle_feed_change(change.get("value", {})))
+            elif change.get("field") == "messages":
+                asyncio.ensure_future(_handle_messages_change(change.get("value", {})))
 
     return {"status": "ok"}
 
@@ -132,3 +134,35 @@ async def _handle_feed_change(value: dict) -> None:
 
         extractor = _get_extractor()
         await process_post(session, post, extractor)
+
+
+async def _handle_messages_change(value: dict) -> None:
+    """Handle a Facebook Messenger message event (for opt-out)."""
+    sender_id = value.get("sender", {}).get("id", "")
+    text = value.get("message", {}).get("text", "")
+
+    if not sender_id or not text:
+        return
+
+    if text.strip().lower() == "opt out":
+        async with get_session() as session:
+            opt_out = OptOut(
+                platform=Platform.FACEBOOK,
+                platform_author_id=sender_id,
+            )
+            session.add(opt_out)
+            await session.commit()
+        logger.info("Facebook user %s opted out.", sender_id)
+
+        # Send confirmation via Messenger
+        try:
+            settings = get_settings()
+            from matchbot.messaging.sender_facebook import _send_fb_message
+            await _send_fb_message(
+                settings.facebook_page_access_token,
+                sender_id,
+                "You've been opted out of future introductions. "
+                "You won't receive any more match messages from us.",
+            )
+        except Exception as exc:
+            logger.error("Failed to send Facebook opt-out confirmation to %s: %s", sender_id, exc)

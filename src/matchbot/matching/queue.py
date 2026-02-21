@@ -7,7 +7,7 @@ import json
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, PostType
+from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, PostType, is_opted_out
 from matchbot.matching.infra_scorer import score_infra_match
 from matchbot.matching.scorer import score_match
 from matchbot.settings import get_settings
@@ -43,6 +43,10 @@ async def _propose_mentorship_matches(session: AsyncSession, new_post: Post) -> 
     else:
         return []  # unknown role — skip
 
+    # Skip if the new post's author has opted out
+    if await is_opted_out(session, new_post.platform, new_post.platform_author_id):
+        return []
+
     # Fetch all indexed posts of the opposite role
     candidates = (
         await session.exec(
@@ -62,6 +66,10 @@ async def _propose_mentorship_matches(session: AsyncSession, new_post: Post) -> 
             camp = candidate
         else:
             seeker = candidate
+
+        # Skip opted-out candidates
+        if await is_opted_out(session, candidate.platform, candidate.platform_author_id):
+            continue
 
         # Deduplicate: skip if match already exists
         existing = (
@@ -108,6 +116,10 @@ async def _propose_infra_matches(session: AsyncSession, new_post: Post) -> list[
     settings = get_settings()
     min_score = settings.matching_min_score
 
+    # Skip if the new post's author has opted out
+    if await is_opted_out(session, new_post.platform, new_post.platform_author_id):
+        return []
+
     # Fetch all indexed infra posts (opposite role handled inside scorer)
     candidates = (
         await session.exec(
@@ -122,6 +134,10 @@ async def _propose_infra_matches(session: AsyncSession, new_post: Post) -> list[
     created: list[Match] = []
 
     for candidate in candidates:
+        # Skip opted-out candidates
+        if await is_opted_out(session, candidate.platform, candidate.platform_author_id):
+            continue
+
         # Use canonical ordering: seeker_post_id always holds the "seeking" post
         if new_post.infra_role == "seeking":
             seeker, offerer = new_post, candidate

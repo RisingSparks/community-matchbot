@@ -12,7 +12,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from matchbot.db.engine import get_session
-from matchbot.db.models import Platform, Post, PostStatus
+from matchbot.db.models import OptOut, Platform, Post, PostStatus
 from matchbot.extraction import process_post
 from matchbot.extraction.anthropic_extractor import AnthropicExtractor
 from matchbot.extraction.openai_extractor import OpenAIExtractor
@@ -113,6 +113,65 @@ async def run_reddit_listener() -> None:
             return
         except Exception as exc:
             logger.error("Reddit listener error: %s — reconnecting in %ss", exc, backoff)
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 600)
+        else:
+            backoff = 60
+
+
+async def run_reddit_inbox_listener() -> None:
+    """
+    Listen for Reddit inbox messages and handle opt-out requests.
+    Streams unread messages and records opt-outs for "opt out" replies.
+    """
+    settings = get_settings()
+    backoff = 60
+
+    while True:
+        try:
+            reddit = asyncpraw.Reddit(
+                client_id=settings.reddit_client_id,
+                client_secret=settings.reddit_client_secret,
+                user_agent=settings.reddit_user_agent,
+                username=settings.reddit_username,
+                password=settings.reddit_password,
+            )
+            logger.info("Reddit inbox listener started.")
+
+            async for message in reddit.inbox.stream(skip_existing=True):
+                try:
+                    if not hasattr(message, "body"):
+                        continue
+                    if message.body.strip().lower() == "opt out":
+                        author_id = str(message.author) if message.author else None
+                        if author_id:
+                            async with get_session() as session:
+                                opt_out = OptOut(
+                                    platform=Platform.REDDIT,
+                                    platform_author_id=author_id,
+                                )
+                                session.add(opt_out)
+                                await session.commit()
+                            await message.mark_read()
+                            await message.reply(
+                                "You've been opted out of future introductions. "
+                                "You won't receive any more match messages from us."
+                            )
+                            logger.info("Reddit user %s opted out.", author_id)
+                        else:
+                            await message.mark_read()
+                    else:
+                        await message.mark_read()
+                except Exception as exc:
+                    logger.error("Error processing Reddit inbox message: %s", exc)
+
+            await reddit.close()
+
+        except asyncio.CancelledError:
+            logger.info("Reddit inbox listener cancelled.")
+            return
+        except Exception as exc:
+            logger.error("Reddit inbox listener error: %s — reconnecting in %ss", exc, backoff)
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 600)
         else:

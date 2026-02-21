@@ -2,7 +2,8 @@ import json
 import uuid
 from datetime import UTC, datetime
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 
 def _now() -> datetime:
@@ -203,3 +204,25 @@ class Event(SQLModel, table=True):
             return json.loads(self.payload)
         except (json.JSONDecodeError, TypeError):
             return {}
+
+
+class OptOut(SQLModel, table=True):
+    __tablename__ = "opt_out"
+
+    id: str = Field(default_factory=_new_id, primary_key=True)
+    platform: str = Field(index=True)
+    platform_author_id: str = Field(index=True)
+    created_at: datetime = Field(default_factory=_now)
+
+
+async def is_opted_out(session: AsyncSession, platform: str, author_id: str) -> bool:
+    """Return True if the given author has opted out on the given platform."""
+    result = (
+        await session.exec(
+            select(OptOut).where(
+                OptOut.platform == platform,
+                OptOut.platform_author_id == author_id,
+            )
+        )
+    ).first()
+    return result is not None

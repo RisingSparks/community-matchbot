@@ -12,7 +12,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from matchbot.cli._db import with_session
-from matchbot.db.models import MatchStatus, Post
+from matchbot.db.models import Match, MatchStatus, Post
 from matchbot.lifecycle.status import transition
 from matchbot.matching.queue import get_match, get_queue
 
@@ -255,6 +255,116 @@ def queue_triage(
         session.add(match)
         await session.commit()
         rprint(f"[green]Triage complete. Match {match_id[:8]} updated.[/green]")
+
+    with_session(_run)
+
+
+@app.command("feedback-list")
+def queue_feedback_list(
+    limit: Annotated[int, typer.Option("--limit")] = 25,
+) -> None:
+    """List matches with feedback pending."""
+
+    async def _run(session):
+        from sqlmodel import select
+
+        matches = (
+            await session.exec(
+                select(Match)
+                .where(
+                    Match.status == MatchStatus.INTRO_SENT,
+                    Match.moderator_notes.contains("[feedback pending]"),  # type: ignore[union-attr]
+                )
+                .order_by(Match.intro_sent_at)  # type: ignore[attr-defined]
+                .limit(limit)
+            )
+        ).all()
+
+        if not matches:
+            rprint("[yellow]No matches with [feedback pending].[/yellow]")
+            return
+
+        table = Table(title="Feedback Pending")
+        table.add_column("ID", style="dim", width=12)
+        table.add_column("Score", justify="right")
+        table.add_column("Platform", width=10)
+        table.add_column("Post A snippet", no_wrap=False, max_width=35)
+        table.add_column("Post B snippet", no_wrap=False, max_width=35)
+        table.add_column("Intro sent")
+
+        for m in matches:
+            seeker = await session.get(Post, m.seeker_post_id)
+            camp = await session.get(Post, m.camp_post_id)
+            seeker_text = _short_text(seeker.title if seeker else "?")
+            camp_text = _short_text(camp.title if camp else "?")
+            sent_at = m.intro_sent_at.strftime("%Y-%m-%d") if m.intro_sent_at else "—"
+            table.add_row(
+                m.id[:8],
+                f"{m.score:.3f}",
+                m.intro_platform or "—",
+                seeker_text,
+                camp_text,
+                sent_at,
+            )
+
+        console.print(table)
+
+    with_session(_run)
+
+
+@app.command("send-feedback")
+def queue_send_feedback(
+    match_id: str,
+    dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+) -> None:
+    """Send feedback follow-up message and clear the [feedback pending] tag."""
+
+    async def _run(session):
+        match = await get_match(session, match_id)
+        if not match:
+            rprint(f"[red]Match {match_id!r} not found.[/red]")
+            raise typer.Exit(1)
+
+        if not match.moderator_notes or "[feedback pending]" not in match.moderator_notes:
+            rprint(f"[red]Match {match_id[:8]} does not have [feedback pending] in notes.[/red]")
+            raise typer.Exit(1)
+
+        seeker = await session.get(Post, match.seeker_post_id)
+        camp = await session.get(Post, match.camp_post_id)
+        if not seeker or not camp:
+            rprint("[red]Could not load seeker or camp post.[/red]")
+            raise typer.Exit(1)
+
+        platform = match.intro_platform or (seeker.platform if seeker else "reddit")
+
+        from matchbot.messaging.renderer import render_feedback
+
+        seeker_text = render_feedback(seeker, camp, platform)
+        camp_text = render_feedback(camp, seeker, platform)
+
+        console.print(Panel(seeker_text, title=f"[cyan]Feedback → {seeker.author_display_name or seeker.platform_author_id}[/cyan]", expand=False))
+        console.print(Panel(camp_text, title=f"[cyan]Feedback → {camp.author_display_name or camp.platform_author_id}[/cyan]", expand=False))
+
+        if dry_run:
+            rprint("[dim]--dry-run: not sending.[/dim]")
+            return
+
+        confirmed = typer.confirm("Send these feedback messages?", default=False)
+        if not confirmed:
+            rprint("[yellow]Aborted.[/yellow]")
+            return
+
+        from matchbot.messaging import send_feedback_message
+
+        await send_feedback_message(session, match, seeker, camp)
+
+        # Strip [feedback pending] from notes
+        notes = (match.moderator_notes or "").replace("[feedback pending]", "").strip()
+        match.moderator_notes = notes or None
+        session.add(match)
+        await session.commit()
+
+        rprint(f"[green]Feedback sent for match {match_id[:8]}.[/green]")
 
     with_session(_run)
 

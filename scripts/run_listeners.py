@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from matchbot.db.engine import create_db_and_tables
 from matchbot.listeners.discord_bot import run_discord_bot
-from matchbot.listeners.reddit import run_reddit_listener
+from matchbot.listeners.reddit import run_reddit_inbox_listener, run_reddit_listener
 from matchbot.server import create_app
 from matchbot.settings import get_settings
 
@@ -51,6 +51,7 @@ async def main() -> None:
 
     async with asyncio.TaskGroup() as tg:
         tg.create_task(run_reddit_listener(), name="reddit-listener")
+        tg.create_task(run_reddit_inbox_listener(), name="reddit-inbox-listener")
         tg.create_task(run_discord_bot(), name="discord-bot")
         tg.create_task(server.serve(), name="facebook-webhook")
 

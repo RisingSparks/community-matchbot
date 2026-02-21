@@ -9,6 +9,19 @@ from matchbot.messaging.renderer import render_intro
 from matchbot.settings import get_settings
 
 
+async def _send_reddit_dm(recipient: str, subject: str, message: str) -> None:
+    """Send a single Reddit DM."""
+    settings = get_settings()
+    async with asyncpraw.Reddit(
+        client_id=settings.reddit_client_id,
+        client_secret=settings.reddit_client_secret,
+        user_agent=settings.reddit_user_agent,
+        username=settings.reddit_username,
+        password=settings.reddit_password,
+    ) as reddit:
+        await reddit.redditor(recipient).message(subject=subject, message=message)
+
+
 async def send_reddit_intro(seeker: Post, camp: Post, match: Match) -> None:
     """Send intro DMs to both the seeker and the camp contact via Reddit."""
     settings = get_settings()

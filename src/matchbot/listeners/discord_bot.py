@@ -12,7 +12,7 @@ from discord.ext import commands
 from sqlmodel import select
 
 from matchbot.db.engine import get_session
-from matchbot.db.models import Platform, Post, PostStatus
+from matchbot.db.models import OptOut, Platform, Post, PostStatus
 from matchbot.extraction import process_post
 from matchbot.extraction.anthropic_extractor import AnthropicExtractor
 from matchbot.extraction.openai_extractor import OpenAIExtractor
@@ -60,13 +60,20 @@ def create_bot() -> commands.Bot:
     async def on_message(message: discord.Message):
         if message.author.bot:
             return
+
+        # Handle DMs — check for opt-out, but never ingest as posts
+        if message.guild is None:
+            if message.content.strip().lower() == "opt out":
+                await _handle_opt_out_discord(message)
+            return
+
         # Check allowlist
-        guild_id = str(message.guild.id) if message.guild else None
+        guild_id = str(message.guild.id)
         channel_id = str(message.channel.id)
-        if guild_id and guild_id in allowlist:
+        if guild_id in allowlist:
             if channel_id not in allowlist[guild_id]:
                 return  # Not in allowed channel
-        elif guild_id:
+        else:
             return  # Guild not in allowlist
 
         await _handle_discord_message(message)
@@ -142,6 +149,22 @@ async def _handle_discord_message(message: discord.Message) -> None:
 
         extractor = _get_extractor()
         await process_post(session, post, extractor)
+
+
+async def _handle_opt_out_discord(message: discord.Message) -> None:
+    """Record an opt-out from a Discord DM and confirm to the user."""
+    async with get_session() as session:
+        opt_out = OptOut(
+            platform=Platform.DISCORD,
+            platform_author_id=str(message.author.id),
+        )
+        session.add(opt_out)
+        await session.commit()
+    await message.channel.send(
+        "You've been opted out of future introductions. "
+        "You won't receive any more match messages from us."
+    )
+    logger.info("Discord user %s opted out.", message.author.id)
 
 
 async def run_discord_bot() -> None:
