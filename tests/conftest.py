@@ -21,10 +21,11 @@ from matchbot.extraction.schemas import ExtractedPost
 
 
 @pytest.fixture(autouse=True)
-def reset_settings():
+def reset_settings(monkeypatch: pytest.MonkeyPatch):
     """Clear the settings cache before and after every test so each test gets a
     fresh Settings() instance. Prevents a stale singleton from leaking
     environment or monkeypatched values across tests."""
+    monkeypatch.setenv("VERBOSE", "false")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

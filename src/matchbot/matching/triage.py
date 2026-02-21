@@ -84,16 +84,14 @@ async def _call_triage(extractor: LLMExtractor, user_content: str) -> dict:
         from matchbot.extraction.openai_extractor import OpenAIExtractor
 
         assert isinstance(extractor, OpenAIExtractor)
-        openai_response = await extractor._client.chat.completions.create(
+        openai_response = await extractor._client.responses.create(
             model=extractor._model,
-            max_tokens=512,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": TRIAGE_SYSTEM_PROMPT},
-                {"role": "user", "content": user_content},
-            ],
+            max_output_tokens=512,
+            instructions=TRIAGE_SYSTEM_PROMPT,
+            input=user_content,
+            text={"format": {"type": "json_object"}},
         )
-        raw = openai_response.choices[0].message.content or ""
+        raw = openai_response.output_text or ""
     else:
         raise ExtractionError(f"Unknown provider for triage: {provider}")
 

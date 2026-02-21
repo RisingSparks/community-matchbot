@@ -254,8 +254,8 @@ async def test_anthropic_extractor_parses_response():
 async def test_openai_extractor_parses_response():
     from matchbot.extraction.openai_extractor import OpenAIExtractor
 
-    mock_choice = MagicMock()
-    mock_choice.message.content = json.dumps({
+    mock_response = MagicMock()
+    mock_response.output_text = json.dumps({
         "role": "camp",
         "camp_name": "Solar Circus",
         "camp_size_min": 20,
@@ -269,11 +269,9 @@ async def test_openai_extractor_parses_response():
         "confidence": 0.9,
         "extraction_notes": None,
     })
-    mock_response = MagicMock()
-    mock_response.choices = [mock_choice]
 
     mock_client = AsyncMock()
-    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+    mock_client.responses.create = AsyncMock(return_value=mock_response)
 
     extractor = OpenAIExtractor(client=mock_client)
     result = await extractor.extract("Camp has openings", "We are recruiting", "reddit", "BurningMan")
