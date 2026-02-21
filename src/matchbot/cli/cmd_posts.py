@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Annotated
 
 import typer
@@ -11,7 +12,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from matchbot.cli._db import with_session
-from matchbot.db.models import Post, PostStatus, PostType
+from matchbot.db.models import Event, Post, PostStatus, PostType
 
 app = typer.Typer(help="Browse and manage indexed posts")
 console = Console()
@@ -162,5 +163,260 @@ def posts_flag(
         rprint(f"[yellow]Post {post_id[:8]} flagged for review.[/yellow]")
         if note:
             rprint(f"  Note: {note}")
+
+    with_session(_run)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _apply_field_overrides(post: Post, overrides: dict) -> list[str]:
+    """
+    Apply moderator field overrides to a post.
+
+    Returns a list of human-readable change descriptions for display.
+    Normalizes vibes, contribution_types, and infra_categories against the taxonomy.
+    """
+    from matchbot.taxonomy import (
+        normalize_contribution_types,
+        normalize_infra_categories,
+        normalize_vibes,
+    )
+
+    changes = []
+
+    if overrides.get("role") is not None:
+        post.role = overrides["role"]
+        changes.append(f"role={overrides['role']}")
+
+    if overrides.get("vibes") is not None:
+        raw = [v.strip() for v in overrides["vibes"].split("|") if v.strip()]
+        normalized = normalize_vibes(raw)
+        unknown = set(raw) - set(normalized)
+        if unknown:
+            rprint(f"[yellow]  Ignored unknown vibes: {sorted(unknown)}[/yellow]")
+        post.vibes = "|".join(normalized)
+        changes.append(f"vibes={post.vibes!r}")
+
+    if overrides.get("contribution_types") is not None:
+        raw = [v.strip() for v in overrides["contribution_types"].split("|") if v.strip()]
+        normalized = normalize_contribution_types(raw)
+        unknown = set(raw) - set(normalized)
+        if unknown:
+            rprint(f"[yellow]  Ignored unknown contribution_types: {sorted(unknown)}[/yellow]")
+        post.contribution_types = "|".join(normalized)
+        changes.append(f"contribution_types={post.contribution_types!r}")
+
+    if overrides.get("camp_name") is not None:
+        post.camp_name = overrides["camp_name"]
+        changes.append(f"camp_name={overrides['camp_name']!r}")
+
+    if overrides.get("year") is not None:
+        post.year = overrides["year"]
+        changes.append(f"year={overrides['year']}")
+
+    if overrides.get("infra_role") is not None:
+        post.infra_role = overrides["infra_role"]
+        changes.append(f"infra_role={overrides['infra_role']}")
+
+    if overrides.get("infra_categories") is not None:
+        raw = [v.strip() for v in overrides["infra_categories"].split("|") if v.strip()]
+        normalized = normalize_infra_categories(raw)
+        unknown = set(raw) - set(normalized)
+        if unknown:
+            rprint(f"[yellow]  Ignored unknown infra_categories: {sorted(unknown)}[/yellow]")
+        post.infra_categories = "|".join(normalized)
+        changes.append(f"infra_categories={post.infra_categories!r}")
+
+    if overrides.get("quantity") is not None:
+        post.quantity = overrides["quantity"]
+        changes.append(f"quantity={overrides['quantity']!r}")
+
+    if overrides.get("condition") is not None:
+        post.condition = overrides["condition"]
+        changes.append(f"condition={overrides['condition']!r}")
+
+    return changes
+
+
+async def _write_event(
+    session,
+    post: Post,
+    event_type: str,
+    payload: dict,
+    note: str | None = None,
+) -> None:
+    event = Event(
+        event_type=event_type,
+        post_id=post.id,
+        actor="moderator",
+        payload=json.dumps(payload),
+        note=note,
+    )
+    session.add(event)
+
+
+# ---------------------------------------------------------------------------
+# Moderator review commands
+# ---------------------------------------------------------------------------
+
+
+@app.command("edit")
+def posts_edit(
+    post_id: str,
+    role: Annotated[str | None, typer.Option("--role", help="seeker|camp|unknown")] = None,
+    vibes: Annotated[str | None, typer.Option("--vibes", help="Pipe-delimited, e.g. 'art|music'")] = None,
+    contribution_types: Annotated[str | None, typer.Option("--contribution-types", help="Pipe-delimited")] = None,
+    camp_name: Annotated[str | None, typer.Option("--camp-name")] = None,
+    year: Annotated[int | None, typer.Option("--year")] = None,
+    infra_role: Annotated[str | None, typer.Option("--infra-role", help="seeking|offering")] = None,
+    infra_categories: Annotated[str | None, typer.Option("--infra-categories", help="Pipe-delimited")] = None,
+    quantity: Annotated[str | None, typer.Option("--quantity")] = None,
+    condition: Annotated[str | None, typer.Option("--condition")] = None,
+    note: Annotated[str | None, typer.Option("--note")] = None,
+) -> None:
+    """Correct extraction fields on a NEEDS_REVIEW post."""
+
+    async def _run(session):
+        post = await session.get(Post, post_id)
+        if not post:
+            rprint(f"[red]Post {post_id!r} not found.[/red]")
+            raise typer.Exit(1)
+        if post.status != PostStatus.NEEDS_REVIEW:
+            rprint(f"[red]Post {post_id[:8]} has status {post.status!r}. Only NEEDS_REVIEW posts can be edited.[/red]")
+            raise typer.Exit(1)
+
+        overrides = {
+            "role": role,
+            "vibes": vibes,
+            "contribution_types": contribution_types,
+            "camp_name": camp_name,
+            "year": year,
+            "infra_role": infra_role,
+            "infra_categories": infra_categories,
+            "quantity": quantity,
+            "condition": condition,
+        }
+        changes = _apply_field_overrides(post, overrides)
+
+        if not changes:
+            rprint("[yellow]No fields specified — nothing changed.[/yellow]")
+            return
+
+        session.add(post)
+        await _write_event(session, post, "post_edited", {"changes": changes}, note=note)
+        await session.commit()
+
+        rprint(f"[green]Post {post_id[:8]} updated:[/green]")
+        for c in changes:
+            rprint(f"  {c}")
+        if note:
+            rprint(f"  Note: {note}")
+
+    with_session(_run)
+
+
+@app.command("approve")
+def posts_approve(
+    post_id: str,
+    note: Annotated[str | None, typer.Option("--note")] = None,
+    role: Annotated[str | None, typer.Option("--role", help="seeker|camp|unknown")] = None,
+    vibes: Annotated[str | None, typer.Option("--vibes", help="Pipe-delimited, e.g. 'art|music'")] = None,
+    contribution_types: Annotated[str | None, typer.Option("--contribution-types", help="Pipe-delimited")] = None,
+    camp_name: Annotated[str | None, typer.Option("--camp-name")] = None,
+    year: Annotated[int | None, typer.Option("--year")] = None,
+    infra_role: Annotated[str | None, typer.Option("--infra-role", help="seeking|offering")] = None,
+    infra_categories: Annotated[str | None, typer.Option("--infra-categories", help="Pipe-delimited")] = None,
+    quantity: Annotated[str | None, typer.Option("--quantity")] = None,
+    condition: Annotated[str | None, typer.Option("--condition")] = None,
+) -> None:
+    """Promote a NEEDS_REVIEW post to INDEXED, optionally correcting fields first."""
+
+    async def _run(session):
+        post = await session.get(Post, post_id)
+        if not post:
+            rprint(f"[red]Post {post_id!r} not found.[/red]")
+            raise typer.Exit(1)
+        if post.status != PostStatus.NEEDS_REVIEW:
+            rprint(f"[red]Post {post_id[:8]} has status {post.status!r}. Only NEEDS_REVIEW posts can be approved.[/red]")
+            raise typer.Exit(1)
+
+        overrides = {
+            "role": role,
+            "vibes": vibes,
+            "contribution_types": contribution_types,
+            "camp_name": camp_name,
+            "year": year,
+            "infra_role": infra_role,
+            "infra_categories": infra_categories,
+            "quantity": quantity,
+            "condition": condition,
+        }
+        changes = _apply_field_overrides(post, overrides)
+
+        post.status = PostStatus.INDEXED
+        session.add(post)
+        await _write_event(
+            session,
+            post,
+            "post_approved",
+            {"changes": changes, "prev_status": PostStatus.NEEDS_REVIEW},
+            note=note,
+        )
+        await session.commit()
+        await session.refresh(post)
+
+        rprint(f"[green]Post {post_id[:8]} approved → INDEXED.[/green]")
+        for c in changes:
+            rprint(f"  {c}")
+        if note:
+            rprint(f"  Note: {note}")
+
+        # Trigger matching now that the post is indexed
+        from matchbot.matching.queue import propose_matches
+
+        await propose_matches(session, post)
+        await session.refresh(post)
+        rprint(f"[dim]Matches proposed for {post_id[:8]}.[/dim]")
+
+    with_session(_run)
+
+
+@app.command("dismiss")
+def posts_dismiss(
+    post_id: str,
+    reason: Annotated[str | None, typer.Option("--reason", help="spam|off-topic|duplicate|other")] = None,
+) -> None:
+    """Permanently skip a NEEDS_REVIEW post (spam, off-topic, duplicate)."""
+
+    async def _run(session):
+        post = await session.get(Post, post_id)
+        if not post:
+            rprint(f"[red]Post {post_id!r} not found.[/red]")
+            raise typer.Exit(1)
+        if post.status not in {PostStatus.NEEDS_REVIEW, PostStatus.ERROR}:
+            rprint(
+                f"[red]Post {post_id[:8]} has status {post.status!r}. "
+                "Only NEEDS_REVIEW or ERROR posts can be dismissed.[/red]"
+            )
+            raise typer.Exit(1)
+
+        prev_status = post.status
+        post.status = PostStatus.SKIPPED
+        session.add(post)
+        await _write_event(
+            session,
+            post,
+            "post_dismissed",
+            {"prev_status": prev_status, "reason": reason},
+            note=reason,
+        )
+        await session.commit()
+
+        rprint(f"[yellow]Post {post_id[:8]} dismissed → SKIPPED.[/yellow]")
+        if reason:
+            rprint(f"  Reason: {reason}")
 
     with_session(_run)

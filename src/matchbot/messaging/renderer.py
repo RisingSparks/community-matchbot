@@ -8,7 +8,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 from matchbot.db.models import Post, PostType
 
-_TEMPLATE_DIR = Path(__file__).parent.parent.parent.parent / "config" / "templates"
+_TEMPLATE_DIR = Path(__file__).parent.parent / "config" / "templates"
 
 _MENTORSHIP_TEMPLATES = {
     "reddit": "intro_reddit.md.j2",

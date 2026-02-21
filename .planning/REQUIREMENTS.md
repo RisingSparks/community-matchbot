@@ -30,7 +30,6 @@
 - **OPS-03**: Generate a weekly dashboard (by channel, contribution type, etc.).
 
 ### Non-Functional (NFR)
-- **NFR-01**: Privacy-aware data handling (minimal retention, opt-in).
 - **NFR-02**: Optimize moderator workflow for <5 minutes per introduction.
 - **NFR-03**: Build on Python 3.12+ with `uv` package management.
 
@@ -57,6 +56,6 @@
 | OPS-01 | Phase 1 | ✅ Complete |
 | OPS-02 | Phase 5 | ✅ Complete |
 | OPS-03 | Phase 5 | ✅ Complete |
-| NFR-01 | Phase 5 | ✅ Complete |
+| NFR-01 | Phase 5 | Removed from Reqs |
 | NFR-02 | Phase 4 | ✅ Complete |
 | NFR-03 | Phase 1 | ✅ Complete |

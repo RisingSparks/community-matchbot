@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
+from matchbot.settings import get_settings
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel
@@ -13,6 +14,21 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from matchbot.db.models import Platform, Post, PostRole, PostStatus
 from matchbot.extraction.schemas import ExtractedPost
+
+# ---------------------------------------------------------------------------
+# Settings isolation
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def reset_settings():
+    """Clear the settings cache before and after every test so each test gets a
+    fresh Settings() instance. Prevents a stale singleton from leaking
+    environment or monkeypatched values across tests."""
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
 
 # ---------------------------------------------------------------------------
 # Database fixtures

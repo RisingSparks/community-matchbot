@@ -9,7 +9,6 @@ Transform Burning Man participation from passive attendance to active building b
 ## Constraints
 - **Low Overhead**: Workflows must save time for TCOs/Leads, not add debt.
 - **Participation-First**: Match for contribution, not consumption.
-- **Privacy-Aware**: Opt-in only, minimal data capture, no commodification.
 - **Passive-First**: Ingest from existing community channels before building net-new forms.
 
 ## Target Audience

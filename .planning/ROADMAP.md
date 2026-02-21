@@ -57,7 +57,7 @@ This roadmap outlines the development of the "Matchbot" ecosystem, starting from
 **Goal:** Measure success and manage pilot data.
 
 - **Dependencies:** Phase 4
-- **Requirements:** OPS-02, OPS-03, NFR-01
+- **Requirements:** OPS-02, OPS-03
 - **Success Criteria:**
   1. Weekly dashboard displays match volume and conversion metrics.
   2. One-click export of anonymized pilot findings report.

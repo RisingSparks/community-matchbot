@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-_TAXONOMY_PATH = Path(__file__).parent.parent.parent / "config" / "taxonomy.yaml"
+_TAXONOMY_PATH = Path(__file__).parent / "config" / "taxonomy.yaml"
 
 
 def _load_taxonomy() -> dict:

@@ -22,8 +22,8 @@ class TestJaccard:
         assert _jaccard({"a", "b"}, {"b", "c"}) == pytest.approx(1 / 3)
 
     def test_both_empty(self):
-        # Both unknown → mild positive signal
-        assert _jaccard(set(), set()) == pytest.approx(0.5)
+        # Both unknown → no signal
+        assert _jaccard(set(), set()) == pytest.approx(0.0)
 
     def test_one_empty(self):
         assert _jaccard({"a"}, set()) == pytest.approx(0.0)
@@ -131,11 +131,11 @@ class TestScoreMatch:
         _, breakdown = score_match(seeker, camp)
         assert set(breakdown.keys()) == {"vibe_overlap", "contribution_overlap", "recency", "year_match"}
 
-    def test_empty_vibes_both_gets_partial_credit(self):
+    def test_empty_vibes_both_gets_no_credit(self):
         seeker = _make_indexed_post(PostRole.SEEKER, [], ["build"])
         camp = _make_indexed_post(PostRole.CAMP, [], ["build"])
         score, breakdown = score_match(seeker, camp)
-        assert breakdown["vibe_overlap"] == pytest.approx(0.5)
+        assert breakdown["vibe_overlap"] == pytest.approx(0.0)
 
 
 @pytest.mark.asyncio

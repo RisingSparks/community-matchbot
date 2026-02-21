@@ -9,9 +9,9 @@ from matchbot.db.models import Post
 
 
 def _jaccard(a: set[str], b: set[str]) -> float:
-    """Jaccard similarity. Empty sets → 0.5 (both unknown = mild positive signal)."""
+    """Jaccard similarity. Empty sets → 0.0 (no data = no signal)."""
     if not a and not b:
-        return 0.5
+        return 0.0
     if not a or not b:
         return 0.0
     intersection = a & b

@@ -34,8 +34,10 @@ async def _propose_mentorship_matches(session: AsyncSession, new_post: Post) -> 
     # Determine which role is the "other" side
     if new_post.role == PostRole.SEEKER:
         seeker = new_post
+        camp = None
         candidate_role = PostRole.CAMP
     elif new_post.role == PostRole.CAMP:
+        seeker = None
         camp = new_post
         candidate_role = PostRole.SEEKER
     else:

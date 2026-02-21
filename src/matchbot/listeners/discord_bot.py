@@ -20,7 +20,7 @@ from matchbot.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
-_SOURCES_PATH = Path(__file__).parent.parent.parent.parent / "config" / "sources.yaml"
+_SOURCES_PATH = Path(__file__).parent.parent / "config" / "sources.yaml"
 
 
 def _load_discord_config() -> dict:

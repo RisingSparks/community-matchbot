@@ -172,7 +172,6 @@ Use the same indexing + structure model for infrastructure needs and equipment e
 2. **Low burden on camps:** Workflows must save time for TCOs, not add process debt.
 3. **Principle-aligned language:** Avoid “corporate recruiting” framing.
 4. **Human-centered handoff:** Tool facilitates intros; people build trust.
-5. **Decommodified + privacy-aware:** Opt-in only; minimal data capture.
 6. **Use existing channels first:** Pilot on native community tools before building software.
 
 ## Functional Reqs:
@@ -194,7 +193,6 @@ Potential scope:
 
 - Add “seeking members” fields to camp questionnaire flows.
 - Add “seeking camp” fields to burner profile flows.
-- Define lightweight opt-in connection pathways (API or export/import).
 - Refine taxonomy for skills/interests/contribution styles.
 - Produce governance recommendations for ethical operation.
 
@@ -326,7 +324,6 @@ Possibly use a template? If so, template fields could be:
 
 - Fast to operate manually (moderator workflow <5 minutes per intro).
 - Transparent expectations before first conversation.
-- Privacy-aware data handling (minimal retention, opt-in sharing only).
 - Channel-agnostic design (works on Discord/Reddit first).
 - Exportable records for pilot findings report.
 
@@ -374,7 +371,6 @@ This repo (`burning-man-matchbot`) is the software implementation of the matchma
 - **Taxonomy Ownership**: Maintain a central, editable list of "Vibes" and "Skills" (e.g., `build`, `kitchen`, `sober`, `party`, `art`).
 - **Auditability**: Keep a history of extracted posts to verify accuracy and track growth.
 - **Design constraint**: The tool makes the *introduction only*. It must not replace human judgment or camp vetting. Any matching logic should surface candidates, not rank or endorse them.
-- **Data principles**: Opt-in only, no commodification of participant data, privacy-preserving.
 - **Tone**: Warm, community-native. Never feel like a corporate HR tool.
 
 When implementing feature work related to this initiative, optimize for:
