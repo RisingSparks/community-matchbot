@@ -25,9 +25,15 @@ Run scripts with `uv run` (no manual activation required):
 uv run python ...
 ```
 
-## Terms of Service
+## Privacy & Terms
 
-See [TERMS.md](./TERMS.md) for the plain-language terms, data handling practices, and community notice.
+This is a volunteer-run community project. We value your privacy and only process public posts from community forums (Reddit, Discord, Facebook) to help match seekers with camps and infrastructure.
+
+*   **Terms of Service:** [TERMS.md](./TERMS.md) (Plain-language rules and community notice)
+*   **Privacy Policy:** [PRIVACY.md](./PRIVACY.md) (Data handling and AI processing details)
+
+### How to Opt Out
+If you don't want the bot to process your posts or send you matches, simply send a private message (PM/DM) with the text **`opt out`** to the bot on the platform you are using (Reddit or Discord).
 
 ## Notes
 
