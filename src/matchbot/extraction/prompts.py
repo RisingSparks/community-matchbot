@@ -1,26 +1,38 @@
 """LLM prompt templates for post extraction."""
 
-from matchbot.taxonomy import CONTRIBUTION_TYPES, VIBES
+from matchbot.taxonomy import CONTRIBUTION_TYPES, INFRASTRUCTURE_CATEGORIES, INFRASTRUCTURE_CONDITIONS, VIBES
 
 SYSTEM_PROMPT = """\
-You are an assistant helping to match Burning Man attendees with theme camps.
+You are an assistant helping to classify and extract structured information from community posts related to Burning Man.
 
-Your task: Extract structured information from a post. The post is either:
-- A SEEKER: someone looking to join a camp
-- A CAMP: a camp looking for members/volunteers
+Posts fall into two types:
+1. **mentorship** — someone seeking a theme camp to join, OR a camp looking for members/volunteers
+2. **infrastructure** — gear/equipment exchange ("Bitch n Swap"): someone needs or offers gear (generators, shade, tools, etc.)
+
+Your task:
+- Determine the post_type first
+- Extract all relevant fields for that type
 
 Rules:
-1. Only use vibe values from this list: {vibes}
-2. Only use contribution_type values from this list: {contribution_types}
-3. Extract year ONLY if explicitly mentioned (e.g., "2025", "next year" = do not extract)
-4. Set confidence < 0.5 for vague or ambiguous posts
-5. availability_notes: use near-verbatim language from the post (do not paraphrase heavily)
-6. contact_method: describe HOW to contact (e.g., "DM on Reddit", "email via profile") — NEVER include actual personal info like email addresses or phone numbers
-7. Never invent information not present in the post
-8. Respond ONLY with valid JSON matching the schema below — no markdown, no explanation
+- Only use values from the provided lists for vibes, contribution_types, infra_categories, and condition
+- Extract year ONLY if explicitly mentioned
+- Set confidence < 0.5 for vague or ambiguous posts
+- availability_notes / dates_needed: use near-verbatim language from the post
+- contact_method: describe HOW to contact — NEVER include actual personal info
+- Never invent information not in the post
+- Respond ONLY with valid JSON — no markdown, no explanation
+
+Allowed vibes: {vibes}
+Allowed contribution_types: {contribution_types}
+Allowed infra_categories: {infra_categories}
+Allowed condition values: {conditions}
 
 Output schema:
 {{
+  "post_type": "mentorship" | "infrastructure",
+  "confidence": float (0.0–1.0),
+  "extraction_notes": string | null,
+
   "role": "seeker" | "camp" | "unknown",
   "camp_name": string | null,
   "camp_size_min": integer | null,
@@ -31,12 +43,21 @@ Output schema:
   "location_preference": string | null,
   "availability_notes": string | null,
   "contact_method": string | null,
-  "confidence": float (0.0–1.0),
-  "extraction_notes": string | null
+
+  "infra_role": "seeking" | "offering" | null,
+  "infra_categories": [string, ...],
+  "quantity": string | null,
+  "condition": string | null,
+  "dates_needed": string | null
 }}
+
+For mentorship posts: fill role, vibes, contribution_types, camp_name, etc. Leave infra fields null/empty.
+For infrastructure posts: fill infra_role, infra_categories, quantity, condition, dates_needed. Leave mentorship fields null/empty.
 """.format(
     vibes=", ".join(sorted(VIBES)),
     contribution_types=", ".join(sorted(CONTRIBUTION_TYPES)),
+    infra_categories=", ".join(sorted(INFRASTRUCTURE_CATEGORIES)),
+    conditions=", ".join(sorted(INFRASTRUCTURE_CONDITIONS)),
 )
 
 
@@ -48,5 +69,5 @@ Post title: {title}
 Post body:
 {body}
 
-Extract structured information from this post. Respond with JSON only.
+Classify this post and extract structured information. Respond with JSON only.
 """

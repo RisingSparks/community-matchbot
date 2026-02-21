@@ -51,6 +51,16 @@ class Settings(BaseSettings):
     # Moderator
     moderator_name: str = Field(default="Matchbot Moderator")
 
+    # WWW Guide enrichment
+    www_guide_url: str = Field(
+        default="",
+        description="URL to Burning Man WWW Guide camp JSON endpoint. Leave blank to disable.",
+    )
+    www_guide_year: int | None = Field(
+        default=None,
+        description="Burn year to tag guide-enriched data. Defaults to current year if blank.",
+    )
+
 
 _settings: Settings | None = None
 

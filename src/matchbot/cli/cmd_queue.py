@@ -12,7 +12,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from matchbot.cli._db import with_session
-from matchbot.db.models import Match, MatchStatus, Post
+from matchbot.db.models import Match, MatchStatus, Post, PostType
 from matchbot.lifecycle.status import transition
 from matchbot.matching.queue import get_match, get_queue
 from matchbot.settings import get_settings
@@ -30,6 +30,7 @@ def queue_list(
     status: Annotated[str, typer.Option("--status")] = MatchStatus.PROPOSED,
     min_score: Annotated[float, typer.Option("--min-score")] = 0.0,
     limit: Annotated[int, typer.Option("--limit")] = 25,
+    post_type: Annotated[Optional[str], typer.Option("--type", help="mentorship|infrastructure")] = None,
 ) -> None:
     """List matches in the queue."""
 
@@ -37,16 +38,30 @@ def queue_list(
         from sqlmodel import select
 
         matches = await get_queue(session, status=status, min_score=min_score, limit=limit)
+
+        # Filter by post_type if requested (check either post in the pair)
+        if post_type:
+            filtered = []
+            for m in matches:
+                seeker = await session.get(Post, m.seeker_post_id)
+                if seeker and seeker.post_type == post_type:
+                    filtered.append(m)
+            matches = filtered
+
         if not matches:
             rprint(f"[yellow]No matches with status={status!r} and score≥{min_score}[/yellow]")
             return
 
-        table = Table(title=f"Match Queue  [{status}]  ≥{min_score:.2f}")
+        title = f"Match Queue  [{status}]  ≥{min_score:.2f}"
+        if post_type:
+            title += f"  [{post_type}]"
+
+        table = Table(title=title)
         table.add_column("ID", style="dim", width=12)
         table.add_column("Score", justify="right")
-        table.add_column("Method", width=14)
-        table.add_column("Seeker snippet", no_wrap=False, max_width=35)
-        table.add_column("Camp snippet", no_wrap=False, max_width=35)
+        table.add_column("Method", width=18)
+        table.add_column("Post A snippet", no_wrap=False, max_width=35)
+        table.add_column("Post B snippet", no_wrap=False, max_width=35)
         table.add_column("Created")
 
         for m in matches:

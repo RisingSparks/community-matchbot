@@ -31,6 +31,7 @@ class PostStatus:
     NEEDS_REVIEW = "needs_review"
     SKIPPED = "skipped"
     ERROR = "error"
+    CLOSED_STALE = "closed_stale"
 
 
 class MatchStatus:
@@ -49,6 +50,16 @@ class Platform:
     DISCORD = "discord"
     FACEBOOK = "facebook"
     MANUAL = "manual"
+
+
+class PostType:
+    MENTORSHIP = "mentorship"      # camp-finding / seeker matching
+    INFRASTRUCTURE = "infrastructure"  # gear / logistics exchange ("Bitch n Swap")
+
+
+class InfraRole:
+    SEEKING = "seeking"    # needs the thing
+    OFFERING = "offering"  # has the thing to lend/give/swap
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +126,16 @@ class Post(SQLModel, table=True):
     extraction_confidence: float | None = Field(default=None)
     extraction_method: str | None = Field(default=None)  # keyword | llm_anthropic | llm_openai
 
+    # Post type routing
+    post_type: str = Field(default=PostType.MENTORSHIP, index=True)  # mentorship | infrastructure
+
+    # Infrastructure-specific fields (post_type == infrastructure)
+    infra_role: str | None = Field(default=None)          # seeking | offering
+    infra_categories: str = Field(default="")             # pipe-delimited infra category list
+    quantity: str | None = Field(default=None)            # e.g. "2 units", "approx 50ft"
+    condition: str | None = Field(default=None)           # new | good | fair | worn | needs_repair
+    dates_needed: str | None = Field(default=None)        # near-verbatim from post
+
     # FK
     profile_id: str | None = Field(default=None, foreign_key="profile.id")
 
@@ -123,6 +144,9 @@ class Post(SQLModel, table=True):
 
     def contribution_types_list(self) -> list[str]:
         return [v for v in self.contribution_types.split("|") if v] if self.contribution_types else []
+
+    def infra_categories_list(self) -> list[str]:
+        return [v for v in self.infra_categories.split("|") if v] if self.infra_categories else []
 
 
 class Match(SQLModel, table=True):

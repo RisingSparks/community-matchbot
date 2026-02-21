@@ -11,7 +11,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from matchbot.cli._db import with_session
-from matchbot.db.models import Post, PostStatus
+from matchbot.db.models import Post, PostStatus, PostType
 
 app = typer.Typer(help="Browse and manage indexed posts")
 console = Console()
@@ -22,6 +22,7 @@ def posts_list(
     role: Annotated[Optional[str], typer.Option("--role", help="seeker|camp")] = None,
     platform: Annotated[Optional[str], typer.Option("--platform")] = None,
     status: Annotated[Optional[str], typer.Option("--status")] = None,
+    post_type: Annotated[Optional[str], typer.Option("--type", help="mentorship|infrastructure")] = None,
     limit: Annotated[int, typer.Option("--limit")] = 20,
 ) -> None:
     """List posts."""
@@ -36,6 +37,8 @@ def posts_list(
             q = q.where(Post.platform == platform)
         if status:
             q = q.where(Post.status == status)
+        if post_type:
+            q = q.where(Post.post_type == post_type)
         q = q.order_by(Post.detected_at.desc()).limit(limit)  # type: ignore[arg-type]
 
         posts = (await session.exec(q)).all()
@@ -46,6 +49,7 @@ def posts_list(
         table = Table(title="Posts")
         table.add_column("ID", style="dim", width=10)
         table.add_column("Platform", width=10)
+        table.add_column("Type", width=14)
         table.add_column("Role", width=8)
         table.add_column("Status", width=14)
         table.add_column("Title", no_wrap=False, max_width=50)
@@ -55,6 +59,7 @@ def posts_list(
             table.add_row(
                 p.id[:8],
                 p.platform,
+                p.post_type,
                 p.role or "?",
                 p.status,
                 p.title[:50],
@@ -75,16 +80,30 @@ def posts_show(post_id: str) -> None:
             rprint(f"[red]Post {post_id!r} not found.[/red]")
             raise typer.Exit(1)
 
+        if post.post_type == PostType.INFRASTRUCTURE:
+            type_detail = (
+                f"[bold]Infra Role:[/bold] {post.infra_role or '?'}  |  "
+                f"[bold]Categories:[/bold] {post.infra_categories or '—'}\n"
+                f"[bold]Quantity:[/bold] {post.quantity or '—'}  |  "
+                f"[bold]Condition:[/bold] {post.condition or '—'}  |  "
+                f"[bold]Dates:[/bold] {post.dates_needed or '—'}\n"
+            )
+        else:
+            type_detail = (
+                f"[bold]Role:[/bold] {post.role}  |  "
+                f"[bold]Vibes:[/bold] {post.vibes}\n"
+                f"[bold]Contributions:[/bold] {post.contribution_types}\n"
+                f"[bold]Year:[/bold] {post.year}  |  "
+                f"[bold]Camp:[/bold] {post.camp_name}  |  "
+                f"[bold]Availability:[/bold] {post.availability_notes}\n"
+            )
+
         content = (
             f"[bold]Platform:[/bold] {post.platform} / {post.source_community}\n"
-            f"[bold]Role:[/bold] {post.role}  |  [bold]Status:[/bold] {post.status}\n"
+            f"[bold]Type:[/bold] {post.post_type}  |  [bold]Status:[/bold] {post.status}\n"
             f"[bold]Confidence:[/bold] {post.extraction_confidence}  |  "
             f"[bold]Method:[/bold] {post.extraction_method}\n"
-            f"[bold]Vibes:[/bold] {post.vibes}\n"
-            f"[bold]Contributions:[/bold] {post.contribution_types}\n"
-            f"[bold]Year:[/bold] {post.year}\n"
-            f"[bold]Camp:[/bold] {post.camp_name}  |  "
-            f"[bold]Availability:[/bold] {post.availability_notes}\n\n"
+            f"{type_detail}\n"
             f"[bold yellow]Title:[/bold yellow] {post.title}\n\n"
             f"[bold]Body:[/bold]\n{post.raw_text}"
         )

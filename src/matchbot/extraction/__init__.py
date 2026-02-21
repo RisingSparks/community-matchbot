@@ -11,7 +11,7 @@ from matchbot.db.models import Event, Post, PostStatus
 from matchbot.extraction.base import LLMExtractor
 from matchbot.extraction.keywords import keyword_filter
 from matchbot.settings import get_settings
-from matchbot.taxonomy import normalize_contribution_types, normalize_vibes
+from matchbot.taxonomy import normalize_contribution_types, normalize_infra_categories, normalize_vibes
 
 
 async def process_post(session: AsyncSession, post: Post, extractor: LLMExtractor) -> Post:
@@ -40,6 +40,11 @@ async def process_post(session: AsyncSession, post: Post, extractor: LLMExtracto
         await session.refresh(post)
         return post
 
+    # Seed post_type and infra_role from keyword filter hints
+    post.post_type = kw_result.post_type
+    if kw_result.infra_role is not None:
+        post.infra_role = kw_result.infra_role
+
     # Use keyword role hint if LLM later can't determine
     keyword_role_hint = kw_result.candidate_role
 
@@ -64,8 +69,12 @@ async def process_post(session: AsyncSession, post: Post, extractor: LLMExtracto
     # --- 4. Normalize against taxonomy ---
     valid_vibes = normalize_vibes(extracted.vibes)
     valid_contributions = normalize_contribution_types(extracted.contribution_types)
+    valid_infra_categories = normalize_infra_categories(extracted.infra_categories)
 
     # --- 5. Update Post fields ---
+    post.post_type = extracted.post_type
+
+    # Mentorship fields
     post.role = extracted.role if extracted.role else keyword_role_hint
     post.vibes = "|".join(valid_vibes)
     post.contribution_types = "|".join(valid_contributions)
@@ -76,6 +85,14 @@ async def process_post(session: AsyncSession, post: Post, extractor: LLMExtracto
     post.location_preference = extracted.location_preference
     post.availability_notes = extracted.availability_notes
     post.contact_method = extracted.contact_method
+
+    # Infrastructure fields
+    post.infra_role = extracted.infra_role
+    post.infra_categories = "|".join(valid_infra_categories)
+    post.quantity = extracted.quantity
+    post.condition = extracted.condition
+    post.dates_needed = extracted.dates_needed
+
     post.extraction_confidence = extracted.confidence
     post.extraction_method = f"llm_{extractor.provider_name()}"
 
@@ -92,14 +109,16 @@ async def process_post(session: AsyncSession, post: Post, extractor: LLMExtracto
         {
             "provider": extractor.provider_name(),
             "confidence": extracted.confidence,
+            "post_type": post.post_type,
             "role": post.role,
+            "infra_role": post.infra_role,
             "status": post.status,
         },
     )
     await session.commit()
     await session.refresh(post)
 
-    # --- 7. Propose matches (only for INDEXED posts) ---
+    # --- 7. Propose matches (for all INDEXED posts; dispatcher handles type routing) ---
     if post.status == PostStatus.INDEXED:
         from matchbot.matching.queue import propose_matches
 
