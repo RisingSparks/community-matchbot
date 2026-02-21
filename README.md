@@ -25,6 +25,10 @@ Run scripts with `uv run` (no manual activation required):
 uv run python ...
 ```
 
+## Terms of Service
+
+See [TERMS.md](./TERMS.md) for the plain-language terms, data handling practices, and community notice.
+
 ## Notes
 
 - Python requirement: `>=3.12`
