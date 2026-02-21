@@ -8,7 +8,6 @@ dependencies = [
     "alembic>=1.13.3",
     "aiosqlite>=0.17.0",
     "greenlet>=3.0.0",           # Required by SQLAlchemy async
-
     # Platform listeners
     "asyncpraw>=7.7.1",
     "discord.py>=2.4.0",
@@ -16,29 +15,24 @@ dependencies = [
     "python-multipart>=0.0.9",   # Required by FastAPI Form() handling
     "uvicorn[standard]>=0.30.0",
     "httpx>=0.27.0",
-
     # LLM clients
     "anthropic>=0.34.0",
     "openai>=1.47.0",
-
     # Config & validation
     "pydantic>=2.9.0",
     "pydantic-settings>=2.5.0",
     "python-dotenv>=1.0.1",
-
     # CLI + terminal output
     "typer>=0.12.5",
     "rich>=13.8.0",
-
     # Scheduling + async utils
     "apscheduler>=3.10.4",
     "anyio>=4.6.0",
-
     # Templating
     "jinja2>=3.1.4",
-
     # YAML
     "pyyaml>=6.0.2",
+    "asyncpg>=0.31.0",
 ]
 
 [dependency-groups]
