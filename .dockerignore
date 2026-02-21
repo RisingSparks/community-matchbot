@@ -1,0 +1,10 @@
+.env
+matchbot.db
+matchbot.db-journal
+reports/
+.git/
+__pycache__/
+*.pyc
+.venv/
+tests/
+.pytest_cache/

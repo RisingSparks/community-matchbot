@@ -16,6 +16,11 @@ import matchbot.db.models  # noqa: F401
 # this is the Alembic Config object
 config = context.config
 
+# Use DB_PATH env var if set (e.g. on Fly.io where DB_PATH=/data/matchbot.db)
+import os
+db_path = os.environ.get("DB_PATH", "matchbot.db")
+config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+
 # Interpret the config file for Python logging
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
