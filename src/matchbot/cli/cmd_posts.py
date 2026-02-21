@@ -10,6 +10,8 @@ from rich import print as rprint
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from matchbot.cli._db import with_session
 from matchbot.db.models import Event, Post, PostStatus, PostType
@@ -29,8 +31,6 @@ def posts_list(
     """List posts."""
 
     async def _run(session):
-        from sqlmodel import select
-
         q = select(Post)
         if role:
             q = q.where(Post.role == role)
@@ -76,7 +76,7 @@ def posts_show(post_id: str) -> None:
     """Show full details of a post."""
 
     async def _run(session):
-        post = await session.get(Post, post_id)
+        post = await _resolve_post(session, post_id)
         if not post:
             rprint(f"[red]Post {post_id!r} not found.[/red]")
             raise typer.Exit(1)
@@ -118,7 +118,7 @@ def posts_re_extract(post_id: str) -> None:
     """Re-run LLM extraction on a post."""
 
     async def _run(session):
-        post = await session.get(Post, post_id)
+        post = await _resolve_post(session, post_id)
         if not post:
             rprint(f"[red]Post {post_id!r} not found.[/red]")
             raise typer.Exit(1)
@@ -156,7 +156,7 @@ def posts_flag(
     """Flag a post for human review."""
 
     async def _run(session):
-        post = await session.get(Post, post_id)
+        post = await _resolve_post(session, post_id)
         if not post:
             rprint(f"[red]Post {post_id!r} not found.[/red]")
             raise typer.Exit(1)
@@ -244,6 +244,31 @@ def _apply_field_overrides(post: Post, overrides: dict) -> list[str]:
     return changes
 
 
+async def _resolve_post(session: AsyncSession, post_id: str) -> Post | None:
+    """
+    Resolve a post by full UUID or unique short prefix.
+
+    Returns None if no post matches, and exits with an explanatory error when
+    the prefix is ambiguous.
+    """
+    if len(post_id) >= 36:
+        return await session.get(Post, post_id)
+
+    rows = (
+        await session.exec(
+            select(Post).where(Post.id.startswith(post_id)).order_by(Post.detected_at.desc()).limit(2)
+        )
+    ).all()
+    if not rows:
+        return None
+    if len(rows) > 1:
+        rprint(f"[red]Post ID prefix {post_id!r} is ambiguous. Use more characters.[/red]")
+        for p in rows:
+            rprint(f"  - {p.id}")
+        raise typer.Exit(1)
+    return rows[0]
+
+
 async def _write_event(
     session,
     post: Post,
@@ -283,7 +308,7 @@ def posts_edit(
     """Correct extraction fields on a NEEDS_REVIEW post."""
 
     async def _run(session):
-        post = await session.get(Post, post_id)
+        post = await _resolve_post(session, post_id)
         if not post:
             rprint(f"[red]Post {post_id!r} not found.[/red]")
             raise typer.Exit(1)
@@ -338,7 +363,7 @@ def posts_approve(
     """Promote a NEEDS_REVIEW post to INDEXED, optionally correcting fields first."""
 
     async def _run(session):
-        post = await session.get(Post, post_id)
+        post = await _resolve_post(session, post_id)
         if not post:
             rprint(f"[red]Post {post_id!r} not found.[/red]")
             raise typer.Exit(1)
@@ -395,7 +420,7 @@ def posts_dismiss(
     """Permanently skip a NEEDS_REVIEW post (spam, off-topic, duplicate)."""
 
     async def _run(session):
-        post = await session.get(Post, post_id)
+        post = await _resolve_post(session, post_id)
         if not post:
             rprint(f"[red]Post {post_id!r} not found.[/red]")
             raise typer.Exit(1)
