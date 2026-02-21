@@ -48,7 +48,7 @@ class OpenAIExtractor(LLMExtractor):
         try:
             response = await self._client.responses.parse(
                 model=self._model,
-                max_output_tokens=1024,
+                max_output_tokens=None,
                 instructions=SYSTEM_PROMPT,
                 input=user_prompt,
                 text_format=ExtractedPost,

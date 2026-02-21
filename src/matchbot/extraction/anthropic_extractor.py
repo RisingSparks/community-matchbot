@@ -31,7 +31,7 @@ class AnthropicExtractor(LLMExtractor):
         try:
             response = await self._client.messages.create(
                 model=self._model,
-                max_tokens=1024,
+                max_tokens=None,
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_prompt}],
             )
