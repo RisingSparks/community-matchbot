@@ -36,7 +36,7 @@ class OpenAIExtractor(LLMExtractor):
         try:
             response = await self._client.chat.completions.create(
                 model=self._model,
-                max_tokens=1024,
+                max_completion_tokens=1024,
                 response_format={"type": "json_object"},
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
@@ -48,6 +48,13 @@ class OpenAIExtractor(LLMExtractor):
             raise ExtractionError(f"OpenAI API error: {exc}") from exc
 
         raw = response.choices[0].message.content or ""
+        if not raw:
+             # Check if there is reasoning_content or something else
+             msg = response.choices[0].message
+             debug_info = f"content={msg.content!r}"
+             if hasattr(msg, "reasoning_content") and msg.reasoning_content:
+                 debug_info += f" reasoning_content={msg.reasoning_content!r}"
+             raise ExtractionError(f"OpenAI returned empty content. Model: {self._model}. {debug_info}")
 
         try:
             data = json.loads(raw)
