@@ -98,7 +98,10 @@ def create_bot() -> commands.Bot:
             await session.commit()
             await session.refresh(post)
             extractor = _get_extractor()
-            post = await process_post(session, post, extractor)
+            try:
+                post = await process_post(session, post, extractor)
+            finally:
+                await extractor.aclose()
 
         await ctx.send(
             f"Post ingested (ID: `{post.id[:8]}`). Status: `{post.status}`",
@@ -148,7 +151,10 @@ async def _handle_discord_message(message: discord.Message) -> None:
         await session.refresh(post)
 
         extractor = _get_extractor()
-        await process_post(session, post, extractor)
+        try:
+            await process_post(session, post, extractor)
+        finally:
+            await extractor.aclose()
 
 
 async def _handle_opt_out_discord(message: discord.Message) -> None:

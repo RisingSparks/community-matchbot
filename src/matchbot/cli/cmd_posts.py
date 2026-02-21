@@ -139,7 +139,10 @@ def posts_re_extract(post_id: str) -> None:
         session.add(post)
         await session.commit()
 
-        updated = await process_post(session, post, extractor)
+        try:
+            updated = await process_post(session, post, extractor)
+        finally:
+            await extractor.aclose()
         rprint(f"[green]Re-extracted post {post_id[:8]}: status={updated.status}[/green]")
 
     with_session(_run)

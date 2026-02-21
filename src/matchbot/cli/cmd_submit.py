@@ -53,7 +53,10 @@ def submit_text(
                 if settings.llm_provider == "anthropic"
                 else OpenAIExtractor()
             )
-            post = await process_post(session, post, extractor)
+            try:
+                post = await process_post(session, post, extractor)
+            finally:
+                await extractor.aclose()
 
         rprint(f"[green]Post ingested: {post.id[:8]}  status={post.status}[/green]")
 
@@ -82,32 +85,38 @@ def submit_file(
         from matchbot.settings import get_settings
 
         settings = get_settings()
-        extractor = (
-            AnthropicExtractor()
-            if settings.llm_provider == "anthropic"
-            else OpenAIExtractor()
-        )
+        extractor = None
+        if extract:
+            extractor = (
+                AnthropicExtractor()
+                if settings.llm_provider == "anthropic"
+                else OpenAIExtractor()
+            )
 
         count = 0
-        with open(path, newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                post = Post(
-                    platform=platform,
-                    platform_post_id=f"manual_{uuid.uuid4().hex[:12]}",
-                    platform_author_id="manual",
-                    source_community=row.get("community", ""),
-                    title=row.get("title", "")[:80],
-                    raw_text=row.get("body", "")[:2000],
-                    status=PostStatus.RAW,
-                )
-                session.add(post)
-                await session.commit()
-                await session.refresh(post)
+        try:
+            with open(path, newline="") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    post = Post(
+                        platform=platform,
+                        platform_post_id=f"manual_{uuid.uuid4().hex[:12]}",
+                        platform_author_id="manual",
+                        source_community=row.get("community", ""),
+                        title=row.get("title", "")[:80],
+                        raw_text=row.get("body", "")[:2000],
+                        status=PostStatus.RAW,
+                    )
+                    session.add(post)
+                    await session.commit()
+                    await session.refresh(post)
 
-                if extract:
-                    post = await process_post(session, post, extractor)
-                count += 1
+                    if extract and extractor:
+                        post = await process_post(session, post, extractor)
+                    count += 1
+        finally:
+            if extractor:
+                await extractor.aclose()
 
         rprint(f"[green]Ingested {count} posts from {file_path}.[/green]")
 

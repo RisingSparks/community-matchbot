@@ -54,48 +54,52 @@ async def _backfill_async(file: str, extract: bool, dry_run: bool) -> None:
             AnthropicExtractor() if settings.llm_provider == "anthropic" else OpenAIExtractor()
         )
 
-    path = Path(file)
-    if not path.exists():
-        logger.error("File not found: %s", file)
-        raise SystemExit(1)
+    try:
+        path = Path(file)
+        if not path.exists():
+            logger.error("File not found: %s", file)
+            raise SystemExit(1)
 
-    count = 0
-    skipped = 0
+        count = 0
+        skipped = 0
 
-    with open(path, newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if dry_run:
-                logger.info("[dry-run] Would ingest: %s", row.get("title", "")[:60])
+        with open(path, newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if dry_run:
+                    logger.info("[dry-run] Would ingest: %s", row.get("title", "")[:60])
+                    count += 1
+                    continue
+
+                post = Post(
+                    platform=row.get("platform", Platform.MANUAL),
+                    platform_post_id=row.get("post_id") or f"backfill_{uuid.uuid4().hex[:12]}",
+                    platform_author_id=row.get("author_id", "unknown"),
+                    author_display_name=row.get("author_name", ""),
+                    source_url=row.get("url", ""),
+                    source_community=row.get("community", ""),
+                    title=row.get("title", "")[:500],
+                    raw_text=row.get("body", "")[:2000],
+                    status=PostStatus.RAW,
+                )
+
+                async with get_session() as session:
+                    session.add(post)
+                    await session.commit()
+                    await session.refresh(post)
+
+                    if extract and extractor:
+                        post = await process_post(session, post, extractor)
+                        logger.info("Backfilled %s → %s", post.platform_post_id, post.status)
+                    else:
+                        logger.info("Backfilled %s (no extraction)", post.platform_post_id)
+
                 count += 1
-                continue
 
-            post = Post(
-                platform=row.get("platform", Platform.MANUAL),
-                platform_post_id=row.get("post_id") or f"backfill_{uuid.uuid4().hex[:12]}",
-                platform_author_id=row.get("author_id", "unknown"),
-                author_display_name=row.get("author_name", ""),
-                source_url=row.get("url", ""),
-                source_community=row.get("community", ""),
-                title=row.get("title", "")[:500],
-                raw_text=row.get("body", "")[:2000],
-                status=PostStatus.RAW,
-            )
-
-            async with get_session() as session:
-                session.add(post)
-                await session.commit()
-                await session.refresh(post)
-
-                if extract and extractor:
-                    post = await process_post(session, post, extractor)
-                    logger.info("Backfilled %s → %s", post.platform_post_id, post.status)
-                else:
-                    logger.info("Backfilled %s (no extraction)", post.platform_post_id)
-
-            count += 1
-
-    logger.info("Done. Ingested %d posts, skipped %d.", count, skipped)
+        logger.info("Done. Ingested %d posts, skipped %d.", count, skipped)
+    finally:
+        if extractor:
+            await extractor.aclose()
 
 
 if __name__ == "__main__":

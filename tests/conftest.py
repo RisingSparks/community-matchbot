@@ -81,6 +81,7 @@ def mock_extractor():
             extraction_notes=None,
         )
     )
+    extractor.aclose = AsyncMock(return_value=None)
     return extractor
 
 

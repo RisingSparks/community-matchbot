@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -223,23 +222,25 @@ async def test_anthropic_extractor_parses_response():
     from matchbot.extraction.anthropic_extractor import AnthropicExtractor
 
     mock_response = MagicMock()
-    mock_response.content = [MagicMock(text=json.dumps({
-        "role": "seeker",
-        "camp_name": None,
-        "camp_size_min": None,
-        "camp_size_max": None,
-        "year": 2025,
-        "vibes": ["art", "build_focused"],
-        "contribution_types": ["build"],
-        "location_preference": None,
-        "availability_notes": "Available build week",
-        "contact_method": "DM on Reddit",
-        "confidence": 0.85,
-        "extraction_notes": None,
-    }))]
+    mock_response.stop_reason = "end_turn"
+    mock_response.content = []
+    mock_response.parsed_output = ExtractedPost(
+        role="seeker",
+        camp_name=None,
+        camp_size_min=None,
+        camp_size_max=None,
+        year=2025,
+        vibes=["art", "build_focused"],
+        contribution_types=["build"],
+        location_preference=None,
+        availability_notes="Available build week",
+        contact_method="DM on Reddit",
+        confidence=0.85,
+        extraction_notes=None,
+    )
 
     mock_client = AsyncMock()
-    mock_client.messages.create = AsyncMock(return_value=mock_response)
+    mock_client.messages.parse = AsyncMock(return_value=mock_response)
 
     extractor = AnthropicExtractor(client=mock_client)
     result = await extractor.extract("Seeking camp", "Looking for camp", "reddit", "BurningMan")
@@ -307,16 +308,21 @@ async def test_openai_extractor_raises_on_refusal():
 
 
 @pytest.mark.asyncio
-async def test_anthropic_extractor_raises_on_bad_json():
+async def test_anthropic_extractor_raises_on_refusal():
     from matchbot.extraction.anthropic_extractor import AnthropicExtractor
     from matchbot.extraction.base import ExtractionError
 
+    refusal_text = MagicMock()
+    refusal_text.type = "text"
+    refusal_text.text = "I cannot help with that."
     mock_response = MagicMock()
-    mock_response.content = [MagicMock(text="not valid json {{{")]
+    mock_response.stop_reason = "refusal"
+    mock_response.content = [refusal_text]
+    mock_response.parsed_output = None
 
     mock_client = AsyncMock()
-    mock_client.messages.create = AsyncMock(return_value=mock_response)
+    mock_client.messages.parse = AsyncMock(return_value=mock_response)
 
     extractor = AnthropicExtractor(client=mock_client)
-    with pytest.raises(ExtractionError):
+    with pytest.raises(ExtractionError, match="refused extraction"):
         await extractor.extract("title", "body", "reddit", "community")

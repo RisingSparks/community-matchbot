@@ -1,5 +1,7 @@
 """OpenAI LLM extractor."""
 
+import inspect
+
 import openai
 
 from matchbot.extraction.base import ExtractionError, LLMExtractor
@@ -31,6 +33,14 @@ class OpenAIExtractor(LLMExtractor):
 
     def provider_name(self) -> str:
         return "openai"
+
+    async def aclose(self) -> None:
+        close = getattr(self._client, "close", None)
+        if close is None:
+            return
+        result = close()
+        if inspect.isawaitable(result):
+            await result
 
     async def extract(
         self,

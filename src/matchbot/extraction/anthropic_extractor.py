@@ -1,6 +1,6 @@
 """Anthropic (Claude) LLM extractor."""
 
-import json
+import inspect
 
 import anthropic
 
@@ -8,6 +8,17 @@ from matchbot.extraction.base import ExtractionError, LLMExtractor
 from matchbot.extraction.prompts import SYSTEM_PROMPT, build_user_prompt
 from matchbot.extraction.schemas import ExtractedPost
 from matchbot.settings import get_settings
+
+
+def get_anthropic_refusal(response: object) -> str | None:
+    """Extract refusal text from an Anthropic response, if present."""
+    if getattr(response, "stop_reason", None) != "refusal":
+        return None
+    content = getattr(response, "content", None) or []
+    for block in content:
+        if getattr(block, "type", None) == "text":
+            return getattr(block, "text", None)
+    return "Request refused by Anthropic safety system."
 
 
 class AnthropicExtractor(LLMExtractor):
@@ -19,6 +30,14 @@ class AnthropicExtractor(LLMExtractor):
     def provider_name(self) -> str:
         return "anthropic"
 
+    async def aclose(self) -> None:
+        close = getattr(self._client, "close", None)
+        if close is None:
+            return
+        result = close()
+        if inspect.isawaitable(result):
+            await result
+
     async def extract(
         self,
         title: str,
@@ -29,30 +48,28 @@ class AnthropicExtractor(LLMExtractor):
         user_prompt = build_user_prompt(title, body, platform, source_community)
 
         try:
-            response = await self._client.messages.create(
+            response = await self._client.messages.parse(
                 model=self._model,
                 max_tokens=None,
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_prompt}],
+                output_format=ExtractedPost,
             )
         except anthropic.APIError as exc:
             raise ExtractionError(f"Anthropic API error: {exc}") from exc
 
-        first_block = response.content[0]
-        if not hasattr(first_block, "text"):
-            raise ExtractionError(f"Unexpected response block type: {type(first_block).__name__}")
-        raw = first_block.text.strip()
-        # Strip markdown code fences if present
-        if raw.startswith("```"):
-            lines = raw.splitlines()
-            raw = "\n".join(lines[1:-1] if lines[-1].startswith("```") else lines[1:])
+        refusal = get_anthropic_refusal(response)
+        if refusal:
+            raise ExtractionError(
+                f"Anthropic refused extraction. Model: {self._model}. Refusal: {refusal}"
+            )
 
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise ExtractionError(f"Failed to parse LLM JSON response: {exc}\nRaw: {raw}") from exc
-
-        try:
-            return ExtractedPost(**data)
-        except Exception as exc:
-            raise ExtractionError(f"ExtractedPost validation failed: {exc}") from exc
+        parsed = getattr(response, "parsed_output", None)
+        if parsed is None:
+            raise ExtractionError(
+                f"Anthropic returned no parsed extraction. Model: {self._model}. "
+                f"stop_reason={getattr(response, 'stop_reason', None)!r}"
+            )
+        if isinstance(parsed, ExtractedPost):
+            return parsed
+        return ExtractedPost.model_validate(parsed)

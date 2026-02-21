@@ -236,7 +236,10 @@ def queue_triage(
         extractor = OpenAIExtractor() if settings.llm_provider == "openai" else AnthropicExtractor()
 
         rprint(f"[cyan]Running LLM triage on match {match_id[:8]}…[/cyan]")
-        confidence, rationale = await llm_triage(seeker, camp, extractor)
+        try:
+            confidence, rationale = await llm_triage(seeker, camp, extractor)
+        finally:
+            await extractor.aclose()
 
         rprint(f"  Confidence: {confidence:.3f}")
         rprint(f"  Rationale: {rationale}")

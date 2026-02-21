@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 from pydantic import BaseModel, field_validator
 
 from matchbot.db.models import Post
@@ -80,19 +78,30 @@ async def _call_triage(extractor: LLMExtractor, user_content: str) -> dict:
     provider = extractor.provider_name()
 
     if provider == "anthropic":
-        from matchbot.extraction.anthropic_extractor import AnthropicExtractor
+        from matchbot.extraction.anthropic_extractor import (
+            AnthropicExtractor,
+            get_anthropic_refusal,
+        )
 
         assert isinstance(extractor, AnthropicExtractor)
-        anthropic_response = await extractor._client.messages.create(
+        anthropic_response = await extractor._client.messages.parse(
             model=extractor._model,
             max_tokens=512,
             system=TRIAGE_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
+            output_format=TriageDecision,
         )
-        first_block = anthropic_response.content[0]
-        if not hasattr(first_block, "text"):
-            raise ExtractionError(f"Unexpected response block type: {type(first_block).__name__}")
-        raw = first_block.text.strip()
+        refusal = get_anthropic_refusal(anthropic_response)
+        if refusal:
+            raise ExtractionError(f"Anthropic refused triage response: {refusal}")
+
+        parsed = getattr(anthropic_response, "parsed_output", None)
+        if parsed is None:
+            raise ExtractionError("Anthropic returned no parsed triage response")
+
+        if isinstance(parsed, TriageDecision):
+            return parsed.model_dump()
+        return TriageDecision.model_validate(parsed).model_dump()
     elif provider == "openai":
         from matchbot.extraction.openai_extractor import OpenAIExtractor, get_openai_refusal
 
@@ -117,10 +126,3 @@ async def _call_triage(extractor: LLMExtractor, user_content: str) -> dict:
         return TriageDecision.model_validate(parsed).model_dump()
     else:
         raise ExtractionError(f"Unknown provider for triage: {provider}")
-
-    # Strip code fences
-    if raw.startswith("```"):
-        lines = raw.splitlines()
-        raw = "\n".join(lines[1:-1] if lines[-1].startswith("```") else lines[1:])
-
-    return json.loads(raw)

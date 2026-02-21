@@ -19,3 +19,7 @@ class LLMExtractor(ABC):
 
     @abstractmethod
     def provider_name(self) -> str: ...
+
+    async def aclose(self) -> None:
+        """Optional async cleanup hook for provider clients."""
+        return None

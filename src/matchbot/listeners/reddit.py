@@ -69,7 +69,10 @@ async def _handle_submission(submission, session: AsyncSession) -> Post | None:
     await session.refresh(post)
 
     extractor = _get_extractor()
-    post = await process_post(session, post, extractor)
+    try:
+        post = await process_post(session, post, extractor)
+    finally:
+        await extractor.aclose()
     logger.info("Reddit post %s → status=%s", submission.id, post.status)
     return post
 

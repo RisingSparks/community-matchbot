@@ -134,7 +134,10 @@ async def _handle_feed_change(value: dict) -> None:
         await session.refresh(post)
 
         extractor = _get_extractor()
-        await process_post(session, post, extractor)
+        try:
+            await process_post(session, post, extractor)
+        finally:
+            await extractor.aclose()
 
 
 async def _handle_messages_change(value: dict) -> None:

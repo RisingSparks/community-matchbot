@@ -316,7 +316,10 @@ def _schedule_extraction(post_id: str) -> None:
         async with AsyncSession(get_engine(), expire_on_commit=False) as session:
             post = await session.get(Post, post_id)
             if post:
-                await process_post(session, post, extractor)
+                try:
+                    await process_post(session, post, extractor)
+                finally:
+                    await extractor.aclose()
 
     try:
         loop = asyncio.get_running_loop()
