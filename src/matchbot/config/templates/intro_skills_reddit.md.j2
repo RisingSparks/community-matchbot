@@ -1,0 +1,16 @@
+Hey {{ seeker_username }}!
+
+I found a camp that looks like a great fit for what you're looking to learn — **{{ camp_name or "a camp I work with" }}** offers hands-on opportunities in some of the areas you mentioned.
+
+{% if shared_contrib %}They work on: **{{ shared_contrib | join(", ") }}** — which lines up with what you're looking to explore.{% endif %}
+{% if shared_vibes %}You also share these vibes: **{{ shared_vibes | join(", ") }}**{% endif %}
+
+The camp contact is u/{{ camp_contact }}, and [their post is here]({{ camp_url }}).
+Your post I'm referencing: [here]({{ seeker_url }}).
+
+I'm {{ moderator_name }}, and I help connect folks in the BM community with camps that match their learning goals. From here, it's entirely up to you both.
+
+Feel free to reach out to them directly, or reply here if you have questions.
+
+---
+*You received this because you posted looking for skill-building or mentorship opportunities. To opt out of future introductions, reply "opt out".*

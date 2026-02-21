@@ -1,0 +1,13 @@
+Hi {{ camp_contact }}!
+
+Quick heads-up: I've connected {{ seeker_username }} with your camp as a potential match. They're looking to **learn and build skills** — not just join as a regular member — so they may be a great fit if your camp offers hands-on learning or mentorship.
+
+{% if shared_contrib %}Skills they're looking to develop: {{ shared_contrib | join(", ") }}{% endif %}
+{% if shared_vibes %}Shared vibes: {{ shared_vibes | join(", ") }}{% endif %}
+
+Their post: {{ seeker_url }}
+Your post: {{ camp_url }}
+
+— {{ moderator_name }}
+
+(Reply "opt out" to stop receiving these introductions.)

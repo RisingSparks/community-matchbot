@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from matchbot.db.models import Platform, Post, PostRole, PostStatus
-from matchbot.matching.scorer import _jaccard, _recency_score, _year_score, score_match
+from matchbot.matching.scorer import WEIGHTS, WEIGHTS_SKILLS, _jaccard, _recency_score, _year_score, score_match
 
 
 class TestJaccard:
@@ -136,6 +136,44 @@ class TestScoreMatch:
         camp = _make_indexed_post(PostRole.CAMP, [], ["build"])
         score, breakdown = score_match(seeker, camp)
         assert breakdown["vibe_overlap"] == pytest.approx(0.0)
+
+
+class TestScoreMatchSkills:
+    def test_skills_weights_applied(self):
+        seeker = _make_indexed_post(PostRole.SEEKER, ["art"], ["build"])
+        camp = _make_indexed_post(PostRole.CAMP, ["art"], ["build"])
+        _, breakdown = score_match(seeker, camp, seeker_intent="skills_learning")
+        # Verify breakdown keys are unchanged
+        assert set(breakdown.keys()) == {"vibe_overlap", "contribution_overlap", "recency", "year_match"}
+
+    def test_skills_weights_differ_from_default(self):
+        assert WEIGHTS_SKILLS["vibe_overlap"] < WEIGHTS["vibe_overlap"]
+        assert WEIGHTS_SKILLS["contribution_overlap"] > WEIGHTS["contribution_overlap"]
+
+    def test_skills_seeker_high_contrib_low_vibe_scores_higher_than_membership(self):
+        # High contribution overlap but zero vibe overlap
+        seeker = _make_indexed_post(PostRole.SEEKER, ["sober"], ["build", "art"])
+        camp = _make_indexed_post(PostRole.CAMP, ["party"], ["build", "art"])
+
+        score_membership, _ = score_match(seeker, camp, seeker_intent="membership")
+        score_skills, _ = score_match(seeker, camp, seeker_intent="skills_learning")
+
+        # Skills weights favour contribution overlap more, so score should be higher
+        assert score_skills > score_membership
+
+    def test_none_intent_uses_default_weights(self):
+        seeker = _make_indexed_post(PostRole.SEEKER, ["art"], ["build"])
+        camp = _make_indexed_post(PostRole.CAMP, ["art"], ["build"])
+        score_none, _ = score_match(seeker, camp, seeker_intent=None)
+        score_default, _ = score_match(seeker, camp)
+        assert score_none == pytest.approx(score_default)
+
+    def test_membership_intent_uses_default_weights(self):
+        seeker = _make_indexed_post(PostRole.SEEKER, ["art"], ["build"])
+        camp = _make_indexed_post(PostRole.CAMP, ["art"], ["build"])
+        score_membership, _ = score_match(seeker, camp, seeker_intent="membership")
+        score_default, _ = score_match(seeker, camp)
+        assert score_membership == pytest.approx(score_default)
 
 
 @pytest.mark.asyncio

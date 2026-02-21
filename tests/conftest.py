@@ -98,6 +98,7 @@ def _make_post(
     title: str = "Seeking camp for Burning Man",
     raw_text: str = "I am looking for a camp. Willing to build.",
     source_community: str = "BurningMan",
+    seeker_intent: str | None = None,
 ) -> Post:
     v = vibes or ["art", "build_focused"]
     ct = contribution_types or ["build", "art"]
@@ -115,6 +116,7 @@ def _make_post(
         vibes="|".join(v),
         contribution_types="|".join(ct),
         year=year,
+        seeker_intent=seeker_intent,
     )
 
 

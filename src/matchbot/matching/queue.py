@@ -75,7 +75,7 @@ async def _propose_mentorship_matches(session: AsyncSession, new_post: Post) -> 
         if existing:
             continue
 
-        composite, breakdown = score_match(seeker, camp)
+        composite, breakdown = score_match(seeker, camp, seeker_intent=seeker.seeker_intent)
 
         if composite < min_score:
             continue

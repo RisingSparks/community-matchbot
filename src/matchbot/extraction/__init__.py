@@ -79,6 +79,7 @@ async def process_post(session: AsyncSession, post: Post, extractor: LLMExtracto
 
     # Mentorship fields
     post.role = extracted.role if extracted.role else keyword_role_hint
+    post.seeker_intent = extracted.seeker_intent
     post.vibes = "|".join(valid_vibes)
     post.contribution_types = "|".join(valid_contributions)
     post.camp_name = extracted.camp_name
@@ -114,6 +115,7 @@ async def process_post(session: AsyncSession, post: Post, extractor: LLMExtracto
             "confidence": extracted.confidence,
             "post_type": post.post_type,
             "role": post.role,
+            "seeker_intent": post.seeker_intent,
             "infra_role": post.infra_role,
             "status": post.status,
         },

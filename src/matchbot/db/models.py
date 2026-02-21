@@ -62,6 +62,12 @@ class InfraRole:
     OFFERING = "offering"  # has the thing to lend/give/swap
 
 
+class SeekerIntent:
+    MEMBERSHIP = "membership"         # wants to join a camp as a member
+    SKILLS_LEARNING = "skills_learning"  # wants to learn a skill / find a mentor
+    UNKNOWN = "unknown"               # seeker but intent unclear
+
+
 # ---------------------------------------------------------------------------
 # Tables
 # ---------------------------------------------------------------------------
@@ -72,6 +78,7 @@ class Profile(SQLModel, table=True):
 
     id: str = Field(default_factory=_new_id, primary_key=True)
     role: str = Field(index=True)  # PostRole
+    seeker_intent: str | None = Field(default=None)  # SeekerIntent | None
     display_name: str = Field(default="")
     platform: str = Field(index=True)  # Platform
     platform_author_id: str = Field(index=True)
@@ -114,6 +121,7 @@ class Post(SQLModel, table=True):
 
     # Extraction results
     role: str | None = Field(default=None)
+    seeker_intent: str | None = Field(default=None)  # SeekerIntent | None
     vibes: str = Field(default="")  # pipe-delimited
     contribution_types: str = Field(default="")  # pipe-delimited
     camp_name: str | None = Field(default=None)

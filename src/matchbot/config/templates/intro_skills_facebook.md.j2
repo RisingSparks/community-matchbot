@@ -1,0 +1,12 @@
+Hi {{ seeker_username }},
+
+I wanted to reach out because I think {{ camp_name or "a camp" }} could be a great fit for your learning goals. I'm {{ moderator_name }}, and I help connect people with camps in the Burning Man community.
+
+{% if shared_contrib %}They work on {{ shared_contrib | join(", ") }}, which matches what you're hoping to learn or contribute to.{% endif %}
+{% if shared_vibes %}You also share these vibes: {{ shared_vibes | join(", ") }}.{% endif %}
+
+Their contact is {{ camp_contact }}{% if camp_url %} (post: {{ camp_url }}){% endif %}.
+
+This is just an introduction — from here it's up to you both. Feel free to reach out to them directly!
+
+To opt out of future introductions, reply "opt out" to this message.

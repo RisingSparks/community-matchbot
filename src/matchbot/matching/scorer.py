@@ -50,13 +50,23 @@ WEIGHTS = {
     "year_match": 0.10,
 }
 
+# Skills/learning seeker: contribution overlap matters most, vibe matters less
+WEIGHTS_SKILLS = {
+    "vibe_overlap": 0.15,
+    "contribution_overlap": 0.60,
+    "recency": 0.15,
+    "year_match": 0.10,
+}
 
-def score_match(seeker: Post, camp: Post) -> tuple[float, dict]:
+
+def score_match(seeker: Post, camp: Post, seeker_intent: str | None = None) -> tuple[float, dict]:
     """
     Compute composite match score between a seeker and a camp post.
 
     Returns (composite_score, breakdown_dict).
     """
+    weights = WEIGHTS_SKILLS if seeker_intent == "skills_learning" else WEIGHTS
+
     seeker_vibes = set(seeker.vibes_list())
     camp_vibes = set(camp.vibes_list())
     seeker_contribs = set(seeker.contribution_types_list())
@@ -81,10 +91,10 @@ def score_match(seeker: Post, camp: Post) -> tuple[float, dict]:
     }
 
     composite = (
-        WEIGHTS["vibe_overlap"] * vibe_overlap
-        + WEIGHTS["contribution_overlap"] * contribution_overlap
-        + WEIGHTS["recency"] * recency
-        + WEIGHTS["year_match"] * year_match
+        weights["vibe_overlap"] * vibe_overlap
+        + weights["contribution_overlap"] * contribution_overlap
+        + weights["recency"] * recency
+        + weights["year_match"] * year_match
     )
 
     return round(composite, 4), breakdown

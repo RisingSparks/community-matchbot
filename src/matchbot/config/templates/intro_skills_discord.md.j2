@@ -1,0 +1,14 @@
+Hey {{ seeker_username }}! 👋
+
+I found a camp that could be a great match for your learning goals — **{{ camp_name or "a camp I know" }}** has hands-on opportunities in areas you're looking to explore.
+
+{% if shared_contrib %}**Skills overlap:** {{ shared_contrib | join(", ") }}{% endif %}
+{% if shared_vibes %}**Shared vibes:** {{ shared_vibes | join(", ") }}{% endif %}
+
+Their contact: **{{ camp_contact }}** ([post link]({{ camp_url }}))
+Your post: [here]({{ seeker_url }})
+
+I'm {{ moderator_name }} — I help connect learners and builders with camps in the BM community. From here, it's entirely up to you two!
+
+---
+*To opt out of future intros, DM me "opt out".*

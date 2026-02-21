@@ -1,0 +1,14 @@
+Hey {{ camp_contact }}!
+
+I wanted to give you a heads-up — I just reached out to u/{{ seeker_username }}, who is looking to **learn and build skills**, not just join as a regular member. They're specifically interested in hands-on experience and may be a great fit if you offer mentorship or teaching opportunities.
+
+{% if shared_contrib %}Skills they're looking to develop: **{{ shared_contrib | join(", ") }}**{% endif %}
+{% if shared_vibes %}Shared vibes: **{{ shared_vibes | join(", ") }}**{% endif %}
+
+Their post: [here]({{ seeker_url }})
+Your post I'm referencing: [here]({{ camp_url }}).
+
+I'm {{ moderator_name }}. I've shared your contact info with them — they may reach out. No pressure, and you own the vetting from here.
+
+---
+*You received this because your camp has an opening post. To opt out of future introductions, reply "opt out".*

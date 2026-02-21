@@ -39,6 +39,7 @@ Output schema:
   "extraction_notes": string | null,
 
   "role": "seeker" | "camp" | "unknown",
+  "seeker_intent": "membership" | "skills_learning" | "unknown" | null,
   "camp_name": string | null,
   "camp_size_min": integer | null,
   "camp_size_max": integer | null,
@@ -58,6 +59,12 @@ Output schema:
 
 For mentorship posts: fill role, vibes, contribution_types, camp_name, etc. Leave infra fields null/empty.
 For infrastructure posts: fill infra_role, infra_categories, quantity, condition, dates_needed. Leave mentorship fields null/empty.
+
+seeker_intent rules (only set when role == "seeker"):
+- "membership": person wants to join a camp as a regular member/volunteer
+- "skills_learning": person wants to learn a skill, find a mentor, work on a specific project, or gain hands-on experience
+- "unknown": seeker intent is unclear
+- null: use for camp posts, infrastructure posts, and any non-seeker post
 """.format(
     vibes=", ".join(sorted(VIBES)),
     contribution_types=", ".join(sorted(CONTRIBUTION_TYPES)),
