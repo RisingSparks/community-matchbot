@@ -29,6 +29,9 @@ scripts/test_e2e_local.sh --no-backup
 
 `--with-llm` adds a real extraction phase using your `.env` provider + API key.
 
+Note: the script creates `matchbot.db.bak.YYYYMMDD-HHMMSS` by default before teardown.
+Use `--no-backup` for fully ephemeral runs.
+
 ## 2) Manual Runtime Checks
 
 After the script (or any run), inspect state:
