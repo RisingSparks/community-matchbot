@@ -1,0 +1,128 @@
+"""Shared test fixtures."""
+
+from __future__ import annotations
+
+import pytest
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.pool import StaticPool
+from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
+from unittest.mock import AsyncMock, MagicMock
+
+from matchbot.db.models import Post, Platform, PostRole, PostStatus
+from matchbot.extraction.schemas import ExtractedPost
+
+
+# ---------------------------------------------------------------------------
+# Database fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest_asyncio.fixture
+async def db_session():
+    """In-memory async SQLite session, isolated per test."""
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        yield session
+
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.drop_all)
+    await engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Mock LLM extractor
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mock_extractor():
+    """Mock extractor returning a default ExtractedPost. provider_name is sync; extract is async."""
+    extractor = MagicMock()
+    extractor.provider_name.return_value = "anthropic"
+    extractor.extract = AsyncMock(
+        return_value=ExtractedPost(
+            role="seeker",
+            camp_name=None,
+            camp_size_min=None,
+            camp_size_max=None,
+            year=2025,
+            vibes=["art", "build_focused"],
+            contribution_types=["build", "art"],
+            location_preference=None,
+            availability_notes="Available for build week",
+            contact_method="DM me on Reddit",
+            confidence=0.85,
+            extraction_notes=None,
+        )
+    )
+    return extractor
+
+
+# ---------------------------------------------------------------------------
+# Post factories
+# ---------------------------------------------------------------------------
+
+
+def _make_post(
+    platform: str = Platform.REDDIT,
+    role: str = PostRole.SEEKER,
+    vibes: list[str] | None = None,
+    contribution_types: list[str] | None = None,
+    year: int | None = 2025,
+    status: str = PostStatus.INDEXED,
+    title: str = "Seeking camp for Burning Man",
+    raw_text: str = "I am looking for a camp. Willing to build.",
+    source_community: str = "BurningMan",
+) -> Post:
+    v = vibes or ["art", "build_focused"]
+    ct = contribution_types or ["build", "art"]
+    return Post(
+        platform=platform,
+        platform_post_id=f"test_{id(object())}",
+        platform_author_id="user_123",
+        author_display_name="TestUser",
+        source_url="https://reddit.com/r/BurningMan/test",
+        source_community=source_community,
+        title=title,
+        raw_text=raw_text,
+        status=status,
+        role=role,
+        vibes="|".join(v),
+        contribution_types="|".join(ct),
+        year=year,
+    )
+
+
+@pytest.fixture
+def seeker_post_factory():
+    """Factory for seeker Post objects."""
+
+    def factory(**kwargs):
+        kwargs.setdefault("role", PostRole.SEEKER)
+        return _make_post(**kwargs)
+
+    return factory
+
+
+@pytest.fixture
+def camp_post_factory():
+    """Factory for camp Post objects."""
+
+    def factory(**kwargs):
+        kwargs.setdefault("role", PostRole.CAMP)
+        kwargs.setdefault("vibes", ["art", "build_focused"])
+        kwargs.setdefault("contribution_types", ["build", "kitchen"])
+        kwargs.setdefault("title", "Our camp has openings!")
+        kwargs.setdefault("raw_text", "We are recruiting members. Join our art camp!")
+        return _make_post(**kwargs)
+
+    return factory
