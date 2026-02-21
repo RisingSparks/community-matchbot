@@ -27,6 +27,23 @@ uv run python ...
 
 For debugging, enable verbose logging with `VERBOSE=true` (env) or `matchbot --verbose ...` (CLI).
 
+## Local E2E Smoke Test
+
+Run a full local teardown + deterministic ingest/match validation:
+
+```bash
+scripts/test_e2e_local.sh
+```
+
+Useful options:
+
+```bash
+scripts/test_e2e_local.sh --skip-pytest
+scripts/test_e2e_local.sh --with-llm
+```
+
+See `docs/TESTING.md` for the full testing/debug workflow.
+
 ## Privacy & Terms
 
 This is a volunteer-run community project. We value your privacy and only process public posts from community forums (Reddit, Discord, Facebook) to help match seekers with camps and infrastructure.
