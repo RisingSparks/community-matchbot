@@ -1,5 +1,5 @@
 app = "burning-man-matchbot"
-primary_region = "sjc"
+primary_region = "iad"
 
 [build]
 
@@ -7,6 +7,15 @@ primary_region = "sjc"
   SERVER_HOST = "0.0.0.0"
   SERVER_PORT = "8080"
   DB_PATH = "/data/matchbot.db"
+  DATABASE_BACKEND = "neon"
+  LLM_PROVIDER = "openai"
+  OPENAI_MODEL = "gpt-4o-mini"
+  OPENAI_SERVICE_TIER = "flex"
+  ANTHROPIC_MODEL = "claude-haiku-4-5"
+  REPORT_OUTPUT_DIR = "/data/reports"
+  MODERATOR_NAME = "Matchbot Mod"
+  REDDIT_USER_AGENT = "matchbot/0.1 by u/your-reddit-username"
+  VERBOSE = "false"
 
 [http_service]
   internal_port = 8080
