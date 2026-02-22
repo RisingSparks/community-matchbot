@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from urllib.parse import urlparse, urlunparse
 
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import SQLModel
@@ -11,14 +12,15 @@ _engine = None
 
 
 def _to_async_db_url(db_url: str) -> str:
-    """Ensure Postgres URLs use the asyncpg dialect and translate SSL params."""
+    """Convert to asyncpg dialect, stripping libpq-specific query params."""
     if db_url.startswith("postgresql://"):
         db_url = f"postgresql+asyncpg://{db_url.removeprefix('postgresql://')}"
     elif db_url.startswith("postgres://"):
         db_url = f"postgresql+asyncpg://{db_url.removeprefix('postgres://')}"
-    # asyncpg doesn't accept sslmode=; translate to ssl=require
-    db_url = db_url.replace("sslmode=require", "ssl=require")
-    return db_url
+    # Strip all query params — asyncpg doesn't understand libpq params like
+    # sslmode, channel_binding, etc. SSL is passed via connect_args instead.
+    parsed = urlparse(db_url)
+    return urlunparse(parsed._replace(query=""))
 
 
 def get_engine():
@@ -31,9 +33,11 @@ def get_engine():
                     "DATABASE_BACKEND is set to 'neon' but NEON_DATABASE_URL is empty."
                 )
             db_url = _to_async_db_url(settings.neon_database_url)
+            connect_args = {"ssl": True}
         else:
             db_url = f"sqlite+aiosqlite:///{settings.db_path}"
-        _engine = create_async_engine(db_url, echo=False)
+            connect_args = {}
+        _engine = create_async_engine(db_url, connect_args=connect_args, echo=False)
     return _engine
 
 

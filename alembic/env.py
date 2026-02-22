@@ -2,9 +2,10 @@ import asyncio
 import sys
 from logging.config import fileConfig
 from pathlib import Path
+from urllib.parse import urlparse, urlunparse
 
 from sqlalchemy import pool
-from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
 
@@ -22,14 +23,15 @@ config = context.config
 
 
 def _to_async_db_url(db_url: str) -> str:
-    """Ensure URLs use the asyncpg dialect and translate SSL params."""
+    """Convert to asyncpg dialect, stripping libpq-specific query params."""
     if db_url.startswith("postgres://"):
         db_url = f"postgresql+asyncpg://{db_url.removeprefix('postgres://')}"
     elif db_url.startswith("postgresql://"):
         db_url = f"postgresql+asyncpg://{db_url.removeprefix('postgresql://')}"
-    # asyncpg doesn't accept sslmode=; translate to ssl=require
-    db_url = db_url.replace("sslmode=require", "ssl=require")
-    return db_url
+    # Strip all query params — asyncpg doesn't understand libpq params like
+    # sslmode, channel_binding, etc. SSL is passed via connect_args instead.
+    parsed = urlparse(db_url)
+    return urlunparse(parsed._replace(query=""))
 
 
 settings = get_settings()
@@ -37,8 +39,11 @@ if settings.database_backend == "neon":
     if not settings.neon_database_url:
         raise ValueError("DATABASE_BACKEND is set to 'neon' but NEON_DATABASE_URL is empty.")
     sqlalchemy_url = _to_async_db_url(settings.neon_database_url)
+    connect_args: dict = {"ssl": True}
 else:
     sqlalchemy_url = f"sqlite+aiosqlite:///{settings.db_path}"
+    connect_args = {}
+
 config.set_main_option("sqlalchemy.url", sqlalchemy_url)
 
 # Interpret the config file for Python logging
@@ -67,14 +72,14 @@ def do_run_migrations(connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    engine = create_async_engine(
+        sqlalchemy_url,
+        connect_args=connect_args,
         poolclass=pool.NullPool,
     )
-    async with connectable.connect() as connection:
+    async with engine.connect() as connection:
         await connection.run_sync(do_run_migrations)
-    await connectable.dispose()
+    await engine.dispose()
 
 
 def run_migrations_online() -> None:
