@@ -11,11 +11,13 @@ _engine = None
 
 
 def _to_async_db_url(db_url: str) -> str:
-    """Ensure Postgres URLs use an async SQLAlchemy dialect."""
+    """Ensure Postgres URLs use the asyncpg dialect and translate SSL params."""
     if db_url.startswith("postgresql://"):
-        return f"postgresql+asyncpg://{db_url.removeprefix('postgresql://')}"
-    if db_url.startswith("postgres://"):
-        return f"postgresql+asyncpg://{db_url.removeprefix('postgres://')}"
+        db_url = f"postgresql+asyncpg://{db_url.removeprefix('postgresql://')}"
+    elif db_url.startswith("postgres://"):
+        db_url = f"postgresql+asyncpg://{db_url.removeprefix('postgres://')}"
+    # asyncpg doesn't accept sslmode=; translate to ssl=require
+    db_url = db_url.replace("sslmode=require", "ssl=require")
     return db_url
 
 

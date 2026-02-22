@@ -22,11 +22,13 @@ config = context.config
 
 
 def _to_async_db_url(db_url: str) -> str:
-    """Ensure URLs use an async SQLAlchemy dialect."""
+    """Ensure URLs use the asyncpg dialect and translate SSL params."""
     if db_url.startswith("postgres://"):
-        return f"postgresql+asyncpg://{db_url.removeprefix('postgres://')}"
-    if db_url.startswith("postgresql://"):
-        return f"postgresql+asyncpg://{db_url.removeprefix('postgresql://')}"
+        db_url = f"postgresql+asyncpg://{db_url.removeprefix('postgres://')}"
+    elif db_url.startswith("postgresql://"):
+        db_url = f"postgresql+asyncpg://{db_url.removeprefix('postgresql://')}"
+    # asyncpg doesn't accept sslmode=; translate to ssl=require
+    db_url = db_url.replace("sslmode=require", "ssl=require")
     return db_url
 
 
