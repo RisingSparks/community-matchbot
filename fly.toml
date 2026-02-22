@@ -14,7 +14,7 @@ primary_region = "iad"
   MODERATOR_NAME = "Matchbot Mod"
   REDDIT_USER_AGENT = "matchbot/0.1 by u/your-reddit-username"
   REDDIT_ENABLED = "false"
-  DISCORD_ENABLED = "true"
+  DISCORD_ENABLED = "false"
   FACEBOOK_ENABLED = "false"
   VERBOSE = "false"
 
