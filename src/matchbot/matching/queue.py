@@ -10,6 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, PostType, is_opted_out
 from matchbot.matching.infra_scorer import score_infra_match
 from matchbot.matching.scorer import score_match
+from matchbot.messaging.renderer import render_intro
 from matchbot.settings import get_settings
 
 
@@ -103,6 +104,10 @@ async def _propose_mentorship_matches(session: AsyncSession, new_post: Post) -> 
             confidence=composite,
             moderator_notes="[needs LLM triage]" if triage_needed else None,
         )
+        try:
+            match.intro_draft = render_intro(seeker, camp, seeker.platform)
+        except Exception:
+            pass  # draft is best-effort; don't block match creation
         session.add(match)
         created.append(match)
 
@@ -171,6 +176,10 @@ async def _propose_infra_matches(session: AsyncSession, new_post: Post) -> list[
             match_method="deterministic_infra",
             confidence=composite,
         )
+        try:
+            match.intro_draft = render_intro(seeker, offerer, seeker.platform)
+        except Exception:
+            pass  # draft is best-effort; don't block match creation
         session.add(match)
         created.append(match)
 

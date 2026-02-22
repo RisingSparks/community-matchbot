@@ -176,6 +176,7 @@ class Match(SQLModel, table=True):
     intro_sent_at: datetime | None = Field(default=None)
     intro_platform: str | None = Field(default=None)
     mismatch_reason: str | None = Field(default=None)
+    intro_draft: str | None = Field(default=None)
 
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)

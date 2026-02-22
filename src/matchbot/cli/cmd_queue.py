@@ -103,6 +103,7 @@ def queue_view(match_id: str) -> None:
             f"[bold]Confidence:[/bold] {match.confidence}\n\n"
             f"[bold cyan]Score breakdown:[/bold cyan]\n{breakdown_str}\n\n"
             f"[bold]Moderator notes:[/bold] {match.moderator_notes or '—'}\n\n"
+            f"[bold magenta]Intro draft:[/bold magenta]\n{match.intro_draft or '(not yet rendered)'}\n\n"
             f"[bold yellow]SEEKER:[/bold yellow] {seeker.title if seeker else '?'}\n"
             f"{seeker.raw_text[:500] if seeker else ''}\n\n"
             f"[bold green]CAMP:[/bold green] {camp.title if camp else '?'}\n"
@@ -181,7 +182,7 @@ def queue_send_intro(
 
         from matchbot.messaging.renderer import render_intro
 
-        intro_text = render_intro(seeker, camp, target_platform)
+        intro_text = match.intro_draft or render_intro(seeker, camp, target_platform)
 
         console.print(Panel(intro_text, title="[cyan]Intro Message Preview[/cyan]", expand=False))
 
