@@ -32,7 +32,9 @@ def create_app(enable_scheduler: bool = True) -> FastAPI:
     app.include_router(facebook_router)
     app.include_router(forms_router)
 
+    @app.get("/")
     @app.get("/health")
+    @app.get("/status")
     async def health() -> dict:
         return {"status": "ok"}
 
