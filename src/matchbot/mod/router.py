@@ -14,7 +14,10 @@ from pydantic import BaseModel, field_validator
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from matchbot.db.models import Event, Post, PostStatus
+from matchbot.db.models import Event, Match, MatchStatus, Post, PostStatus
+from matchbot.lifecycle.status import InvalidTransitionError, transition
+from matchbot.matching.queue import get_match as _get_match
+from matchbot.matching.queue import get_queue as _get_match_queue
 from matchbot.settings import get_settings
 from matchbot.taxonomy import (
     CONTRIBUTION_TYPES,
@@ -102,6 +105,18 @@ class DismissRequest(BaseModel):
         if v not in DISMISS_REASONS:
             raise ValueError(f"must be one of {sorted(DISMISS_REASONS)}")
         return v
+
+
+class ApproveMatchRequest(BaseModel):
+    note: str | None = None
+
+
+class DeclineMatchRequest(BaseModel):
+    reason: str | None = None
+
+
+class SendIntroRequest(BaseModel):
+    platform: str | None = None  # defaults to seeker.platform
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +210,29 @@ def _event_to_dict(event: Event) -> dict[str, Any]:
     }
 
 
+def _match_to_dict(
+    match: Match,
+    seeker: Post | None = None,
+    camp: Post | None = None,
+) -> dict[str, Any]:
+    return {
+        "id": match.id,
+        "status": match.status,
+        "score": match.score,
+        "score_breakdown": match.score_breakdown_dict(),
+        "match_method": match.match_method,
+        "confidence": match.confidence,
+        "moderator_notes": match.moderator_notes,
+        "mismatch_reason": match.mismatch_reason,
+        "intro_draft": match.intro_draft,
+        "intro_sent_at": match.intro_sent_at.isoformat() if match.intro_sent_at else None,
+        "intro_platform": match.intro_platform,
+        "created_at": match.created_at.isoformat(),
+        "seeker": _post_to_dict(seeker) if seeker else None,
+        "camp": _post_to_dict(camp) if camp else None,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -219,7 +257,8 @@ async def login(body: LoginRequest, response: Response) -> dict:
         key="mod_session",
         value=f"{ts_str}.{sig}",
         httponly=True,
-        samesite="strict",
+        samesite="none",
+        secure=True,
         path="/api/mod",
         max_age=604800,
     )
@@ -232,7 +271,8 @@ async def logout(response: Response, _: None = Depends(_require_mod)) -> dict:
         key="mod_session",
         value="",
         httponly=True,
-        samesite="strict",
+        samesite="none",
+        secure=True,
         path="/api/mod",
         max_age=0,
     )
@@ -444,3 +484,115 @@ async def get_stats(
         "approved_today": approved_today,
         "dismissed_today": dismissed_today,
     }
+
+
+# ---------------------------------------------------------------------------
+# Match endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/matches")
+async def list_matches(
+    status: str = MatchStatus.PROPOSED,
+    limit: int = 50,
+    _: None = Depends(_require_mod),
+    session: AsyncSession = Depends(_get_session),
+) -> list[dict]:
+    matches = await _get_match_queue(session, status=status, limit=limit)
+    result = []
+    for m in matches:
+        seeker = await session.get(Post, m.seeker_post_id)
+        camp = await session.get(Post, m.camp_post_id)
+        result.append(_match_to_dict(m, seeker, camp))
+    return result
+
+
+@router.get("/matches/{match_id}")
+async def get_match_detail(
+    match_id: str,
+    _: None = Depends(_require_mod),
+    session: AsyncSession = Depends(_get_session),
+) -> dict:
+    match = await _get_match(session, match_id)
+    if not match:
+        raise HTTPException(404, "Match not found")
+    seeker = await session.get(Post, match.seeker_post_id)
+    camp = await session.get(Post, match.camp_post_id)
+    return _match_to_dict(match, seeker, camp)
+
+
+@router.post("/matches/{match_id}/approve")
+async def approve_match(
+    match_id: str,
+    body: ApproveMatchRequest,
+    _: None = Depends(_require_mod),
+    session: AsyncSession = Depends(_get_session),
+) -> dict:
+    match = await _get_match(session, match_id)
+    if not match:
+        raise HTTPException(404, "Match not found")
+    try:
+        await transition(session, match, MatchStatus.APPROVED, actor="moderator", note=body.note)
+    except InvalidTransitionError as e:
+        raise HTTPException(409, str(e))
+    return {"ok": True, "match_id": match_id, "new_status": MatchStatus.APPROVED}
+
+
+@router.post("/matches/{match_id}/decline")
+async def decline_match(
+    match_id: str,
+    body: DeclineMatchRequest,
+    _: None = Depends(_require_mod),
+    session: AsyncSession = Depends(_get_session),
+) -> dict:
+    match = await _get_match(session, match_id)
+    if not match:
+        raise HTTPException(404, "Match not found")
+    match.mismatch_reason = body.reason or None
+    session.add(match)
+    await session.commit()
+    try:
+        await transition(session, match, MatchStatus.DECLINED, actor="moderator", note=body.reason)
+    except InvalidTransitionError as e:
+        raise HTTPException(409, str(e))
+    return {"ok": True, "match_id": match_id, "new_status": MatchStatus.DECLINED}
+
+
+@router.post("/matches/{match_id}/send-intro")
+async def send_match_intro(
+    match_id: str,
+    body: SendIntroRequest,
+    dry_run: bool = False,
+    _: None = Depends(_require_mod),
+    session: AsyncSession = Depends(_get_session),
+) -> dict:
+    match = await _get_match(session, match_id)
+    if not match:
+        raise HTTPException(404, "Match not found")
+    if match.status != MatchStatus.APPROVED:
+        raise HTTPException(
+            409, f"Match must be APPROVED before sending intro (current: {match.status})"
+        )
+
+    seeker = await session.get(Post, match.seeker_post_id)
+    camp = await session.get(Post, match.camp_post_id)
+    if not seeker or not camp:
+        raise HTTPException(500, "Could not load seeker or camp post")
+
+    target_platform = body.platform or seeker.platform
+
+    from matchbot.messaging.renderer import render_intro
+
+    intro_text = match.intro_draft or render_intro(seeker, camp, target_platform)
+
+    if dry_run:
+        return {"dry_run": True, "platform": target_platform, "intro_text": intro_text}
+
+    from matchbot.messaging import send_intro_message
+
+    await send_intro_message(session, match, seeker, camp, target_platform)
+    match.intro_sent_at = datetime.now(UTC)
+    match.intro_platform = target_platform
+    session.add(match)
+    await transition(session, match, MatchStatus.INTRO_SENT, actor="moderator")
+    return {"ok": True, "match_id": match_id, "platform": target_platform}

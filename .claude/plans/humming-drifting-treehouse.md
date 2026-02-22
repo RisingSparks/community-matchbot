@@ -1,88 +1,208 @@
-# Plan: Pre-render Intro Draft at Match Proposal Time
+# Plan: Add Match Queue Endpoints to Mod API
 
 ## Context
 
-Currently the intro message is rendered on-the-fly inside `queue send-intro`, shown as a preview,
-and the moderator confirms before sending. The moderator never sees the intro during the earlier
-review steps (`queue list` / `queue view` / `queue approve`).
-
-The goal: render the intro when the match is *proposed*, store it on the match record, and surface
-it in `queue view` so the moderator can read the full drafted message before deciding to approve
-or decline — then `send-intro` reuses the stored draft instead of re-rendering.
+The mod API (`src/matchbot/mod/router.py`) only covers the *post review* flow (NEEDS_REVIEW).
+It has no match-related endpoints, so a web-based moderator UI cannot see the match queue,
+view intro drafts, or take any match actions. We need to add a full set of match endpoints
+so the mod UI can surface `intro_draft` and let the moderator approve/decline/send.
 
 ## Files to change
 
 | File | Change |
 |------|--------|
-| `src/matchbot/db/models.py` | Add `intro_draft: str \| None = None` field to `Match` |
-| `alembic/versions/` | New migration: add `intro_draft` nullable TEXT column to `match` table |
-| `src/matchbot/matching/queue.py` | Call `render_intro()` after creating each `Match` and store draft |
-| `src/matchbot/cli/cmd_queue.py` | Show `intro_draft` in `queue view` panel |
+| `src/matchbot/mod/router.py` | Add `_match_to_dict()` helper, request models, and 5 new endpoints |
 
-## Implementation steps
+No model changes, no migrations — `intro_draft` already exists on `Match`.
 
-### 1. Add field to Match model (`src/matchbot/db/models.py`)
+## Reused internals
 
-Add after the existing `mismatch_reason` field:
+| Symbol | Source |
+|--------|--------|
+| `get_match`, `get_queue` | `matchbot.matching.queue` |
+| `transition` | `matchbot.lifecycle.status` |
+| `send_intro_message` | `matchbot.messaging` |
+| `render_intro` | `matchbot.messaging.renderer` |
+| `_post_to_dict` | already in `router.py` |
+| `_require_mod`, `_get_session` | already in `router.py` |
 
-```python
-intro_draft: str | None = Field(default=None)
-```
+## Implementation
 
-### 2. Create Alembic migration
-
-```bash
-uv run alembic revision --autogenerate -m "add intro_draft to match"
-uv run alembic upgrade head
-```
-
-Verify the generated file adds `intro_draft` as nullable TEXT with no server default.
-
-### 3. Render draft in `propose_matches` (`src/matchbot/matching/queue.py`)
-
-After `session.add(match)` in both `_propose_mentorship_matches` and `_propose_infra_matches`,
-import and call `render_intro`:
+### 1. New imports at top of `router.py`
 
 ```python
-from matchbot.messaging.renderer import render_intro
-
-try:
-    match.intro_draft = render_intro(seeker, camp, seeker.platform)
-except Exception:
-    pass  # draft is best-effort; don't block match creation
+from datetime import UTC, datetime  # already present
+from matchbot.db.models import Event, Match, MatchStatus, Post, PostStatus  # add Match, MatchStatus
+from matchbot.lifecycle.status import InvalidTransitionError, transition
+from matchbot.matching.queue import get_match, get_queue
 ```
 
-Use `seeker.platform` as the platform (same fallback already used in `send-intro`).
+(`send_intro_message` and `render_intro` imported inline in the handler to avoid circular imports.)
 
-### 4. Show draft in `queue view` (`src/matchbot/cli/cmd_queue.py`)
-
-In `queue_view`, append to `panel_content` after the moderator notes section:
+### 2. New request models
 
 ```python
-f"[bold magenta]Intro draft:[/bold magenta]\n{match.intro_draft or '(not yet rendered)'}\n\n"
+class ApproveMatchRequest(BaseModel):
+    note: str | None = None
+
+class DeclineMatchRequest(BaseModel):
+    reason: str | None = None
+
+class SendIntroRequest(BaseModel):
+    platform: str | None = None  # defaults to seeker.platform
 ```
 
-Place it between the moderator notes block and the SEEKER post text.
-
-### 5. `send-intro` reuses stored draft
-
-In `queue_send_intro`, replace the on-the-fly render:
+### 3. `_match_to_dict()` helper
 
 ```python
-# Before:
-intro_text = render_intro(seeker, camp, target_platform)
-
-# After:
-from matchbot.messaging.renderer import render_intro
-intro_text = match.intro_draft or render_intro(seeker, camp, target_platform)
+def _match_to_dict(
+    match: Match,
+    seeker: Post | None = None,
+    camp: Post | None = None,
+) -> dict[str, Any]:
+    return {
+        "id": match.id,
+        "status": match.status,
+        "score": match.score,
+        "score_breakdown": match.score_breakdown_dict(),
+        "match_method": match.match_method,
+        "confidence": match.confidence,
+        "moderator_notes": match.moderator_notes,
+        "mismatch_reason": match.mismatch_reason,
+        "intro_draft": match.intro_draft,
+        "intro_sent_at": match.intro_sent_at.isoformat() if match.intro_sent_at else None,
+        "intro_platform": match.intro_platform,
+        "created_at": match.created_at.isoformat(),
+        "seeker": _post_to_dict(seeker) if seeker else None,
+        "camp": _post_to_dict(camp) if camp else None,
+    }
 ```
 
-The fallback ensures old matches (before this change) still work.
+### 4. New endpoints
+
+**`GET /api/mod/matches`** — list queue
+
+```python
+@router.get("/matches")
+async def list_matches(
+    status: str = MatchStatus.PROPOSED,
+    limit: int = 50,
+    _: None = Depends(_require_mod),
+    session: AsyncSession = Depends(_get_session),
+) -> list[dict]:
+    matches = await get_queue(session, status=status, limit=limit)
+    result = []
+    for m in matches:
+        seeker = await session.get(Post, m.seeker_post_id)
+        camp = await session.get(Post, m.camp_post_id)
+        result.append(_match_to_dict(m, seeker, camp))
+    return result
+```
+
+**`GET /api/mod/matches/{match_id}`** — single match detail
+
+```python
+@router.get("/matches/{match_id}")
+async def get_match_detail(
+    match_id: str,
+    _: None = Depends(_require_mod),
+    session: AsyncSession = Depends(_get_session),
+) -> dict:
+    match = await get_match(session, match_id)
+    if not match:
+        raise HTTPException(404, "Match not found")
+    seeker = await session.get(Post, match.seeker_post_id)
+    camp = await session.get(Post, match.camp_post_id)
+    return _match_to_dict(match, seeker, camp)
+```
+
+**`POST /api/mod/matches/{match_id}/approve`**
+
+```python
+@router.post("/matches/{match_id}/approve")
+async def approve_match(
+    match_id: str,
+    body: ApproveMatchRequest,
+    _: None = Depends(_require_mod),
+    session: AsyncSession = Depends(_get_session),
+) -> dict:
+    match = await get_match(session, match_id)
+    if not match:
+        raise HTTPException(404, "Match not found")
+    try:
+        await transition(session, match, MatchStatus.APPROVED, actor="moderator", note=body.note)
+    except InvalidTransitionError as e:
+        raise HTTPException(409, str(e))
+    return {"ok": True, "match_id": match_id, "new_status": MatchStatus.APPROVED}
+```
+
+**`POST /api/mod/matches/{match_id}/decline`**
+
+```python
+@router.post("/matches/{match_id}/decline")
+async def decline_match(
+    match_id: str,
+    body: DeclineMatchRequest,
+    _: None = Depends(_require_mod),
+    session: AsyncSession = Depends(_get_session),
+) -> dict:
+    match = await get_match(session, match_id)
+    if not match:
+        raise HTTPException(404, "Match not found")
+    match.mismatch_reason = body.reason or None
+    session.add(match)
+    await session.commit()
+    try:
+        await transition(session, match, MatchStatus.DECLINED, actor="moderator", note=body.reason)
+    except InvalidTransitionError as e:
+        raise HTTPException(409, str(e))
+    return {"ok": True, "match_id": match_id, "new_status": MatchStatus.DECLINED}
+```
+
+**`POST /api/mod/matches/{match_id}/send-intro`**
+
+```python
+@router.post("/matches/{match_id}/send-intro")
+async def send_match_intro(
+    match_id: str,
+    body: SendIntroRequest,
+    dry_run: bool = False,
+    _: None = Depends(_require_mod),
+    session: AsyncSession = Depends(_get_session),
+) -> dict:
+    match = await get_match(session, match_id)
+    if not match:
+        raise HTTPException(404, "Match not found")
+    if match.status != MatchStatus.APPROVED:
+        raise HTTPException(409, f"Match must be APPROVED before sending intro (current: {match.status})")
+
+    seeker = await session.get(Post, match.seeker_post_id)
+    camp = await session.get(Post, match.camp_post_id)
+    if not seeker or not camp:
+        raise HTTPException(500, "Could not load seeker or camp post")
+
+    target_platform = body.platform or (seeker.platform if seeker else "reddit")
+
+    from matchbot.messaging.renderer import render_intro
+    intro_text = match.intro_draft or render_intro(seeker, camp, target_platform)
+
+    if dry_run:
+        return {"dry_run": True, "platform": target_platform, "intro_text": intro_text}
+
+    from matchbot.messaging import send_intro_message
+    await send_intro_message(session, match, seeker, camp, target_platform)
+    match.intro_sent_at = datetime.now(UTC)
+    match.intro_platform = target_platform
+    session.add(match)
+    await transition(session, match, MatchStatus.INTRO_SENT, actor="moderator")
+    return {"ok": True, "match_id": match_id, "platform": target_platform}
+```
 
 ## Verification
 
-1. Run existing tests: `uv run pytest tests/ -x -q` — should all pass
-2. Submit a test post via CLI (`matchbot submit`) or directly insert a test post
-3. Run `matchbot queue list` — confirm match appears as PROPOSED
-4. Run `matchbot queue view <id>` — confirm "Intro draft" section shows rendered message text
-5. Run `matchbot queue send-intro <id> --dry-run` — confirm same text shown in preview panel
+1. `uv run pytest tests/ -x -q` — all existing tests pass
+2. Start server: `uv run uvicorn matchbot.server:app --port 8080`
+3. `curl -s http://localhost:8080/api/mod/matches` — returns JSON array (empty or with matches)
+4. `curl -s http://localhost:8080/api/mod/matches/<id>` — returns match dict with `intro_draft` field
+5. `curl -s -X POST http://localhost:8080/api/mod/matches/<id>/approve -d '{}'` — transitions to APPROVED
+6. `curl -s -X POST http://localhost:8080/api/mod/matches/<id>/send-intro?dry_run=true -d '{}'` — returns `intro_text` without sending
