@@ -200,6 +200,11 @@ def _event_to_dict(event: Event) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+@router.get("")
+async def mod_index() -> dict:
+    return {"status": "ok"}
+
+
 @router.post("/auth/login")
 async def login(body: LoginRequest, response: Response) -> dict:
     settings = get_settings()
