@@ -48,16 +48,20 @@ async def main() -> None:
     logger.info("Starting all listeners…")
 
     async with asyncio.TaskGroup() as tg:
-        if settings.reddit_configured:
+        if not settings.reddit_enabled:
+            logger.info("Reddit disabled (REDDIT_ENABLED=false) — skipping Reddit listeners.")
+        elif not settings.reddit_configured:
+            logger.info("Reddit credentials not set — skipping Reddit listeners.")
+        else:
             tg.create_task(run_reddit_listener(), name="reddit-listener")
             tg.create_task(run_reddit_inbox_listener(), name="reddit-inbox-listener")
-        else:
-            logger.info("Reddit credentials not set — skipping Reddit listeners.")
 
-        if settings.discord_configured:
-            tg.create_task(run_discord_bot(), name="discord-bot")
-        else:
+        if not settings.discord_enabled:
+            logger.info("Discord disabled (DISCORD_ENABLED=false) — skipping Discord listener.")
+        elif not settings.discord_configured:
             logger.info("Discord credentials not set — skipping Discord listener.")
+        else:
+            tg.create_task(run_discord_bot(), name="discord-bot")
 
         tg.create_task(server.serve(), name="facebook-webhook")
 

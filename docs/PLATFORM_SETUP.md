@@ -31,6 +31,7 @@ Reddit is read-only streaming. No webhook or public server required.
 ### 2. Fill in `.env`
 
 ```
+REDDIT_ENABLED=true
 REDDIT_CLIENT_ID=abc123
 REDDIT_CLIENT_SECRET=xyz456
 REDDIT_USER_AGENT=matchbot/0.1 by u/your-reddit-username
@@ -99,6 +100,7 @@ discord:
 ### 5. Fill in `.env`
 
 ```
+DISCORD_ENABLED=true
 DISCORD_BOT_TOKEN=MTExMjIy...
 DISCORD_MODERATOR_CHANNEL_ID=987654321098765432
 ```
@@ -158,6 +160,7 @@ ngrok http 8080
 ### 5. Fill in `.env`
 
 ```
+FACEBOOK_ENABLED=true
 FACEBOOK_APP_ID=123456789
 FACEBOOK_APP_SECRET=abc...
 FACEBOOK_PAGE_ACCESS_TOKEN=EAABsb...
@@ -193,19 +196,20 @@ Both values default to empty, which disables auth entirely (fine for local dev, 
 
 ## Starting the full system
 
-Once `.env` is filled in (at minimum Reddit + Discord):
+Once `.env` is filled in, enable the platforms you've configured (`REDDIT_ENABLED=true`, etc.):
 
 ```bash
 uv run alembic upgrade head          # ensure DB schema is current
 uv run python scripts/run_listeners.py
 ```
 
-You should see log lines confirming each platform connected:
+You should see log lines confirming each platform connected (or skipped):
 
 ```
 INFO  matchbot.run — Database ready.
 INFO  matchbot.run — Starting all listeners…
-INFO  matchbot.listeners.reddit — Reddit listener started on r/BurningMan+BurnerCommunity+thecampout
+INFO  matchbot.run — Reddit disabled (REDDIT_ENABLED=false) — skipping Reddit listeners.
+INFO  matchbot.run — Discord credentials not set — skipping Discord listener.
 INFO  matchbot.listeners.discord_bot — Discord bot connected as matchbot#1234
 ```
 

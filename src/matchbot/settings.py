@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     matching_llm_triage_band_high: float = Field(default=0.55)
 
     # Reddit
+    reddit_enabled: bool = Field(default=True)
     reddit_client_id: str = Field(default="")
     reddit_client_secret: str = Field(default="")
     reddit_user_agent: str = Field(default="matchbot/0.1")
@@ -38,10 +39,12 @@ class Settings(BaseSettings):
     reddit_password: str = Field(default="")
 
     # Discord
+    discord_enabled: bool = Field(default=True)
     discord_bot_token: str = Field(default="")
     discord_moderator_channel_id: str = Field(default="")
 
     # Facebook
+    facebook_enabled: bool = Field(default=True)
     facebook_app_id: str = Field(default="")
     facebook_app_secret: str = Field(default="")
     facebook_page_access_token: str = Field(default="")
