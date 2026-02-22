@@ -170,6 +170,27 @@ Access to group posts requires the `groups_access_member_info` permission, which
 
 ---
 
+## Moderator API credentials
+
+The `/api/mod/` endpoints are protected by a password + HMAC-signed session cookie.
+
+### Fill in `.env`
+
+```
+MOD_PASSWORD=choose-a-strong-password
+MOD_SECRET_KEY=a-long-random-string-here
+```
+
+Generate a good secret key:
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Both values default to empty, which disables auth entirely (fine for local dev, **not for production**).
+
+---
+
 ## Starting the full system
 
 Once `.env` is filled in (at minimum Reddit + Discord):

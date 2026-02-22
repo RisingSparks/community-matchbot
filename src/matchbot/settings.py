@@ -67,8 +67,32 @@ class Settings(BaseSettings):
     )
     report_output_dir: str = Field(default="./reports")
 
+    @property
+    def reddit_configured(self) -> bool:
+        return bool(
+            self.reddit_client_id
+            and self.reddit_client_secret
+            and self.reddit_username
+            and self.reddit_password
+        )
+
+    @property
+    def discord_configured(self) -> bool:
+        return bool(self.discord_bot_token)
+
+    @property
+    def facebook_configured(self) -> bool:
+        return bool(
+            self.facebook_app_id
+            and self.facebook_app_secret
+            and self.facebook_page_access_token
+            and self.facebook_verify_token
+        )
+
     # Moderator
     moderator_name: str = Field(default="Matchbot Moderator")
+    mod_password: str = Field(default="", description="Password for /api/mod auth")
+    mod_secret_key: str = Field(default="", description="HMAC secret for mod_session cookie")
 
     # WWW Guide enrichment
     www_guide_url: str = Field(
