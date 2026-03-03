@@ -1,14 +1,15 @@
 # burning-man-matchbot
 
-Volunteer-run tooling to match Burning Man seekers with camps, art projects, and infrastructure opportunities.
+Volunteer-run tooling that helps people discover aligned camps, art projects, and infrastructure opportunities.
 
 ## What It Does
 
-The bot ingests public posts from Reddit, Discord, and Facebook, extracts structured intent using deterministic rules + optional LLMs, proposes matches, and supports moderator review + outreach.
+The bot ingests public posts from Reddit, Discord, and Facebook, extracts
+structured intent using deterministic rules + optional LLMs, proposes likely
+connections, and supports moderator-reviewed introductions.
 
-Positioning: this is a discovery tool, not a recruitment tool. It helps
-self-motivated people find aligned camps/art projects and helps camps/art teams
-find new energy that fits their culture.
+The workflow is community-led: camps and project teams remain in control of
+fit, vetting, and intake decisions.
 
 Core flow:
 
