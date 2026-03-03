@@ -8,6 +8,8 @@ A triage tool, not a data browser. The moderator works through a queue of
 posts the LLM wasn't confident about. Per post: read the raw text, check what
 was extracted, then approve / fix-and-approve / dismiss. The UI should be
 optimized for moving through that queue quickly.
+The queue includes camp-finding, art-project-finding, and builder-seeking
+posts.
 
 ---
 
@@ -40,8 +42,8 @@ optimized for moving through that queue quickly.
 
 ### Field editing
 - Vibes and contribution_types: multi-select chip pickers (constrained taxonomy)
-- Role: 3-way toggle — seeker / camp / unknown
-- Free-text fields (camp_name, quantity, condition): simple text inputs
+- Role: 3-way toggle — seeker / camp-or-art-project / unknown
+- Free-text fields (camp/project name, quantity, condition): simple text inputs
 - Infra fields (infra_role, infra_categories) shown only for infrastructure posts
 
 ### Dismiss

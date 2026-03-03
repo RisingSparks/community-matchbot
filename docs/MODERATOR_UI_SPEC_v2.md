@@ -2,15 +2,16 @@
 
 ## Why this exists
 
-The matchbot monitors Reddit, Discord, and Facebook for camp-finding and
-builder-seeking posts, extracts structured data via LLM, and proposes matches
-between seekers and camps. When extraction confidence is low, a post lands in
+The matchbot monitors Reddit, Discord, and Facebook for camp-finding,
+art-project-finding, and builder-seeking posts, extracts structured data via
+LLM, and proposes matches between seekers and camps/art projects. When
+extraction confidence is low, a post lands in
 `NEEDS_REVIEW` instead of the live index.
 
 **Moderators are the quality gate between LLM output and real human
 introductions.** A post stuck in `NEEDS_REVIEW` is a potential match that
 never happens. A bad post approved carelessly is a mismatch intro that wastes
-a TCO's time — and TCO time is the scarcest resource in the system.
+a TCO/art lead's time — and that time is the scarcest resource in the system.
 
 The UI must make it fast and easy to clear the queue correctly.
 
@@ -25,14 +26,15 @@ moderators, not add process debt"*).
 
 **Seasonal urgency.** Most seeking/offering activity happens March–July in the
 run-up to Burning Man. Posts have real expiration pressure. A queue that rots
-for two weeks during peak season means real seekers and camps miss each other.
+for two weeks during peak season means real seekers and camp/art teams miss
+each other.
 The UI should surface queue age prominently and make it easy to move fast.
 
 **Two failure modes, both matter:**
-- **False positive** — bad post approved, bad intro sent, TCO's time wasted,
+- **False positive** — bad post approved, bad intro sent, TCO/art lead time wasted,
   trust eroded.
 - **False negative** — good post stuck, intro never sent, seeker misses their
-  camp, builder pipeline fails.
+  camp or art project, builder pipeline fails.
 
 Over-moderating is as harmful as under-moderating.
 
@@ -105,8 +107,8 @@ through that decision tree, not for browsing or administration.
 ### Field editing
 - Vibes and contribution_types: multi-select chip pickers (constrained to
   taxonomy — never free text for these fields)
-- Role: 3-way toggle — seeker / camp / unknown
-- Free-text fields (camp_name, quantity, condition, notes): simple text inputs
+- Role: 3-way toggle — seeker / camp-or-art-project / unknown
+- Free-text fields (camp/project name, quantity, condition, notes): simple text inputs
 - Infrastructure fields (infra_role, infra_categories) shown only for
   infrastructure-type posts
 - Moderator can add an optional note to any action (audit trail)
@@ -152,7 +154,7 @@ reference. "Confirm & Approve" lives at the bottom of the sheet.
 Stacked layout, top to bottom:
 1. **Post metadata** — platform, community, detected date, confidence score
 2. **Extracted fields** — compact chips/tags showing role, vibes, contribution
-   types, camp name, etc.
+   types, camp/project name, etc.
 3. **Raw text** — first ~300 chars shown, "Read more" expands to full text
 4. **Action bar** — Approve / Edit & Approve / Dismiss / Re-extract
 
@@ -334,7 +336,7 @@ QueueItem:
   id: int
   platform: str             # reddit|discord|facebook
   post_type: str            # mentorship|infrastructure
-  role: str                 # seeker|camp|unknown
+  role: str                 # seeker|camp|unknown ("camp" includes camp or art-project offering side)
   title: str | None         # first line / subject of raw post
   detected_at: datetime
   age_hours: float
@@ -354,7 +356,7 @@ PostDetail:
   role: str | None
   vibes: list[str]
   contribution_types: list[str]
-  camp_name: str | None
+  camp_name: str | None     # used for camp or project name
   year: int | None
   seeker_intent: str | None
   infra_role: str | None
@@ -437,7 +439,7 @@ TaxonomyResponse:
   contribution_types: list[str]
   infra_categories: list[str]
   conditions: list[str]
-  roles: list[str]          # seeker|camp|unknown
+  roles: list[str]          # seeker|camp|unknown ("camp" includes camp/project offering side)
 
 # GET /api/mod/stats → QueueStats
 QueueStats:

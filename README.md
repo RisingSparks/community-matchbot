@@ -1,10 +1,14 @@
 # burning-man-matchbot
 
-Volunteer-run tooling to match Burning Man seekers with camps and infrastructure opportunities.
+Volunteer-run tooling to match Burning Man seekers with camps, art projects, and infrastructure opportunities.
 
 ## What It Does
 
 The bot ingests public posts from Reddit, Discord, and Facebook, extracts structured intent using deterministic rules + optional LLMs, proposes matches, and supports moderator review + outreach.
+
+Positioning: this is a discovery tool, not a recruitment tool. It helps
+self-motivated people find aligned camps/art projects and helps camps/art teams
+find new energy that fits their culture.
 
 Core flow:
 
@@ -171,5 +175,6 @@ Opt out by sending the bot a PM/DM with the exact text `opt out` on supported pl
 - `docs/MODERATOR_UI_SPEC.md`: moderator UI spec
 - `docs/MODERATOR_UI_SPEC_v2.md`: updated UI spec
 - `docs/BRIEFING_BOOK.md`: product/strategy context
+- `docs/COMMUNITY_DISCUSSION_ONE_PAGER.md`: short, plain-language community discussion draft
 - `PRIVACY.md`: privacy notice
 - `TERMS.md`: terms/community notice

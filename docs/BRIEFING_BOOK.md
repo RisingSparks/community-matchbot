@@ -1,4 +1,4 @@
-# Theme Camp Community Finder - Briefing Book and Product Doc
+# Theme Camp + Art Project Community Finder - Briefing Book and Product Doc
 
 ### Rising Sparks Strategy / Mission
 
@@ -9,9 +9,9 @@
 * onboarding infrastructure  
   * Preparing participants  
 * discovery layer  
-  * Matching participants → existing camps  
+  * Matching participants → existing camps and art projects  
 * Ecosystem growth engine  
-  * Supporting theme camps’ recruitment and mentorship pipeline
+  * Supporting theme camps and art leads’ discovery and mentorship pipeline
 
 ## Problem Context
 
@@ -25,7 +25,7 @@ Burning Man has a builder-capacity risk:
 1. **Newcomers/Seekers:** Want to contribute but don't know *how* or *where* their skills fit. They need mentorship to transition from "attendee" to "builder."
 2. **Camps/TCOs/Art Leads:** Need reliable, motivated hands to execute complex projects but are often too busy to find and vet people outside their immediate circles.
 3. **The Ecosystem:** Facing a "cold start" problem for new art and infrastructure as the pool of experienced builders shrinks.
-4. **Fragmentation Chaos**: Seeking camps and gear currently happens across dozens of disconnected, high-noise digital platforms (Reddit, FB, Discord, etc.), making it hard for both seekers and TCOs to find the right matches.
+4. **Fragmentation Chaos**: Seeking camps, art projects, and gear currently happens across dozens of disconnected, high-noise digital platforms (Reddit, FB, Discord, etc.), making it hard for seekers, TCOs, and art leads to find the right matches.
 
 ## The Insight: Camps Are the Leverage Point
 
@@ -41,12 +41,34 @@ Theme camps are already:
 
 The project doesn't build new infrastructure—it strengthens the connective tissue that already works.
 
+## Positioning Clarification: Discovery, Not Recruitment
+
+This project is a discovery tool, not a recruitment funnel.
+
+- It is not about "feeding" camps with warm bodies.
+- It is not about propping up oversized or unsustainable organizations.
+- It is about helping self-motivated people find aligned communities where they
+can contribute and learn.
+
+Camps and projects have natural lifecycles. If a group should get smaller, this
+tool should not interfere with that. It only improves signal and introductions;
+communities still decide fit, intake, and culture.
+
+### Why this lens matters now
+Post-pandemic, three functions have become harder and more valuable:
+
+1. **Affordability:** Shared camp infrastructure can lower entry barriers.
+2. **Acculturation:** Camps and art teams are still key environments for
+learning participation norms and work culture.
+3. **Social Networks:** Friends-of-friends pipelines are weaker than pre-COVID;
+community nodes can help reconnect motivated newcomers with mentors.
+
 ## The Insight: Passive Aggregation as Leverage
 Organize Existing Demand Before Building New Surfaces
 
 The highest-leverage opportunity is not creating a new destination first. It is organizing the high-volume, already-active conversations happening across community channels.
 
-- People already post "seeking camp" and "camp has openings" requests.
+- People already post "seeking camp," "seeking art project," and "project has openings" requests.
 - Camps already ask for infra help, equipment, and specialist roles.
 - Information is fragmented across Reddit, Facebook, Telegram, Discord, and other community spaces.
 
@@ -62,12 +84,12 @@ Cross-platform bots that indexe and organize art-, camp-, infra- and mentorship-
 Jobs to be done:
 
 - Understand how camp participation works.
-- Discover camps aligned with values, contribution style, and practical constraints.
+- Discover camps and art projects aligned with values, contribution style, and practical constraints.
 - Make first contact with clear expectations.
 
 Pain points:
 
-- No social “in” to camp networks.
+- No social “in” to camp or art-team networks.
 - Unclear norms (dues, shifts, accountability, contribution expectations).
 - Fear of rejection or mismatch.
 
@@ -98,7 +120,11 @@ Pain points:
 - Burnout from "doing everything" because they don't have enough builders.
 - Lack of a low-effort way to signal they are "open to mentoring new builders."
 
-### User Type B.2: Infrastructure Leads
+### User Type B.2: Art Leads / Art Teams
+- **Jobs**: Find reliable builders, fabricators, and support roles for art concept, build, transport, install, and strike.
+- **Pain Points**: High coordination overhead; short timelines; hard to identify newcomers who are serious and contribution-oriented.
+
+### User Type B.3: Infrastructure Leads
 - **Jobs**: Source gear for new camps; offload surplus equipment; plan logistical needs.
 - **Pain Points**: High cost of new gear; difficulty finding specific BRC-hardened equipment.
 
@@ -126,13 +152,13 @@ Pain points:
 - Searchability and format inconsistency.
 - Difficulty maintaining one source of truth.
 
-### Product 1: Theme Camp Connection & Community Finder
+### Product 1: Theme Camp + Art Project Connection & Community Finder
 
-A cross-platform bot that indexes and organizes camp-finding and mentor-seeking posts without forcing participants into a new tool. Reduce friction for self-motivated newcomers to find theme camps and **art projects** that match their values, skills, and **desire to learn**. 
+A cross-platform bot that indexes and organizes camp-finding, art-project-finding, and mentor-seeking posts without forcing participants into a new tool. Reduce friction for self-motivated newcomers to find theme camps and **art projects** that match their values, skills, and **desire to learn**. 
 
 Goals:
 - **Discover Mentorship**: Help newcomers find projects where they can learn builder skills.
-- **Support the Builders**: Connect art projects and camps with the hands they need to thrive.
+- **Support the Builders**: Connect art projects and camps with the builders they need to thrive.
 - **Low Overhead**: Facilitate introductions without creating administrative debt for busy TCOs/Leads.
 
 The product introduces people. Camps and projects own the vetting, intake, and mentorship relationship.
@@ -169,22 +195,22 @@ Use the same indexing + structure model for infrastructure needs and equipment e
 ## 4. Product Principles (Non-Negotiables)
 
 1. **Participation-first:** Match for contribution, not consumption.
-2. **Low burden on camps:** Workflows must save time for TCOs, not add process debt.
+2. **Low burden on camps and art leads:** Workflows must save time for TCOs and art leads, not add process debt.
 3. **Principle-aligned language:** Avoid “corporate recruiting” framing.
 4. **Human-centered handoff:** Tool facilitates intros; people build trust.
 6. **Use existing channels first:** Pilot on native community tools before building software.
 
 ## Functional Reqs:
-1. **Monitor**: Bot scans platforms for keywords (e.g., "seeking camp," "camp opening," "needs builder").
+1. **Monitor**: Bot scans platforms for keywords (e.g., "seeking camp," "seeking art project," "camp opening," "art project needs builder").
 2. **Extract**: LLM identifies key elements (location, vibe, skills offered, skills needed, capacity).
 3. **Index**: Bot maintains a central registry. 
-4. **Triage**: Lightweight compatibility check between seekers and camps.
+4. **Triage**: Lightweight compatibility check between seekers and camps/art projects.
 5. **Connect**: Bot posts a short note on relevant threads to conect the right folks
 
 ## Out of scope:
 
 - Custom standalone software platform.
-- Replacing camp vetting/intake process.
+- Replacing camp or art-project vetting/intake process.
 - Ticketing, transport, or camp fee management.
 
 ## Phase 2 (Conditional on Phase 1): BMP Integration
@@ -200,7 +226,7 @@ Potential scope:
 
 ### Pilot adoption targets
 
-- 10 participating camps.
+- 10 participating camps/art projects.
 - 100 seekers introduced/matched.
 - 75% of participants report improved clarity on joining/contributing.
 
@@ -226,13 +252,13 @@ Mitigation:
 - Community-native language (“Community Finder,” not recruitment platform).
 - Co-owned messaging across Reddit/Facebook/Discord channels.
 
-### Risk: Low camp adoption (feels like extra work)
+### Risk: Low camp/art-team adoption (feels like extra work)
 
 Mitigation:
 
 - Template-first workflows with minimal fields.
 - Time-saving defaults and clear matching criteria.
-- TCO co-design to keep burden low.
+- TCO/art-lead co-design to keep burden low.
 
 ### Risk: Expectation mismatch (service-seeking vs contribution-seeking)
 
@@ -262,17 +288,21 @@ Approved framing:
 
 - “Reducing friction for the interested.”
 - “Helping self-motivated people find their people.”
-- “Strengthening theme camps by improving continuity pipelines.”
+- “Strengthening theme camps and art teams by improving continuity pipelines.”
+- “Discovery tool, not a recruitment tool.”
+- “Introductions for aligned contribution, not funneling warm bodies.”
 
 Avoid:
 
 - “Recruiting funnel” language.
 - Implicit promise of placement, acceptance, or service.
-- Product positioning that bypasses camp autonomy.
+- Product positioning that bypasses camp or art-team autonomy.
+- Framing that suggests camps must keep growing to be valid.
+- Framing that treats newcomers as supply rather than collaborators.
 
 ## v1 Workflow
 
-1. Camp posts "we're looking for X" (on Reddit, Facebook, Discord, etc.); Seeker posts "I'm looking for Y."
+1. Camp/art team posts "we're looking for X" (on Reddit, Facebook, Discord, etc.); Seeker posts "I'm looking for Y."
 2. Bot detects post (via structured title or LLM classification).
 2b. "Avoid Scraping Everything"
 - Source allowlist**: Ingest only approved communities and thread types.
@@ -394,4 +424,3 @@ Do not optimize for:
 3. Minimum moderation staffing and escalation policy?
 4. Data retention period and consent language?
 5. Exact phase-gate thresholds for Phase 2 go decision?
-

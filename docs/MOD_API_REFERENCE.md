@@ -63,7 +63,7 @@ Returns NEEDS_REVIEW posts, oldest first.
     "platform": "reddit",
     "post_type": "mentorship",
     "role": "seeker",
-    "title": "Looking for a camp that does...",
+    "title": "Looking for a camp or art project that does...",
     "detected_at": "2025-04-10T14:32:00Z",
     "age_hours": 3.5,
     "extraction_confidence": 0.61,
@@ -206,7 +206,7 @@ must be non-null.
   "infra_categories": null,
   "quantity": null,
   "condition": null,
-  "note": "Corrected role and camp name"
+  "note": "Corrected role and camp/project name"
 }
 ```
 
@@ -245,6 +245,9 @@ same taxonomy the backend uses — single source of truth.
   "roles": ["seeker", "camp", "unknown"]
 }
 ```
+
+`role=camp` currently represents the offer side for mentorship matches, including
+camp posts and art-project posts. The same applies to `camp_name` (camp or project name).
 
 ---
 
