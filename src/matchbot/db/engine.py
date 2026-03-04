@@ -34,10 +34,20 @@ def get_engine():
                 )
             db_url = _to_async_db_url(settings.neon_database_url)
             connect_args = {"ssl": True}
+            engine_kwargs = {
+                "pool_pre_ping": True,
+                "pool_recycle": 1800,
+            }
         else:
             db_url = f"sqlite+aiosqlite:///{settings.db_path}"
             connect_args = {}
-        _engine = create_async_engine(db_url, connect_args=connect_args, echo=False)
+            engine_kwargs = {}
+        _engine = create_async_engine(
+            db_url,
+            connect_args=connect_args,
+            echo=False,
+            **engine_kwargs,
+        )
     return _engine
 
 
