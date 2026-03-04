@@ -47,7 +47,7 @@ def create_app(enable_scheduler: bool = True) -> FastAPI:
     @app.get("/health")
     @app.get("/status")
     async def health() -> dict:
-        return {"status": "ok"}
+        return {"status": "ok", "message": "Matchbot API is running."}
 
     return app
 

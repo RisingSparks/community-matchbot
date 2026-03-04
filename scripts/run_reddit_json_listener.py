@@ -27,7 +27,7 @@ def create_health_app() -> FastAPI:
     @app.get("/health")
     @app.get("/status")
     async def health() -> dict[str, str]:
-        return {"status": "ok"}
+        return {"status": "ok", "message": "Matchbot Poller is running."}
 
     return app
 
