@@ -7,7 +7,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 
 def _now() -> datetime:
-    return datetime.now(UTC)
+    # Store UTC as naive datetime to match existing schema (TIMESTAMP WITHOUT TIME ZONE).
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def _new_id() -> str:
@@ -100,7 +101,11 @@ class Profile(SQLModel, table=True):
         return [v for v in self.vibes.split("|") if v] if self.vibes else []
 
     def contribution_types_list(self) -> list[str]:
-        return [v for v in self.contribution_types.split("|") if v] if self.contribution_types else []
+        return (
+            [v for v in self.contribution_types.split("|") if v]
+            if self.contribution_types
+            else []
+        )
 
 
 class Post(SQLModel, table=True):
@@ -152,7 +157,11 @@ class Post(SQLModel, table=True):
         return [v for v in self.vibes.split("|") if v] if self.vibes else []
 
     def contribution_types_list(self) -> list[str]:
-        return [v for v in self.contribution_types.split("|") if v] if self.contribution_types else []
+        return (
+            [v for v in self.contribution_types.split("|") if v]
+            if self.contribution_types
+            else []
+        )
 
     def infra_categories_list(self) -> list[str]:
         return [v for v in self.infra_categories.split("|") if v] if self.infra_categories else []
