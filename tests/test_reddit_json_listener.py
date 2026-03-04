@@ -3,6 +3,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from sqlalchemy.exc import ProgrammingError
 from sqlmodel import select
 
 from matchbot.db import engine as engine_module
@@ -10,6 +11,24 @@ from matchbot.db.engine import create_db_and_tables, get_session
 from matchbot.db.models import Platform, Post, PostStatus
 from matchbot.listeners import reddit_json
 from matchbot.settings import get_settings
+
+
+def test_is_missing_table_error_detects_undefined_table() -> None:
+    err = ProgrammingError(
+        'SELECT post.platform_post_id FROM post',
+        {},
+        Exception('relation "post" does not exist'),
+    )
+    assert reddit_json._is_missing_table_error(err)
+
+
+def test_is_missing_table_error_ignores_other_programming_errors() -> None:
+    err = ProgrammingError(
+        "SELECT * FROM post",
+        {},
+        Exception("syntax error at or near FROM"),
+    )
+    assert not reddit_json._is_missing_table_error(err)
 
 
 @pytest.mark.asyncio

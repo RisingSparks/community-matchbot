@@ -7,9 +7,10 @@ import logging
 from typing import Any
 
 import httpx
+from sqlalchemy.exc import ProgrammingError
 from sqlmodel import select
 
-from matchbot.db.engine import get_session
+from matchbot.db.engine import create_db_and_tables, get_session
 from matchbot.db.models import Platform, Post, PostStatus
 from matchbot.extraction import process_post
 from matchbot.extraction.anthropic_extractor import AnthropicExtractor
@@ -23,6 +24,12 @@ logger = logging.getLogger(__name__)
 _REDDIT_NEW_URL = "https://www.reddit.com/r/BurningMan/new.json"
 _REDDIT_NEW_URL_FALLBACK = "https://old.reddit.com/r/BurningMan/new.json"
 _REDDIT_COMMUNITY = "BurningMan"
+
+
+def _is_missing_table_error(exc: Exception) -> bool:
+    if not isinstance(exc, ProgrammingError):
+        return False
+    return "UndefinedTableError" in str(exc) or 'relation "post" does not exist' in str(exc)
 
 
 def _get_extractor():
@@ -245,6 +252,12 @@ async def run_reddit_json_listener() -> None:
             logger.info("Reddit JSON listener cancelled.")
             return
         except Exception as exc:
+            if _is_missing_table_error(exc):
+                logger.warning("Missing DB tables detected; bootstrapping schema before retry.")
+                await create_db_and_tables()
+                backoff = 5
+                await asyncio.sleep(backoff)
+                continue
             log_exception(
                 logger,
                 "Reddit JSON listener error: %s - retrying in %ss",
