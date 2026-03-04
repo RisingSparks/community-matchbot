@@ -4,9 +4,11 @@ primary_region = "iad"
 [build]
 
 [processes]
-  poller = "python scripts/run_reddit_json_listener.py"
+  poller = "/app/.venv/bin/python scripts/run_reddit_json_listener.py"
 
 [env]
+  SERVER_HOST = "0.0.0.0"
+  SERVER_PORT = "8080"
   DATABASE_BACKEND = "neon"
   LLM_PROVIDER = "openai"
   OPENAI_MODEL = "gpt-5-nano"
@@ -20,6 +22,20 @@ primary_region = "iad"
   DISCORD_ENABLED = "false"
   FACEBOOK_ENABLED = "false"
   VERBOSE = "false"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/health"
 
 [[vm]]
   size = "shared-cpu-1x"
