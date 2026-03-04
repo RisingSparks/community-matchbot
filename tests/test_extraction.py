@@ -156,6 +156,28 @@ async def test_process_post_error_on_llm_failure(db_session, mock_extractor):
 
 
 @pytest.mark.asyncio
+async def test_process_post_keeps_raw_on_llm_failure_when_configured(db_session, mock_extractor):
+    from matchbot.extraction.base import ExtractionError
+
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="err002",
+        title="Looking for a camp, willing to build",
+        raw_text="Some text about seeking camp.",
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    mock_extractor.extract.side_effect = ExtractionError("API timeout")
+
+    result = await process_post(db_session, post, mock_extractor, on_extraction_error="raw")
+
+    assert result.status == PostStatus.RAW
+
+
+@pytest.mark.asyncio
 async def test_process_post_normalizes_vibes(db_session, mock_extractor):
     post = Post(
         platform=Platform.REDDIT,
@@ -276,7 +298,12 @@ async def test_openai_extractor_parses_response():
     mock_client.responses.parse = AsyncMock(return_value=mock_response)
 
     extractor = OpenAIExtractor(client=mock_client)
-    result = await extractor.extract("Camp has openings", "We are recruiting", "reddit", "BurningMan")
+    result = await extractor.extract(
+        "Camp has openings",
+        "We are recruiting",
+        "reddit",
+        "BurningMan",
+    )
 
     assert result.role == "camp"
     assert result.camp_name == "Solar Circus"

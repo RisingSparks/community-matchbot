@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Literal
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -21,7 +22,12 @@ from matchbot.taxonomy import (
 logger = logging.getLogger(__name__)
 
 
-async def process_post(session: AsyncSession, post: Post, extractor: LLMExtractor) -> Post:
+async def process_post(
+    session: AsyncSession,
+    post: Post,
+    extractor: LLMExtractor,
+    on_extraction_error: Literal["error", "raw"] = "error",
+) -> Post:
     """
     Full extraction pipeline for a single post.
 
@@ -65,7 +71,7 @@ async def process_post(session: AsyncSession, post: Post, extractor: LLMExtracto
         )
     except Exception as exc:
         log_exception(logger, "Extraction failed for post %s: %s", post.id, exc)
-        post.status = PostStatus.ERROR
+        post.status = PostStatus.ERROR if on_extraction_error == "error" else PostStatus.RAW
         session.add(post)
         await _append_event(
             session,

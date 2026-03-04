@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     reddit_user_agent: str = Field(default="matchbot/0.1")
     reddit_username: str = Field(default="")
     reddit_password: str = Field(default="")
+    reddit_json_enabled: bool = Field(default=True)
+    reddit_json_poll_interval_seconds: int = Field(default=300)
+    reddit_json_fetch_limit: int = Field(default=100)
+    reddit_json_user_agent: str = Field(default="matchbot/0.1 (json-poller)")
 
     # Discord
     discord_enabled: bool = Field(default=True)

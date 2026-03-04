@@ -19,6 +19,16 @@ Edit `.env` as you go — the app reads all credentials from this file at startu
 
 Reddit is read-only streaming. No webhook or public server required.
 
+### Stage-1 fallback (no Reddit API app approval)
+
+If Reddit app credentials are unavailable, you can run the unauthenticated JSON poller instead:
+
+```bash
+uv run python scripts/run_reddit_json_listener.py
+```
+
+This polls `https://www.reddit.com/r/BurningMan/new.json` every 5 minutes by default, applies the keyword pre-filter, and writes posts to the existing `post` table.
+
 ### 1. Create a Reddit app
 
 - Go to https://www.reddit.com/prefs/apps

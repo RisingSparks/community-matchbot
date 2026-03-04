@@ -51,6 +51,12 @@ Run all listeners (Reddit + Discord + Facebook webhook server):
 uv run python scripts/run_listeners.py
 ```
 
+Run Reddit stage-1 JSON polling only (no Reddit app credentials required):
+
+```bash
+uv run python scripts/run_reddit_json_listener.py
+```
+
 Enable verbose logs with either:
 
 - `VERBOSE=true`
