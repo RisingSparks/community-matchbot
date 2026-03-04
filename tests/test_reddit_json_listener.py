@@ -128,10 +128,47 @@ async def test_poll_reddit_json_once_uses_checkpoint_and_persists_skipped_minima
     assert matched.status == PostStatus.INDEXED
     assert matched.platform_author_id == "t2_new_match_author"
     assert matched.author_display_name == "new_match_author"
-    assert matched.source_url == "https://example.org/new-match"
+    assert matched.source_url == "https://reddit.com/r/BurningMan/comments/new_match/post/"
 
     assert skipped.platform_author_id == "t2_new_skip_author"
     assert skipped.author_display_name == "new_skip_author"
     assert skipped.source_url == "https://reddit.com/r/BurningMan/comments/new_skip/post/"
+
+    engine_module._engine = None
+
+
+@pytest.mark.asyncio
+async def test_poll_reddit_json_once_retries_old_reddit_after_403(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+):
+    db_path = tmp_path / "reddit_json_listener_fallback.db"
+    monkeypatch.setenv("DATABASE_BACKEND", "sqlite")
+    monkeypatch.setenv("DB_PATH", str(db_path))
+    monkeypatch.setenv("REDDIT_JSON_FETCH_LIMIT", "100")
+    get_settings.cache_clear()
+    engine_module._engine = None
+
+    await create_db_and_tables()
+
+    blocked_response = MagicMock()
+    blocked_response.status_code = 403
+
+    ok_response = MagicMock()
+    ok_response.status_code = 200
+    ok_response.raise_for_status.return_value = None
+    ok_response.json.return_value = {"data": {"children": []}}
+
+    client = AsyncMock()
+    client.get = AsyncMock(side_effect=[blocked_response, ok_response])
+
+    counts = await reddit_json.poll_reddit_json_once(client=client)
+
+    assert counts["fetched"] == 0
+    assert client.get.await_count == 2
+    first_call = client.get.await_args_list[0]
+    second_call = client.get.await_args_list[1]
+    assert first_call.args[0] == "https://www.reddit.com/r/BurningMan/new.json"
+    assert second_call.args[0] == "https://old.reddit.com/r/BurningMan/new.json"
 
     engine_module._engine = None

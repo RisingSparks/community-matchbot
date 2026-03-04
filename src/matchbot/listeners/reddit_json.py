@@ -21,6 +21,7 @@ from matchbot.settings import get_settings
 logger = logging.getLogger(__name__)
 
 _REDDIT_NEW_URL = "https://www.reddit.com/r/BurningMan/new.json"
+_REDDIT_NEW_URL_FALLBACK = "https://old.reddit.com/r/BurningMan/new.json"
 _REDDIT_COMMUNITY = "BurningMan"
 
 
@@ -97,10 +98,20 @@ async def poll_reddit_json_once(client: httpx.AsyncClient | None = None) -> dict
     try:
         checkpoint_id = await _latest_reddit_post_id()
 
-        response = await client.get(
-            _REDDIT_NEW_URL,
-            params={"limit": settings.reddit_json_fetch_limit},
-        )
+        params = {"limit": settings.reddit_json_fetch_limit, "raw_json": 1}
+        response = await client.get(_REDDIT_NEW_URL, params=params)
+        if response.status_code == 403:
+            logger.warning(
+                (
+                    "Reddit JSON endpoint blocked request from %s; "
+                    "retrying via fallback endpoint. "
+                    "Set REDDIT_JSON_USER_AGENT to a descriptive value "
+                    "(e.g. 'matchbot/0.1 by u/<username>')."
+                ),
+                _REDDIT_NEW_URL,
+            )
+            response = await client.get(_REDDIT_NEW_URL_FALLBACK, params=params)
+
         response.raise_for_status()
         payload = response.json()
 
@@ -135,10 +146,12 @@ async def poll_reddit_json_once(client: httpx.AsyncClient | None = None) -> dict
                 author_id = data.get("author_fullname") or data.get("author") or "unknown"
                 author_display = data.get("author") or author_id
                 permalink = data.get("permalink") or ""
+                # Canonicalize Reddit posts to their permalink in source_url.
+                # If permalink is missing, fall back to available URL fields.
                 source_url = _build_source_url(
-                    data.get("url_overridden_by_dest")
+                    permalink
+                    or data.get("url_overridden_by_dest")
                     or data.get("url")
-                    or permalink
                 )
 
                 kw_result = keyword_filter(title, body)
