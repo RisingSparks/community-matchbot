@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = Field(default="")
     anthropic_model: str = Field(default="claude-haiku-4-5")
     openai_api_key: str = Field(default="")
-    openai_model: str = Field(default="gpt-4o-mini")
+    openai_model: str = Field(default="gpt-5-nano")
     openai_service_tier: str | None = Field(
         default=None,
         description="OpenAI service tier: 'priority', 'flex', or None for default",
