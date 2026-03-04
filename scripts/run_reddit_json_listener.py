@@ -44,6 +44,7 @@ async def main() -> None:
         host=settings.server_host,
         port=settings.server_port,
         loop="asyncio",
+        ws="websockets-sansio",
         log_level="debug" if verbose else "warning",
     )
     server = uvicorn.Server(uvicorn_config)
