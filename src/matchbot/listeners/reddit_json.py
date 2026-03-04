@@ -31,12 +31,14 @@ def _get_extractor():
     return AnthropicExtractor()
 
 
-def _build_source_url(permalink: str) -> str:
-    if not permalink:
+def _build_source_url(url: str) -> str:
+    if not url:
         return ""
-    if permalink.startswith("http://") or permalink.startswith("https://"):
-        return permalink
-    return f"https://reddit.com{permalink}"
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+    if url.startswith("/"):
+        return f"https://reddit.com{url}"
+    return f"https://reddit.com/{url}"
 
 
 async def _latest_reddit_post_id() -> str | None:
@@ -130,9 +132,14 @@ async def poll_reddit_json_once(client: httpx.AsyncClient | None = None) -> dict
 
                 title = (data.get("title") or "")[:500]
                 body = (data.get("selftext") or "")[:2000]
-                author = data.get("author") or "unknown"
+                author_id = data.get("author_fullname") or data.get("author") or "unknown"
+                author_display = data.get("author") or author_id
                 permalink = data.get("permalink") or ""
-                source_url = _build_source_url(permalink)
+                source_url = _build_source_url(
+                    data.get("url_overridden_by_dest")
+                    or data.get("url")
+                    or permalink
+                )
 
                 kw_result = keyword_filter(title, body)
 
@@ -141,8 +148,8 @@ async def poll_reddit_json_once(client: httpx.AsyncClient | None = None) -> dict
                         post = Post(
                             platform=Platform.REDDIT,
                             platform_post_id=post_id,
-                            platform_author_id=author,
-                            author_display_name=author,
+                            platform_author_id=author_id,
+                            author_display_name=author_display,
                             source_url=source_url,
                             source_community=_REDDIT_COMMUNITY,
                             title=title,
@@ -158,8 +165,8 @@ async def poll_reddit_json_once(client: httpx.AsyncClient | None = None) -> dict
                     post = Post(
                         platform=Platform.REDDIT,
                         platform_post_id=post_id,
-                        platform_author_id=author,
-                        author_display_name=author,
+                        platform_author_id=author_id,
+                        author_display_name=author_display,
                         source_url=source_url,
                         source_community=_REDDIT_COMMUNITY,
                         title=title,

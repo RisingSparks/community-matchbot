@@ -53,6 +53,8 @@ async def test_poll_reddit_json_once_uses_checkpoint_and_persists_skipped_minima
                         "title": "Seeking camp for Burn week",
                         "selftext": "First burner looking for a camp and can help build.",
                         "author": "new_match_author",
+                        "author_fullname": "t2_new_match_author",
+                        "url_overridden_by_dest": "https://example.org/new-match",
                         "permalink": "/r/BurningMan/comments/new_match/post/",
                     }
                 },
@@ -62,6 +64,8 @@ async def test_poll_reddit_json_once_uses_checkpoint_and_persists_skipped_minima
                         "title": "Traffic update for Gate Road",
                         "selftext": "No ask or offer, just weather and traffic chatter.",
                         "author": "new_skip_author",
+                        "author_fullname": "t2_new_skip_author",
+                        "url": "/r/BurningMan/comments/new_skip/post/",
                         "permalink": "/r/BurningMan/comments/new_skip/post/",
                     }
                 },
@@ -122,6 +126,12 @@ async def test_poll_reddit_json_once_uses_checkpoint_and_persists_skipped_minima
 
     matched = next(p for p in rows if p.platform_post_id == "new_match")
     assert matched.status == PostStatus.INDEXED
+    assert matched.platform_author_id == "t2_new_match_author"
+    assert matched.author_display_name == "new_match_author"
+    assert matched.source_url == "https://example.org/new-match"
+
+    assert skipped.platform_author_id == "t2_new_skip_author"
+    assert skipped.author_display_name == "new_skip_author"
+    assert skipped.source_url == "https://reddit.com/r/BurningMan/comments/new_skip/post/"
 
     engine_module._engine = None
-
