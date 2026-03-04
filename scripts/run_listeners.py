@@ -16,7 +16,7 @@ import uvicorn
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from matchbot.db.engine import create_db_and_tables
+from matchbot.db.engine import create_db_and_tables, dispose_engine
 from matchbot.listeners.discord_bot import run_discord_bot
 from matchbot.listeners.reddit import run_reddit_inbox_listener, run_reddit_listener
 from matchbot.log_config import configure_logging
@@ -48,23 +48,26 @@ async def main() -> None:
 
     logger.info("Starting all listeners…")
 
-    async with asyncio.TaskGroup() as tg:
-        if not settings.reddit_enabled:
-            logger.info("Reddit disabled (REDDIT_ENABLED=false) — skipping Reddit listeners.")
-        elif not settings.reddit_configured:
-            logger.info("Reddit credentials not set — skipping Reddit listeners.")
-        else:
-            tg.create_task(run_reddit_listener(), name="reddit-listener")
-            tg.create_task(run_reddit_inbox_listener(), name="reddit-inbox-listener")
+    try:
+        async with asyncio.TaskGroup() as tg:
+            if not settings.reddit_enabled:
+                logger.info("Reddit disabled (REDDIT_ENABLED=false) — skipping Reddit listeners.")
+            elif not settings.reddit_configured:
+                logger.info("Reddit credentials not set — skipping Reddit listeners.")
+            else:
+                tg.create_task(run_reddit_listener(), name="reddit-listener")
+                tg.create_task(run_reddit_inbox_listener(), name="reddit-inbox-listener")
 
-        if not settings.discord_enabled:
-            logger.info("Discord disabled (DISCORD_ENABLED=false) — skipping Discord listener.")
-        elif not settings.discord_configured:
-            logger.info("Discord credentials not set — skipping Discord listener.")
-        else:
-            tg.create_task(run_discord_bot(), name="discord-bot")
+            if not settings.discord_enabled:
+                logger.info("Discord disabled (DISCORD_ENABLED=false) — skipping Discord listener.")
+            elif not settings.discord_configured:
+                logger.info("Discord credentials not set — skipping Discord listener.")
+            else:
+                tg.create_task(run_discord_bot(), name="discord-bot")
 
-        tg.create_task(server.serve(), name="facebook-webhook")
+            tg.create_task(server.serve(), name="facebook-webhook")
+    finally:
+        await dispose_engine()
 
 
 if __name__ == "__main__":

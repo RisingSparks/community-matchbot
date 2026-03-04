@@ -12,7 +12,7 @@ from fastapi import FastAPI
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from matchbot.db.engine import create_db_and_tables
+from matchbot.db.engine import create_db_and_tables, dispose_engine
 from matchbot.listeners.reddit_json import run_reddit_json_listener
 from matchbot.log_config import configure_logging
 from matchbot.settings import get_settings
@@ -49,9 +49,12 @@ async def main() -> None:
     )
     server = uvicorn.Server(uvicorn_config)
 
-    async with asyncio.TaskGroup() as tg:
-        tg.create_task(server.serve(), name="healthcheck-server")
-        tg.create_task(run_reddit_json_listener(), name="reddit-json-listener")
+    try:
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(server.serve(), name="healthcheck-server")
+            tg.create_task(run_reddit_json_listener(), name="reddit-json-listener")
+    finally:
+        await dispose_engine()
 
 
 if __name__ == "__main__":

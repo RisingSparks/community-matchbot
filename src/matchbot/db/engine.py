@@ -2,13 +2,13 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from urllib.parse import urlparse, urlunparse
 
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from matchbot.settings import get_settings
 
-_engine = None
+_engine: AsyncEngine | None = None
 
 
 def _to_async_db_url(db_url: str) -> str:
@@ -39,6 +39,15 @@ def get_engine():
             connect_args = {}
         _engine = create_async_engine(db_url, connect_args=connect_args, echo=False)
     return _engine
+
+
+async def dispose_engine() -> None:
+    """Dispose the global async engine and clear pooled connections."""
+    global _engine
+    if _engine is None:
+        return
+    await _engine.dispose()
+    _engine = None
 
 
 async def create_db_and_tables() -> None:

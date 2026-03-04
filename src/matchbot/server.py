@@ -16,6 +16,7 @@ from matchbot.mod.router import router as mod_router
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     """Start scheduler on startup; shut it down on shutdown."""
+    from matchbot.db.engine import dispose_engine
     from matchbot.scheduler import create_scheduler
 
     scheduler = create_scheduler()
@@ -24,6 +25,7 @@ async def _lifespan(app: FastAPI):
         yield
     finally:
         scheduler.shutdown(wait=False)
+        await dispose_engine()
 
 
 def create_app(enable_scheduler: bool = True) -> FastAPI:
