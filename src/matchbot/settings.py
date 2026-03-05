@@ -111,6 +111,16 @@ class Settings(BaseSettings):
         description="Burn year to tag guide-enriched data. Defaults to current year if blank.",
     )
 
+    # Public community page
+    community_feedback_email: str = Field(
+        default="",
+        description="Optional email for public community feedback CTA.",
+    )
+    community_feedback_url: str = Field(
+        default="/forms/",
+        description="Fallback URL for public community feedback CTA.",
+    )
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

@@ -11,6 +11,7 @@ from matchbot.forms.router import router as forms_router
 from matchbot.listeners.facebook import router as facebook_router
 from matchbot.log_config import configure_logging
 from matchbot.mod.router import router as mod_router
+from matchbot.public.router import router as community_router
 
 
 @asynccontextmanager
@@ -44,6 +45,7 @@ def create_app(enable_scheduler: bool = True) -> FastAPI:
     app.include_router(facebook_router)
     app.include_router(forms_router)
     app.include_router(mod_router)
+    app.include_router(community_router)
 
     @app.get("/")
     @app.get("/health")

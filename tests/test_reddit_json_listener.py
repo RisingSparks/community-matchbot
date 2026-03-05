@@ -197,3 +197,254 @@ async def test_poll_reddit_json_once_retries_old_reddit_after_403(
     assert second_call.args[0] == "https://old.reddit.com/r/BurningMan/new.json"
 
     engine_module._engine = None
+
+
+@pytest.mark.asyncio
+async def test_backfill_reddit_json_pages_with_after_and_stops_at_cutoff(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cutoff = datetime.fromtimestamp(180, UTC).replace(tzinfo=None)
+    seen_ids: list[str] = []
+
+    async def fake_ingest(data, extractor, *, dry_run):
+        seen_ids.append(data["id"])
+        return "skipped", extractor
+
+    monkeypatch.setattr(reddit_json, "_ingest_reddit_json_item", fake_ingest)
+
+    page_1 = MagicMock()
+    page_1.status_code = 200
+    page_1.raise_for_status.return_value = None
+    page_1.json.return_value = {
+        "data": {
+            "after": "t3_page1",
+            "children": [
+                {"data": {"id": "newest", "created_utc": 220}},
+                {"data": {"id": "older", "created_utc": 210}},
+            ],
+        }
+    }
+
+    page_2 = MagicMock()
+    page_2.status_code = 200
+    page_2.raise_for_status.return_value = None
+    page_2.json.return_value = {
+        "data": {
+            "after": "t3_page2",
+            "children": [
+                {"data": {"id": "at_cutoff", "created_utc": 200}},
+                {"data": {"id": "too_old", "created_utc": 170}},
+            ],
+        }
+    }
+
+    client = AsyncMock()
+    client.get = AsyncMock(side_effect=[page_1, page_2])
+
+    counts = await reddit_json.backfill_reddit_json(
+        cutoff,
+        fetch_limit=100,
+        sleep_seconds=0,
+        max_pages=10,
+        dry_run=False,
+        client=client,
+    )
+
+    assert counts["pages"] == 2
+    assert counts["fetched"] == 4
+    assert counts["new_candidates"] == 3
+    assert seen_ids == ["older", "newest", "at_cutoff"]
+    assert client.get.await_args_list[0].kwargs["params"] == {"limit": 100, "raw_json": 1}
+    assert client.get.await_args_list[1].kwargs["params"] == {
+        "limit": 100,
+        "raw_json": 1,
+        "after": "t3_page1",
+    }
+
+
+@pytest.mark.asyncio
+async def test_backfill_reddit_json_dedupes_and_runs_same_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    mock_extractor,
+) -> None:
+    db_path = tmp_path / "reddit_json_backfill.db"
+    monkeypatch.setenv("DATABASE_BACKEND", "sqlite")
+    monkeypatch.setenv("DB_PATH", str(db_path))
+    get_settings.cache_clear()
+    engine_module._engine = None
+
+    await create_db_and_tables()
+
+    async with get_session() as session:
+        existing = Post(
+            platform=Platform.REDDIT,
+            platform_post_id="dup01",
+            platform_author_id="author_dup",
+            author_display_name="author_dup",
+            source_url="https://reddit.com/r/BurningMan/comments/dup01/",
+            source_community="BurningMan",
+            title="Existing post",
+            raw_text="already here",
+            status=PostStatus.RAW,
+        )
+        session.add(existing)
+        await session.commit()
+
+    response = MagicMock()
+    response.status_code = 200
+    response.raise_for_status.return_value = None
+    response.json.return_value = {
+        "data": {
+            "after": None,
+            "children": [
+                {
+                    "data": {
+                        "id": "new_match",
+                        "title": "Looking for camp and can help build",
+                        "selftext": "Can help with setup and teardown.",
+                        "author": "new_match_author",
+                        "author_fullname": "t2_new_match_author",
+                        "permalink": "/r/BurningMan/comments/new_match/post/",
+                        "created_utc": 220,
+                    }
+                },
+                {
+                    "data": {
+                        "id": "dup01",
+                        "title": "Duplicate existing",
+                        "selftext": "Should dedupe.",
+                        "author": "author_dup",
+                        "permalink": "/r/BurningMan/comments/dup01/post/",
+                        "created_utc": 215,
+                    }
+                },
+                {
+                    "data": {
+                        "id": "new_skip",
+                        "title": "Road update only",
+                        "selftext": "No ask/offer here.",
+                        "author": "new_skip_author",
+                        "author_fullname": "t2_new_skip_author",
+                        "permalink": "/r/BurningMan/comments/new_skip/post/",
+                        "created_utc": 210,
+                    }
+                },
+            ],
+        }
+    }
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=response)
+
+    async def fake_process_post(session, post, extractor, on_extraction_error="error"):
+        post.status = PostStatus.INDEXED
+        session.add(post)
+        await session.commit()
+        await session.refresh(post)
+        return post
+
+    monkeypatch.setattr(reddit_json, "_get_extractor", lambda: mock_extractor)
+    monkeypatch.setattr(reddit_json, "process_post", fake_process_post)
+
+    counts = await reddit_json.backfill_reddit_json(
+        datetime.fromtimestamp(200, UTC).replace(tzinfo=None),
+        fetch_limit=100,
+        sleep_seconds=0,
+        max_pages=5,
+        dry_run=False,
+        client=client,
+    )
+
+    assert counts["pages"] == 1
+    assert counts["fetched"] == 3
+    assert counts["new_candidates"] == 3
+    assert counts["deduped"] == 1
+    assert counts["matched"] == 1
+    assert counts["skipped"] == 1
+    assert counts["extracted"] == 1
+
+    async with get_session() as session:
+        rows = (await session.exec(select(Post).order_by(Post.platform_post_id))).all()
+
+    status_by_id = {row.platform_post_id: row.status for row in rows}
+    assert status_by_id["dup01"] == PostStatus.RAW
+    assert status_by_id["new_match"] == PostStatus.INDEXED
+    assert status_by_id["new_skip"] == PostStatus.SKIPPED
+    engine_module._engine = None
+
+
+@pytest.mark.asyncio
+async def test_backfill_reddit_json_dry_run_does_not_write_or_extract(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    db_path = tmp_path / "reddit_json_backfill_dry_run.db"
+    monkeypatch.setenv("DATABASE_BACKEND", "sqlite")
+    monkeypatch.setenv("DB_PATH", str(db_path))
+    get_settings.cache_clear()
+    engine_module._engine = None
+
+    await create_db_and_tables()
+
+    response = MagicMock()
+    response.status_code = 200
+    response.raise_for_status.return_value = None
+    response.json.return_value = {
+        "data": {
+            "after": None,
+            "children": [
+                {
+                    "data": {
+                        "id": "matched_candidate",
+                        "title": "Looking for camp this year",
+                        "selftext": "Can contribute build and strike.",
+                        "author": "match_author",
+                        "permalink": "/r/BurningMan/comments/matched_candidate/post/",
+                        "created_utc": 220,
+                    }
+                },
+                {
+                    "data": {
+                        "id": "skipped_candidate",
+                        "title": "Weather report",
+                        "selftext": "No ask/offer in this post.",
+                        "author": "skip_author",
+                        "permalink": "/r/BurningMan/comments/skipped_candidate/post/",
+                        "created_utc": 215,
+                    }
+                },
+            ],
+        }
+    }
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=response)
+
+    called = {"get_extractor": False}
+
+    def fail_if_called():
+        called["get_extractor"] = True
+        raise AssertionError("_get_extractor should not be called in dry-run")
+
+    monkeypatch.setattr(reddit_json, "_get_extractor", fail_if_called)
+
+    counts = await reddit_json.backfill_reddit_json(
+        datetime.fromtimestamp(200, UTC).replace(tzinfo=None),
+        fetch_limit=100,
+        sleep_seconds=0,
+        max_pages=5,
+        dry_run=True,
+        client=client,
+    )
+
+    assert counts["pages"] == 1
+    assert counts["matched"] == 1
+    assert counts["skipped"] == 1
+    assert counts["extracted"] == 0
+    assert counts["raw_after_error"] == 0
+    assert called["get_extractor"] is False
+
+    async with get_session() as session:
+        rows = (await session.exec(select(Post))).all()
+
+    assert rows == []
+    engine_module._engine = None

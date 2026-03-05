@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from sqlalchemy.exc import ProgrammingError
@@ -30,6 +30,15 @@ logger = logging.getLogger(__name__)
 _REDDIT_NEW_URL = "https://www.reddit.com/r/BurningMan/new.json"
 _REDDIT_NEW_URL_FALLBACK = "https://old.reddit.com/r/BurningMan/new.json"
 _REDDIT_COMMUNITY = "BurningMan"
+_IngestOutcome = Literal[
+    "ignored",
+    "deduped",
+    "skipped",
+    "matched_extracted",
+    "matched_raw_after_error",
+    "dryrun_skipped",
+    "dryrun_matched",
+]
 
 
 def _is_missing_table_error(exc: Exception) -> bool:
@@ -94,6 +103,137 @@ async def _post_exists(platform_post_id: str) -> bool:
     return existing is not None
 
 
+def _new_counts() -> dict[str, int]:
+    return {
+        "fetched": 0,
+        "new_candidates": 0,
+        "deduped": 0,
+        "skipped": 0,
+        "matched": 0,
+        "extracted": 0,
+        "raw_after_error": 0,
+    }
+
+
+async def _fetch_reddit_json_page(
+    client: httpx.AsyncClient,
+    *,
+    limit: int,
+    after: str | None = None,
+) -> dict[str, Any]:
+    params: dict[str, Any] = {"limit": limit, "raw_json": 1}
+    if after:
+        params["after"] = after
+
+    response = await client.get(_REDDIT_NEW_URL, params=params)
+    if response.status_code == 403:
+        logger.warning(
+            (
+                "Reddit JSON endpoint blocked request from %s; "
+                "retrying via fallback endpoint. "
+                "Set REDDIT_JSON_USER_AGENT to a descriptive value "
+                "(e.g. 'matchbot/0.1 by u/<username>')."
+            ),
+            _REDDIT_NEW_URL,
+        )
+        response = await client.get(_REDDIT_NEW_URL_FALLBACK, params=params)
+
+    response.raise_for_status()
+    return response.json()
+
+
+def _apply_outcome(counts: dict[str, int], outcome: _IngestOutcome) -> None:
+    if outcome == "deduped":
+        counts["deduped"] += 1
+    elif outcome in {"skipped", "dryrun_skipped"}:
+        counts["skipped"] += 1
+    elif outcome in {"matched_extracted", "matched_raw_after_error", "dryrun_matched"}:
+        counts["matched"] += 1
+        if outcome == "matched_extracted":
+            counts["extracted"] += 1
+        elif outcome == "matched_raw_after_error":
+            counts["raw_after_error"] += 1
+
+
+async def _ingest_reddit_json_item(
+    data: dict[str, Any],
+    extractor: Any | None,
+    *,
+    dry_run: bool,
+) -> tuple[_IngestOutcome, Any | None]:
+    post_id = data.get("id")
+    if not post_id:
+        return "ignored", extractor
+
+    if await _post_exists(post_id):
+        return "deduped", extractor
+
+    title = (data.get("title") or "")[:500]
+    body = (data.get("selftext") or "")[:2000]
+    kw_result = keyword_filter(title, body)
+    if dry_run:
+        return ("dryrun_matched" if kw_result.matched else "dryrun_skipped"), extractor
+
+    author_id = data.get("author_fullname") or data.get("author") or "unknown"
+    author_display = data.get("author") or author_id
+    permalink = data.get("permalink") or ""
+    source_url = _build_source_url(
+        permalink
+        or data.get("url_overridden_by_dest")
+        or data.get("url")
+    )
+
+    async with get_session() as session:
+        if not kw_result.matched:
+            post = Post(
+                platform=Platform.REDDIT,
+                platform_post_id=post_id,
+                platform_author_id=author_id,
+                author_display_name=author_display,
+                source_url=source_url,
+                source_community=_REDDIT_COMMUNITY,
+                title=title,
+                raw_text="",
+                source_created_at=_source_created_at_from_json(data),
+                status=PostStatus.SKIPPED,
+                extraction_method="keyword",
+            )
+            post.post_type = None
+            session.add(post)
+            await session.commit()
+            return "skipped", extractor
+
+        post = Post(
+            platform=Platform.REDDIT,
+            platform_post_id=post_id,
+            platform_author_id=author_id,
+            author_display_name=author_display,
+            source_url=source_url,
+            source_community=_REDDIT_COMMUNITY,
+            title=title,
+            raw_text=body,
+            source_created_at=_source_created_at_from_json(data),
+            status=PostStatus.RAW,
+        )
+        session.add(post)
+        await session.commit()
+        await session.refresh(post)
+
+        if extractor is None:
+            extractor = _get_extractor()
+
+        before_status = post.status
+        post = await process_post(
+            session,
+            post,
+            extractor,
+            on_extraction_error="raw",
+        )
+        if post.status == PostStatus.RAW and before_status == PostStatus.RAW:
+            return "matched_raw_after_error", extractor
+        return "matched_extracted", extractor
+
+
 async def poll_reddit_json_once(client: httpx.AsyncClient | None = None) -> dict[str, int]:
     """Poll Reddit JSON once and ingest posts newer than the latest stored post."""
     settings = get_settings()
@@ -108,35 +248,15 @@ async def poll_reddit_json_once(client: httpx.AsyncClient | None = None) -> dict
             },
         )
 
-    counts = {
-        "fetched": 0,
-        "new_candidates": 0,
-        "deduped": 0,
-        "skipped": 0,
-        "matched": 0,
-        "extracted": 0,
-        "raw_after_error": 0,
-    }
+    counts = _new_counts()
 
     try:
         checkpoint_id = await _latest_reddit_post_id()
 
-        params = {"limit": settings.reddit_json_fetch_limit, "raw_json": 1}
-        response = await client.get(_REDDIT_NEW_URL, params=params)
-        if response.status_code == 403:
-            logger.warning(
-                (
-                    "Reddit JSON endpoint blocked request from %s; "
-                    "retrying via fallback endpoint. "
-                    "Set REDDIT_JSON_USER_AGENT to a descriptive value "
-                    "(e.g. 'matchbot/0.1 by u/<username>')."
-                ),
-                _REDDIT_NEW_URL,
-            )
-            response = await client.get(_REDDIT_NEW_URL_FALLBACK, params=params)
-
-        response.raise_for_status()
-        payload = response.json()
+        payload = await _fetch_reddit_json_page(
+            client,
+            limit=settings.reddit_json_fetch_limit,
+        )
 
         children = payload.get("data", {}).get("children", [])
         counts["fetched"] = len(children)
@@ -156,87 +276,102 @@ async def poll_reddit_json_once(client: httpx.AsyncClient | None = None) -> dict
         extractor = None
         try:
             for data in reversed(new_items):  # process oldest->newest
-                post_id = data.get("id")
-                if not post_id:
-                    continue
-
-                if await _post_exists(post_id):
-                    counts["deduped"] += 1
-                    continue
-
-                title = (data.get("title") or "")[:500]
-                body = (data.get("selftext") or "")[:2000]
-                author_id = data.get("author_fullname") or data.get("author") or "unknown"
-                author_display = data.get("author") or author_id
-                permalink = data.get("permalink") or ""
-                # Canonicalize Reddit posts to their permalink in source_url.
-                # If permalink is missing, fall back to available URL fields.
-                source_url = _build_source_url(
-                    permalink
-                    or data.get("url_overridden_by_dest")
-                    or data.get("url")
+                outcome, extractor = await _ingest_reddit_json_item(
+                    data,
+                    extractor,
+                    dry_run=False,
                 )
-
-                kw_result = keyword_filter(title, body)
-
-                async with get_session() as session:
-                    if not kw_result.matched:
-                        post = Post(
-                            platform=Platform.REDDIT,
-                            platform_post_id=post_id,
-                            platform_author_id=author_id,
-                            author_display_name=author_display,
-                            source_url=source_url,
-                            source_community=_REDDIT_COMMUNITY,
-                            title=title,
-                            raw_text="",
-                            source_created_at=_source_created_at_from_json(data),
-                            status=PostStatus.SKIPPED,
-                            extraction_method="keyword",
-                        )
-                        post.post_type = None
-                        session.add(post)
-                        await session.commit()
-                        counts["skipped"] += 1
-                        continue
-
-                    post = Post(
-                        platform=Platform.REDDIT,
-                        platform_post_id=post_id,
-                        platform_author_id=author_id,
-                        author_display_name=author_display,
-                        source_url=source_url,
-                        source_community=_REDDIT_COMMUNITY,
-                        title=title,
-                        raw_text=body,
-                        source_created_at=_source_created_at_from_json(data),
-                        status=PostStatus.RAW,
-                    )
-                    session.add(post)
-                    await session.commit()
-                    await session.refresh(post)
-
-                    if extractor is None:
-                        extractor = _get_extractor()
-
-                    before_status = post.status
-                    post = await process_post(
-                        session,
-                        post,
-                        extractor,
-                        on_extraction_error="raw",
-                    )
-                    counts["matched"] += 1
-                    if post.status == PostStatus.RAW and before_status == PostStatus.RAW:
-                        counts["raw_after_error"] += 1
-                    else:
-                        counts["extracted"] += 1
+                _apply_outcome(counts, outcome)
         finally:
             if extractor is not None:
                 await extractor.aclose()
 
         return counts
     finally:
+        if owns_client and client is not None:
+            await client.aclose()
+
+
+async def backfill_reddit_json(
+    since_datetime: datetime,
+    *,
+    fetch_limit: int | None = None,
+    sleep_seconds: float = 1.5,
+    max_pages: int = 500,
+    dry_run: bool = False,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, int]:
+    """Page through historical Reddit JSON posts and ingest posts on/after a cutoff."""
+    if max_pages < 1:
+        raise ValueError("max_pages must be >= 1")
+
+    settings = get_settings()
+    limit = fetch_limit or settings.reddit_json_fetch_limit
+
+    owns_client = client is None
+    if owns_client:
+        client = httpx.AsyncClient(
+            timeout=30,
+            headers={
+                "User-Agent": settings.reddit_json_user_agent or settings.reddit_user_agent,
+                "Accept": "application/json",
+            },
+        )
+
+    counts = _new_counts()
+    counts["pages"] = 0
+
+    after: str | None = None
+    extractor = None
+    reached_cutoff = False
+    try:
+        for _ in range(max_pages):
+            payload = await _fetch_reddit_json_page(
+                client,
+                limit=limit,
+                after=after,
+            )
+            counts["pages"] += 1
+
+            children = payload.get("data", {}).get("children", [])
+            counts["fetched"] += len(children)
+
+            in_scope: list[dict[str, Any]] = []
+            for child in children:
+                data = child.get("data", {})
+                post_id = data.get("id")
+                if not post_id:
+                    continue
+                created_at = _source_created_at_from_json(data)
+                if created_at is not None and created_at < since_datetime:
+                    reached_cutoff = True
+                    break
+                in_scope.append(data)
+
+            counts["new_candidates"] += len(in_scope)
+
+            for data in reversed(in_scope):
+                outcome, extractor = await _ingest_reddit_json_item(
+                    data,
+                    extractor,
+                    dry_run=dry_run,
+                )
+                _apply_outcome(counts, outcome)
+
+            if reached_cutoff:
+                break
+
+            after = payload.get("data", {}).get("after")
+            if not after:
+                break
+
+            if sleep_seconds > 0:
+                await asyncio.sleep(sleep_seconds)
+
+        return counts
+    finally:
+        if extractor is not None:
+            await extractor.aclose()
         if owns_client and client is not None:
             await client.aclose()
 
