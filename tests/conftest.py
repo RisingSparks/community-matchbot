@@ -6,14 +6,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
-from matchbot.settings import get_settings
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from matchbot.db.models import Platform, Post, PostRole, PostStatus
+from matchbot.db.models import Platform, Post, PostRole, PostStatus, PostType
 from matchbot.extraction.schemas import ExtractedPost
+from matchbot.settings import get_settings
 
 # ---------------------------------------------------------------------------
 # Settings isolation
@@ -101,6 +101,7 @@ def _make_post(
     raw_text: str = "I am looking for a camp. Willing to build.",
     source_community: str = "BurningMan",
     seeker_intent: str | None = None,
+    post_type: str | None = PostType.MENTORSHIP,
 ) -> Post:
     v = vibes or ["art", "build_focused"]
     ct = contribution_types or ["build", "art"]
@@ -119,6 +120,7 @@ def _make_post(
         contribution_types="|".join(ct),
         year=year,
         seeker_intent=seeker_intent,
+        post_type=post_type,
     )
 
 

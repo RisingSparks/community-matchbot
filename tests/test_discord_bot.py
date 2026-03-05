@@ -67,7 +67,11 @@ async def test_handle_discord_message_deduplicates(db_session, mock_extractor):
     from matchbot.extraction.schemas import ExtractedPost
 
     mock_extractor.extract.return_value = ExtractedPost(role="seeker", confidence=0.9)
-    msg = _make_discord_message(content="Seeking camp for BM", channel_id="CHANNEL_ID_1", message_id="msg999")
+    msg = _make_discord_message(
+        content="Seeking camp for BM",
+        channel_id="CHANNEL_ID_1",
+        message_id="msg999",
+    )
 
     with (
         patch("matchbot.listeners.discord_bot.get_session") as mock_session_factory,
