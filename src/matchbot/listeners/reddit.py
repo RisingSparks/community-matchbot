@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 
 import asyncpraw
@@ -37,6 +38,16 @@ def _get_extractor():
     return AnthropicExtractor()
 
 
+def _source_created_at_from_submission(submission) -> datetime | None:
+    created_utc = getattr(submission, "created_utc", None)
+    if created_utc is None:
+        return None
+    try:
+        return datetime.fromtimestamp(float(created_utc), UTC).replace(tzinfo=None)
+    except (TypeError, ValueError, OSError):
+        return None
+
+
 async def _handle_submission(submission, session: AsyncSession) -> Post | None:
     """Process a single Reddit submission."""
     # Deduplication
@@ -62,6 +73,7 @@ async def _handle_submission(submission, session: AsyncSession) -> Post | None:
         source_community=submission.subreddit.display_name,
         title=submission.title[:500],
         raw_text=raw_text,
+        source_created_at=_source_created_at_from_submission(submission),
         status=PostStatus.RAW,
     )
     session.add(post)

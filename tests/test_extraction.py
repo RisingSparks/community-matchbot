@@ -77,6 +77,7 @@ async def test_process_post_keyword_no_match_skips(db_session, mock_extractor):
     result = await process_post(db_session, post, mock_extractor)
 
     assert result.status == PostStatus.SKIPPED
+    assert result.post_type is None
     mock_extractor.extract.assert_not_called()
 
 

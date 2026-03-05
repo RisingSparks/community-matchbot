@@ -122,6 +122,7 @@ class Post(SQLModel, table=True):
     raw_text: str = Field(default="")  # max 2000 chars
 
     detected_at: datetime = Field(default_factory=_now)
+    source_created_at: datetime | None = Field(default=None)
     status: str = Field(default=PostStatus.RAW, index=True)
     expires_at: datetime | None = Field(default=None)
 
@@ -141,7 +142,7 @@ class Post(SQLModel, table=True):
     extraction_method: str | None = Field(default=None)  # keyword | llm_anthropic | llm_openai
 
     # Post type routing
-    post_type: str = Field(default=PostType.MENTORSHIP, index=True)  # mentorship | infrastructure
+    post_type: str | None = Field(default=None, index=True)  # mentorship | infrastructure
 
     # Infrastructure-specific fields (post_type == infrastructure)
     infra_role: str | None = Field(default=None)          # seeking | offering

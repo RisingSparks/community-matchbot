@@ -433,6 +433,7 @@ def posts_dismiss(
 
         prev_status = post.status
         post.status = PostStatus.SKIPPED
+        post.post_type = None
         session.add(post)
         await _write_event(
             session,

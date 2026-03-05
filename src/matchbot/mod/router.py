@@ -356,6 +356,7 @@ async def dismiss_post(
     if post.status not in {PostStatus.NEEDS_REVIEW, PostStatus.ERROR}:
         raise HTTPException(409, f"Post status is {post.status!r}, cannot dismiss")
     post.status = PostStatus.SKIPPED
+    post.post_type = None
     await _write_event(
         session,
         post,

@@ -113,4 +113,5 @@ async def test_handle_discord_message_no_keyword_match_skips(db_session, mock_ex
     ).all()
     if posts:
         assert posts[0].status == PostStatus.SKIPPED
+        assert posts[0].post_type is None
     mock_extractor.extract.assert_not_called()

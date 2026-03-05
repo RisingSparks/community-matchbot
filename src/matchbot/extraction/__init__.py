@@ -46,6 +46,8 @@ async def process_post(
 
     if not kw_result.matched:
         post.status = PostStatus.SKIPPED
+        # SKIPPED means we intentionally did not classify the post.
+        post.post_type = None
         post.extraction_method = "keyword"
         session.add(post)
         await _append_event(session, post, "post_skipped", {"reason": "keyword_filter_no_match"})

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -75,6 +76,7 @@ async def test_poll_reddit_json_once_uses_checkpoint_and_persists_skipped_minima
                         "author_fullname": "t2_new_match_author",
                         "url_overridden_by_dest": "https://example.org/new-match",
                         "permalink": "/r/BurningMan/comments/new_match/post/",
+                        "created_utc": 1735819200,
                     }
                 },
                 {
@@ -86,6 +88,7 @@ async def test_poll_reddit_json_once_uses_checkpoint_and_persists_skipped_minima
                         "author_fullname": "t2_new_skip_author",
                         "url": "/r/BurningMan/comments/new_skip/post/",
                         "permalink": "/r/BurningMan/comments/new_skip/post/",
+                        "created_utc": 1735905600,
                     }
                 },
                 {
@@ -140,14 +143,17 @@ async def test_poll_reddit_json_once_uses_checkpoint_and_persists_skipped_minima
 
     skipped = next(p for p in rows if p.platform_post_id == "new_skip")
     assert skipped.status == PostStatus.SKIPPED
+    assert skipped.post_type is None
     assert skipped.raw_text == ""
     assert skipped.source_url.endswith("/new_skip/post/")
+    assert skipped.source_created_at == datetime.fromtimestamp(1735905600, UTC).replace(tzinfo=None)
 
     matched = next(p for p in rows if p.platform_post_id == "new_match")
     assert matched.status == PostStatus.INDEXED
     assert matched.platform_author_id == "t2_new_match_author"
     assert matched.author_display_name == "new_match_author"
     assert matched.source_url == "https://reddit.com/r/BurningMan/comments/new_match/post/"
+    assert matched.source_created_at == datetime.fromtimestamp(1735819200, UTC).replace(tzinfo=None)
 
     assert skipped.platform_author_id == "t2_new_skip_author"
     assert skipped.author_display_name == "new_skip_author"

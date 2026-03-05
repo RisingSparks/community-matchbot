@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -52,6 +53,16 @@ def _build_source_url(url: str) -> str:
     if url.startswith("/"):
         return f"https://reddit.com{url}"
     return f"https://reddit.com/{url}"
+
+
+def _source_created_at_from_json(data: dict[str, Any]) -> datetime | None:
+    created_utc = data.get("created_utc")
+    if created_utc is None:
+        return None
+    try:
+        return datetime.fromtimestamp(float(created_utc), UTC).replace(tzinfo=None)
+    except (TypeError, ValueError, OSError):
+        return None
 
 
 async def _latest_reddit_post_id() -> str | None:
@@ -179,9 +190,11 @@ async def poll_reddit_json_once(client: httpx.AsyncClient | None = None) -> dict
                             source_community=_REDDIT_COMMUNITY,
                             title=title,
                             raw_text="",
+                            source_created_at=_source_created_at_from_json(data),
                             status=PostStatus.SKIPPED,
                             extraction_method="keyword",
                         )
+                        post.post_type = None
                         session.add(post)
                         await session.commit()
                         counts["skipped"] += 1
@@ -196,6 +209,7 @@ async def poll_reddit_json_once(client: httpx.AsyncClient | None = None) -> dict
                         source_community=_REDDIT_COMMUNITY,
                         title=title,
                         raw_text=body,
+                        source_created_at=_source_created_at_from_json(data),
                         status=PostStatus.RAW,
                     )
                     session.add(post)

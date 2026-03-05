@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,6 +19,7 @@ def _make_submission(
     author: str = "burner_user",
     subreddit: str = "BurningMan",
     permalink: str = "/r/BurningMan/comments/abc123/test/",
+    created_utc: float = 1735732800.0,
 ) -> MagicMock:
     submission = MagicMock()
     submission.id = sub_id
@@ -25,6 +27,7 @@ def _make_submission(
     submission.selftext = body
     submission.author = author
     submission.permalink = permalink
+    submission.created_utc = created_utc
     submission.subreddit.display_name = subreddit
     return submission
 
@@ -45,6 +48,7 @@ async def test_handle_submission_creates_post(db_session, mock_extractor):
     assert post is not None
     assert post.platform == Platform.REDDIT
     assert post.platform_post_id == "abc123"
+    assert post.source_created_at == datetime.fromtimestamp(1735732800.0, UTC).replace(tzinfo=None)
     assert post.status in (PostStatus.INDEXED, PostStatus.NEEDS_REVIEW)
 
 
@@ -83,6 +87,7 @@ async def test_handle_submission_skipped_if_no_keyword_match(db_session, mock_ex
 
     assert post is not None
     assert post.status == PostStatus.SKIPPED
+    assert post.post_type is None
     mock_extractor.extract.assert_not_called()
 
 
