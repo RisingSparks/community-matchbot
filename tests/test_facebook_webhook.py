@@ -219,4 +219,6 @@ def test_facebook_post_non_feed_change_ignored(client, app_secret):
 def test_health_endpoint(client):
     resp = client.get("/health")
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["message"] == "Matchbot API is running."
