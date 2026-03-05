@@ -10,7 +10,12 @@ import httpx
 from sqlalchemy.exc import ProgrammingError
 from sqlmodel import select
 
-from matchbot.db.engine import create_db_and_tables, get_session
+from matchbot.db.engine import (
+    create_db_and_tables,
+    dispose_engine,
+    get_session,
+    is_disconnect_error,
+)
 from matchbot.db.models import Platform, Post, PostStatus
 from matchbot.extraction import process_post
 from matchbot.extraction.anthropic_extractor import AnthropicExtractor
@@ -255,6 +260,15 @@ async def run_reddit_json_listener() -> None:
             if _is_missing_table_error(exc):
                 logger.warning("Missing DB tables detected; bootstrapping schema before retry.")
                 await create_db_and_tables()
+                backoff = 5
+                await asyncio.sleep(backoff)
+                continue
+            if is_disconnect_error(exc):
+                logger.warning(
+                    "Transient DB disconnect detected; disposing engine and retrying in %ss.",
+                    5,
+                )
+                await dispose_engine()
                 backoff = 5
                 await asyncio.sleep(backoff)
                 continue

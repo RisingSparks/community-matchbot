@@ -2,6 +2,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from urllib.parse import urlparse, urlunparse
 
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -9,6 +10,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from matchbot.settings import get_settings
 
 _engine: AsyncEngine | None = None
+_DISCONNECT_ERROR_MARKERS = (
+    "ConnectionDoesNotExistError",
+    "connection was closed in the middle of operation",
+    "server closed the connection unexpectedly",
+    "connection not open",
+)
 
 
 def _to_async_db_url(db_url: str) -> str:
@@ -21,6 +28,32 @@ def _to_async_db_url(db_url: str) -> str:
     # sslmode, channel_binding, etc. SSL is passed via connect_args instead.
     parsed = urlparse(db_url)
     return urlunparse(parsed._replace(query=""))
+
+
+def is_disconnect_error(exc: Exception) -> bool:
+    """Best-effort detection for transient DB disconnects in wrapped SQLAlchemy errors."""
+    seen: set[int] = set()
+    current: Exception | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+
+        if isinstance(current, DBAPIError) and current.connection_invalidated:
+            return True
+
+        message = str(current)
+        if any(marker in message for marker in _DISCONNECT_ERROR_MARKERS):
+            return True
+
+        next_exc: Exception | None = None
+        if isinstance(current, DBAPIError) and isinstance(current.orig, Exception):
+            next_exc = current.orig
+        elif isinstance(current.__cause__, Exception):
+            next_exc = current.__cause__
+        elif isinstance(current.__context__, Exception):
+            next_exc = current.__context__
+        current = next_exc
+
+    return False
 
 
 def get_engine():
