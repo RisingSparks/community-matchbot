@@ -57,10 +57,35 @@ Run Reddit stage-1 JSON polling only (no Reddit app credentials required):
 uv run python scripts/run_reddit_json_listener.py
 ```
 
+Backfill historical Reddit JSON posts (same ingestion/extraction pipeline):
+
+```bash
+uv run python scripts/backfill_reddit_json.py --since-date 2025-01-01
+uv run python scripts/backfill_reddit_json.py --since-date 2025-01-01 --dry-run
+```
+
 Enable verbose logs with either:
 
 - `VERBOSE=true`
 - `uv run matchbot --verbose ...`
+
+## Public Community Page
+
+Run the API server locally:
+
+```bash
+uv run uvicorn matchbot.server:app --reload
+```
+
+Open:
+
+- `http://127.0.0.1:8000/community/` — public value page
+- `http://127.0.0.1:8000/community/data` — JSON data feed used by the page
+
+Optional CTA config in `.env`:
+
+- `COMMUNITY_FEEDBACK_EMAIL=you@example.com` (uses `mailto:` feedback link)
+- `COMMUNITY_FEEDBACK_URL=/forms/` (fallback URL when email is blank)
 
 ## Fly Deploy
 
@@ -134,6 +159,7 @@ Key config files:
 
 - `src/matchbot/config/sources.yaml`: platform communities/channels to ingest
 - `src/matchbot/config/taxonomy.yaml`: normalized vibe/contribution/infrastructure categories
+- `COMMUNITY_FEEDBACK_EMAIL` / `COMMUNITY_FEEDBACK_URL`: public community page feedback CTA target
 
 Platform setup guide:
 

@@ -39,11 +39,12 @@ def upgrade() -> None:
     sa.Column('opted_in', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    if_not_exists=True,
     )
-    op.create_index(op.f('ix_profile_platform'), 'profile', ['platform'], unique=False)
-    op.create_index(op.f('ix_profile_platform_author_id'), 'profile', ['platform_author_id'], unique=False)
-    op.create_index(op.f('ix_profile_role'), 'profile', ['role'], unique=False)
+    op.create_index(op.f('ix_profile_platform'), 'profile', ['platform'], unique=False, if_not_exists=True)
+    op.create_index(op.f('ix_profile_platform_author_id'), 'profile', ['platform_author_id'], unique=False, if_not_exists=True)
+    op.create_index(op.f('ix_profile_role'), 'profile', ['role'], unique=False, if_not_exists=True)
     op.create_table('post',
     sa.Column('id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('platform', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
@@ -71,11 +72,12 @@ def upgrade() -> None:
     sa.Column('extraction_method', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('profile_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.ForeignKeyConstraint(['profile_id'], ['profile.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    if_not_exists=True,
     )
-    op.create_index(op.f('ix_post_platform'), 'post', ['platform'], unique=False)
-    op.create_index(op.f('ix_post_platform_post_id'), 'post', ['platform_post_id'], unique=False)
-    op.create_index(op.f('ix_post_status'), 'post', ['status'], unique=False)
+    op.create_index(op.f('ix_post_platform'), 'post', ['platform'], unique=False, if_not_exists=True)
+    op.create_index(op.f('ix_post_platform_post_id'), 'post', ['platform_post_id'], unique=False, if_not_exists=True)
+    op.create_index(op.f('ix_post_status'), 'post', ['status'], unique=False, if_not_exists=True)
     op.create_table('match',
     sa.Column('id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('seeker_post_id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
@@ -97,11 +99,12 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['camp_profile_id'], ['profile.id'], ),
     sa.ForeignKeyConstraint(['seeker_post_id'], ['post.id'], ),
     sa.ForeignKeyConstraint(['seeker_profile_id'], ['profile.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    if_not_exists=True,
     )
-    op.create_index(op.f('ix_match_camp_post_id'), 'match', ['camp_post_id'], unique=False)
-    op.create_index(op.f('ix_match_seeker_post_id'), 'match', ['seeker_post_id'], unique=False)
-    op.create_index(op.f('ix_match_status'), 'match', ['status'], unique=False)
+    op.create_index(op.f('ix_match_camp_post_id'), 'match', ['camp_post_id'], unique=False, if_not_exists=True)
+    op.create_index(op.f('ix_match_seeker_post_id'), 'match', ['seeker_post_id'], unique=False, if_not_exists=True)
+    op.create_index(op.f('ix_match_status'), 'match', ['status'], unique=False, if_not_exists=True)
     op.create_table('event',
     sa.Column('id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('occurred_at', sa.DateTime(), nullable=False),
@@ -113,9 +116,10 @@ def upgrade() -> None:
     sa.Column('note', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.ForeignKeyConstraint(['match_id'], ['match.id'], ),
     sa.ForeignKeyConstraint(['post_id'], ['post.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    if_not_exists=True,
     )
-    op.create_index(op.f('ix_event_event_type'), 'event', ['event_type'], unique=False)
+    op.create_index(op.f('ix_event_event_type'), 'event', ['event_type'], unique=False, if_not_exists=True)
     # ### end Alembic commands ###
 
 
