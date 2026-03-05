@@ -5,18 +5,18 @@ Revises:
 Create Date: 2026-02-20 19:09:50.747001
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 import sqlmodel
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '3a54dd0eb627'
-down_revision: Union[str, None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -42,9 +42,27 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     if_not_exists=True,
     )
-    op.create_index(op.f('ix_profile_platform'), 'profile', ['platform'], unique=False, if_not_exists=True)
-    op.create_index(op.f('ix_profile_platform_author_id'), 'profile', ['platform_author_id'], unique=False, if_not_exists=True)
-    op.create_index(op.f('ix_profile_role'), 'profile', ['role'], unique=False, if_not_exists=True)
+    op.create_index(
+        op.f('ix_profile_platform'),
+        'profile',
+        ['platform'],
+        unique=False,
+        if_not_exists=True,
+    )
+    op.create_index(
+        op.f('ix_profile_platform_author_id'),
+        'profile',
+        ['platform_author_id'],
+        unique=False,
+        if_not_exists=True,
+    )
+    op.create_index(
+        op.f('ix_profile_role'),
+        'profile',
+        ['role'],
+        unique=False,
+        if_not_exists=True,
+    )
     op.create_table('post',
     sa.Column('id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('platform', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
@@ -75,9 +93,27 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     if_not_exists=True,
     )
-    op.create_index(op.f('ix_post_platform'), 'post', ['platform'], unique=False, if_not_exists=True)
-    op.create_index(op.f('ix_post_platform_post_id'), 'post', ['platform_post_id'], unique=False, if_not_exists=True)
-    op.create_index(op.f('ix_post_status'), 'post', ['status'], unique=False, if_not_exists=True)
+    op.create_index(
+        op.f('ix_post_platform'),
+        'post',
+        ['platform'],
+        unique=False,
+        if_not_exists=True,
+    )
+    op.create_index(
+        op.f('ix_post_platform_post_id'),
+        'post',
+        ['platform_post_id'],
+        unique=False,
+        if_not_exists=True,
+    )
+    op.create_index(
+        op.f('ix_post_status'),
+        'post',
+        ['status'],
+        unique=False,
+        if_not_exists=True,
+    )
     op.create_table('match',
     sa.Column('id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('seeker_post_id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
@@ -102,9 +138,27 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     if_not_exists=True,
     )
-    op.create_index(op.f('ix_match_camp_post_id'), 'match', ['camp_post_id'], unique=False, if_not_exists=True)
-    op.create_index(op.f('ix_match_seeker_post_id'), 'match', ['seeker_post_id'], unique=False, if_not_exists=True)
-    op.create_index(op.f('ix_match_status'), 'match', ['status'], unique=False, if_not_exists=True)
+    op.create_index(
+        op.f('ix_match_camp_post_id'),
+        'match',
+        ['camp_post_id'],
+        unique=False,
+        if_not_exists=True,
+    )
+    op.create_index(
+        op.f('ix_match_seeker_post_id'),
+        'match',
+        ['seeker_post_id'],
+        unique=False,
+        if_not_exists=True,
+    )
+    op.create_index(
+        op.f('ix_match_status'),
+        'match',
+        ['status'],
+        unique=False,
+        if_not_exists=True,
+    )
     op.create_table('event',
     sa.Column('id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('occurred_at', sa.DateTime(), nullable=False),
@@ -119,7 +173,13 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     if_not_exists=True,
     )
-    op.create_index(op.f('ix_event_event_type'), 'event', ['event_type'], unique=False, if_not_exists=True)
+    op.create_index(
+        op.f('ix_event_event_type'),
+        'event',
+        ['event_type'],
+        unique=False,
+        if_not_exists=True,
+    )
     # ### end Alembic commands ###
 
 

@@ -1,10 +1,13 @@
 import asyncio
+import logging
 import sys
 from logging.config import fileConfig
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
-from sqlalchemy import pool
+from alembic.script import ScriptDirectory
+from sqlalchemy import exc as sa_exc
+from sqlalchemy import inspect, pool, text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
@@ -51,6 +54,57 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = SQLModel.metadata
+logger = logging.getLogger("alembic.env")
+
+
+def _table_has_column(db_inspector, table_name: str, column_name: str) -> bool:
+    try:
+        return any(column["name"] == column_name for column in db_inspector.get_columns(table_name))
+    except sa_exc.SQLAlchemyError:  # pragma: no cover - defensive for reflection issues
+        return False
+
+
+def _schema_matches_current_models(db_inspector) -> bool:
+    required_tables = {"profile", "post", "match", "event", "opt_out"}
+    existing_tables = set(db_inspector.get_table_names())
+    if not required_tables.issubset(existing_tables):
+        return False
+
+    required_columns = (
+        ("post", "post_type"),
+        ("post", "source_created_at"),
+        ("profile", "seeker_intent"),
+        ("match", "intro_draft"),
+    )
+    return all(
+        _table_has_column(db_inspector, table_name, column_name)
+        for table_name, column_name in required_columns
+    )
+
+
+def _stamp_head_if_needed(connection) -> None:
+    db_inspector = inspect(connection)
+    if "alembic_version" in set(db_inspector.get_table_names()):
+        return
+    if not _schema_matches_current_models(db_inspector):
+        return
+
+    head_revision = ScriptDirectory.from_config(config).get_current_head()
+    connection.execute(
+        text(
+            "CREATE TABLE IF NOT EXISTS alembic_version "
+            "(version_num VARCHAR(32) NOT NULL PRIMARY KEY)"
+        )
+    )
+    connection.execute(text("DELETE FROM alembic_version"))
+    connection.execute(
+        text("INSERT INTO alembic_version (version_num) VALUES (:revision)"),
+        {"revision": head_revision},
+    )
+    logger.info(
+        "Detected pre-existing schema without alembic_version; stamped database to revision %s",
+        head_revision,
+    )
 
 
 def run_migrations_offline() -> None:
@@ -66,6 +120,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:
+    _stamp_head_if_needed(connection)
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
         context.run_migrations()
