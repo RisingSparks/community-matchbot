@@ -7,7 +7,16 @@ from fastapi.testclient import TestClient
 
 from matchbot.db import engine as engine_module
 from matchbot.db.engine import create_db_and_tables, get_session
-from matchbot.db.models import Match, MatchStatus, Platform, Post, PostRole, PostStatus, Profile
+from matchbot.db.models import (
+    Match,
+    MatchStatus,
+    Platform,
+    Post,
+    PostRole,
+    PostStatus,
+    PostType,
+    Profile,
+)
 from matchbot.server import create_app
 from matchbot.settings import get_settings
 
@@ -35,6 +44,8 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert "Rising Sparks Public Dashboard" in response.text
         assert "Live Activity" in response.text
         assert "Most Requested Skills" in response.text
+        assert "Most Sought Skills (Order Book)" in response.text
+        assert "Most Sought Vibes (Order Book)" in response.text
         assert "Matched Drill-Down" in response.text
     finally:
         _reset_engine()
@@ -62,6 +73,8 @@ def test_community_data_zero_state(monkeypatch, tmp_path) -> None:
         assert payload["live_feed"] == []
         assert payload["demand"]["top_contribution_types"] == []
         assert payload["demand"]["top_vibes"] == []
+        assert payload["demand"]["most_sought_skills"] == []
+        assert payload["demand"]["most_sought_vibes"] == []
     finally:
         _reset_engine()
 
@@ -354,6 +367,12 @@ def test_community_data_redacts_story_and_feed_identifiers(monkeypatch, tmp_path
         demand = payload["demand"]
         assert demand["top_contribution_types"][0]["name"] == "art"
         assert demand["top_contribution_types"][0]["count"] == 2
+        assert demand["most_sought_skills"][0]["name"] == "kitchen"
+        assert demand["most_sought_skills"][0]["demand_count"] == 1
+        assert demand["most_sought_skills"][0]["supply_count"] == 0
+        assert demand["most_sought_vibes"][0]["name"] == "inclusive"
+        assert demand["most_sought_vibes"][0]["demand_count"] == 1
+        assert demand["most_sought_vibes"][0]["supply_count"] == 1
 
         feed = payload["live_feed"]
         assert len(feed) >= 2
@@ -446,5 +465,113 @@ def test_live_feed_excludes_post_indexed_events(monkeypatch, tmp_path) -> None:
         assert any(item["event_type"] == "post_needs_review" for item in feed)
         assert any(item["event_type"] == "match_approved" for item in feed)
         assert all(item["event_type"] != "post_indexed" for item in feed)
+    finally:
+        _reset_engine()
+
+
+def test_community_order_book_for_skills_and_vibes(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_order_book.db")
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    async def _seed() -> None:
+        async with get_session() as session:
+            session.add_all(
+                [
+                    Post(
+                        platform=Platform.REDDIT,
+                        platform_post_id="camp_1",
+                        platform_author_id="camp_1",
+                        title="Camp needs kitchen and build",
+                        raw_text="Seeking kitchen and build folks",
+                        role=PostRole.CAMP,
+                        post_type=PostType.MENTORSHIP,
+                        status=PostStatus.INDEXED,
+                        contribution_types="kitchen|build",
+                        vibes="inclusive|art",
+                        detected_at=now - timedelta(days=1),
+                    ),
+                    Post(
+                        platform=Platform.DISCORD,
+                        platform_post_id="camp_2",
+                        platform_author_id="camp_2",
+                        title="Camp needs kitchen and art",
+                        raw_text="Seeking kitchen and art folks",
+                        role=PostRole.CAMP,
+                        post_type=PostType.MENTORSHIP,
+                        status=PostStatus.INDEXED,
+                        contribution_types="kitchen|art",
+                        vibes="inclusive|music",
+                        detected_at=now - timedelta(days=1),
+                    ),
+                    Post(
+                        platform=Platform.REDDIT,
+                        platform_post_id="seeker_1",
+                        platform_author_id="seeker_1",
+                        title="I can build",
+                        raw_text="Offering build and art help",
+                        role=PostRole.SEEKER,
+                        post_type=PostType.MENTORSHIP,
+                        status=PostStatus.INDEXED,
+                        contribution_types="build|art",
+                        vibes="inclusive|music",
+                        detected_at=now - timedelta(days=1),
+                    ),
+                    Post(
+                        platform=Platform.FACEBOOK,
+                        platform_post_id="seeker_2",
+                        platform_author_id="seeker_2",
+                        title="I can teach",
+                        raw_text="Offering teaching support",
+                        role=PostRole.SEEKER,
+                        post_type=PostType.MENTORSHIP,
+                        status=PostStatus.NEEDS_REVIEW,
+                        contribution_types="teaching",
+                        vibes="sober",
+                        detected_at=now - timedelta(hours=12),
+                    ),
+                    Post(
+                        platform=Platform.REDDIT,
+                        platform_post_id="infra_camp",
+                        platform_author_id="infra_camp",
+                        title="Need generator",
+                        raw_text="Seeking power gear",
+                        role=PostRole.CAMP,
+                        post_type=PostType.INFRASTRUCTURE,
+                        status=PostStatus.INDEXED,
+                        infra_role="seeking",
+                        infra_categories="power",
+                        contribution_types="logistics",
+                        vibes="party",
+                        detected_at=now - timedelta(hours=8),
+                    ),
+                ]
+            )
+            await session.commit()
+
+    try:
+        asyncio.run(_seed())
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get("/community/data")
+        assert response.status_code == 200
+        demand = response.json()["demand"]
+
+        skills = demand["most_sought_skills"]
+        assert [row["name"] for row in skills[:3]] == ["kitchen", "art", "build"]
+        assert skills[0]["demand_count"] == 2
+        assert skills[0]["supply_count"] == 0
+        assert skills[0]["net_gap"] == 2
+        assert skills[0]["fill_ratio"] == 0
+        assert skills[1]["demand_count"] == 1
+        assert skills[1]["supply_count"] == 1
+        assert skills[1]["fill_ratio"] == 1.0
+
+        vibes = demand["most_sought_vibes"]
+        assert [row["name"] for row in vibes[:3]] == ["inclusive", "art", "music"]
+        assert vibes[0]["demand_count"] == 2
+        assert vibes[0]["supply_count"] == 1
+        assert vibes[0]["net_gap"] == 1
+        assert vibes[0]["fill_ratio"] == 0.5
+        assert all(row["name"] != "party" for row in vibes)
     finally:
         _reset_engine()

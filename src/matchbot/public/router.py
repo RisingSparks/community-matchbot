@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, Profile
+from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, PostType, Profile
 from matchbot.settings import get_settings
 
 router = APIRouter(prefix="/community", tags=["community"])
@@ -327,6 +327,17 @@ _COMMUNITY_HTML = """
       </div>
     </section>
 
+    <section class="panel grid2">
+      <div>
+        <h2 class="section-title">Most Sought Skills (Order Book)</h2>
+        <div class="bars" id="demand-sought-skills"></div>
+      </div>
+      <div>
+        <h2 class="section-title">Most Sought Vibes (Order Book)</h2>
+        <div class="bars" id="demand-sought-vibes"></div>
+      </div>
+    </section>
+
     <section class="cta">
       <div>
         <strong>Help us build this?</strong><br>
@@ -498,6 +509,33 @@ _COMMUNITY_HTML = """
       el.innerHTML = rows.map((r) => barRow(r.name || r.platform, r.count, max)).join("");
     }
 
+    function orderBookRow(item, maxDemand) {
+      const demand = item.demand_count || 0;
+      const supply = item.supply_count || 0;
+      const gap = item.net_gap || 0;
+      const fill = item.fill_ratio == null ? 0 : item.fill_ratio;
+      const w = maxDemand > 0 ? Math.max(4, Math.round((demand / maxDemand) * 100)) : 0;
+      return `
+        <div class="bar-row">
+          <div class="bar-label">${item.name || "unknown"}</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${w}%"></div>
+          </div>
+          <div class="bar-value">D${fmt(demand)} S${fmt(supply)} G${fmt(gap)} (${pct(fill)})</div>
+        </div>
+      `;
+    }
+
+    function renderOrderBook(elId, rows) {
+      const el = document.getElementById(elId);
+      if (!rows || !rows.length) {
+        el.innerHTML = `<p class="note">No data yet.</p>`;
+        return;
+      }
+      const maxDemand = Math.max(...rows.map((r) => r.demand_count || 0));
+      el.innerHTML = rows.map((r) => orderBookRow(r, maxDemand)).join("");
+    }
+
     async function load() {
       const res = await fetch("/community/data");
       const data = await res.json();
@@ -557,6 +595,14 @@ _COMMUNITY_HTML = """
       renderBars("platform-breakdown", data.platform_breakdown || []);
       renderBars("demand-contrib", (data.demand && data.demand.top_contribution_types) || []);
       renderBars("demand-vibes", (data.demand && data.demand.top_vibes) || []);
+      renderOrderBook(
+        "demand-sought-skills",
+        (data.demand && data.demand.most_sought_skills) || []
+      );
+      renderOrderBook(
+        "demand-sought-vibes",
+        (data.demand && data.demand.most_sought_vibes) || []
+      );
 
       if (data.cta && data.cta.feedback_url) {
         document.getElementById("feedback-link").href = data.cta.feedback_url;
@@ -959,13 +1005,30 @@ def _build_demand(posts: list[Post]) -> dict[str, list[dict[str, Any]]]:
         for p in posts
         if p.role == PostRole.SEEKER and p.status in statuses
     ]
+    mentorship_posts = [
+        p
+        for p in posts
+        if p.status in statuses and p.post_type in {None, PostType.MENTORSHIP}
+    ]
+    camp_mentorship_posts = [p for p in mentorship_posts if p.role == PostRole.CAMP]
+    seeker_mentorship_posts = [p for p in mentorship_posts if p.role == PostRole.SEEKER]
 
     contrib_counts: Counter[str] = Counter()
     vibe_counts: Counter[str] = Counter()
+    camp_contrib_counts: Counter[str] = Counter()
+    seeker_contrib_counts: Counter[str] = Counter()
+    camp_vibe_counts: Counter[str] = Counter()
+    seeker_vibe_counts: Counter[str] = Counter()
 
     for post in seeker_posts:
         contrib_counts.update(post.contribution_types_list())
         vibe_counts.update(post.vibes_list())
+    for post in camp_mentorship_posts:
+        camp_contrib_counts.update(post.contribution_types_list())
+        camp_vibe_counts.update(post.vibes_list())
+    for post in seeker_mentorship_posts:
+        seeker_contrib_counts.update(post.contribution_types_list())
+        seeker_vibe_counts.update(post.vibes_list())
 
     top_contrib = [
         {"name": name, "count": count}
@@ -979,7 +1042,34 @@ def _build_demand(posts: list[Post]) -> dict[str, list[dict[str, Any]]]:
     return {
         "top_contribution_types": top_contrib,
         "top_vibes": top_vibes,
+        "most_sought_skills": _build_order_book_rows(camp_contrib_counts, seeker_contrib_counts),
+        "most_sought_vibes": _build_order_book_rows(camp_vibe_counts, seeker_vibe_counts),
     }
+
+
+def _build_order_book_rows(
+    demand_counts: Counter[str],
+    supply_counts: Counter[str],
+    *,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    rows = []
+    for name, demand_count in demand_counts.items():
+        supply_count = supply_counts.get(name, 0)
+        net_gap = demand_count - supply_count
+        fill_ratio = (supply_count / demand_count) if demand_count > 0 else 0.0
+        rows.append(
+            {
+                "name": name,
+                "demand_count": demand_count,
+                "supply_count": supply_count,
+                "net_gap": net_gap,
+                "fill_ratio": round(fill_ratio, 3),
+            }
+        )
+
+    rows.sort(key=lambda row: (-row["demand_count"], -row["net_gap"], row["name"]))
+    return rows[:limit]
 
 
 def _build_stories(posts: list[Post], matches: list[Match]) -> list[dict[str, str]]:
