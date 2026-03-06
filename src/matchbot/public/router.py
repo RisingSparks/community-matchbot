@@ -106,6 +106,61 @@ _COMMUNITY_HTML = """
     .event-row:last-child { border-bottom: none; }
     .event-meta { font-size: 12px; color: var(--muted); }
     .event-text { font-size: 14px; line-height: 1.4; margin-top: 2px; }
+    .tab-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      border: 1px solid rgba(45, 91, 79, 0.35);
+      background: #ffffff;
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .tab-btn[aria-selected="true"] {
+      background: rgba(45, 91, 79, 0.14);
+      border-color: rgba(45, 91, 79, 0.6);
+    }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(45, 91, 79, 0.2);
+      background: #ffffff;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+      font-size: 13px;
+    }
+    .data-table th,
+    .data-table td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(45, 91, 79, 0.15);
+      vertical-align: top;
+    }
+    .data-table th {
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: rgba(45, 91, 79, 0.08);
+      position: sticky;
+      top: 0;
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+    }
     .bars { display: flex; flex-direction: column; gap: 10px; }
     .bar-row {
       display: grid;
@@ -214,7 +269,46 @@ _COMMUNITY_HTML = """
     <section class="panel grid2">
       <div>
         <h2 class="section-title">Live Activity</h2>
-        <div class="timeline" id="live-feed"></div>
+        <div class="tab-bar" role="tablist" aria-label="Live activity views">
+          <button
+            type="button"
+            class="tab-btn"
+            id="live-view-story"
+            data-target="live-feed-panel"
+            aria-selected="true"
+          >
+            Story View
+          </button>
+          <button
+            type="button"
+            class="tab-btn"
+            id="live-view-table"
+            data-target="live-feed-table-panel"
+            aria-selected="false"
+          >
+            Data Nerd View
+          </button>
+        </div>
+        <div class="tab-pane active" id="live-feed-panel">
+          <div class="timeline" id="live-feed"></div>
+        </div>
+        <div class="tab-pane" id="live-feed-table-panel">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Occurred At</th>
+                  <th>Type</th>
+                  <th>Platform</th>
+                  <th>Summary</th>
+                  <th>Score</th>
+                  <th>Confidence</th>
+                </tr>
+              </thead>
+              <tbody id="live-feed-table"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
       <div>
         <h2 class="section-title">Where Signals Come From</h2>
@@ -296,6 +390,39 @@ _COMMUNITY_HTML = """
           <div class="event-text">${item.summary}</div>
         </div>
       `;
+    }
+
+    function feedTableRow(item) {
+      const score = item.score == null ? "n/a" : item.score.toFixed(3);
+      const confidence = item.confidence == null
+        ? "n/a"
+        : `${Math.round(item.confidence * 100)}%`;
+      return `
+        <tr>
+          <td class="mono">${new Date(item.occurred_at).toLocaleString()}</td>
+          <td><span class="pill">${item.event_type}</span></td>
+          <td>${item.platform || "n/a"}</td>
+          <td>${item.summary || ""}</td>
+          <td class="mono">${score}</td>
+          <td class="mono">${confidence}</td>
+        </tr>
+      `;
+    }
+
+    function setLiveActivityTab(targetId) {
+      const panes = ["live-feed-panel", "live-feed-table-panel"];
+      const buttons = [
+        document.getElementById("live-view-story"),
+        document.getElementById("live-view-table"),
+      ];
+      for (const paneId of panes) {
+        const pane = document.getElementById(paneId);
+        pane.classList.toggle("active", paneId === targetId);
+      }
+      for (const btn of buttons) {
+        const isActive = btn.dataset.target === targetId;
+        btn.setAttribute("aria-selected", isActive ? "true" : "false");
+      }
     }
 
     function matchedRow(item) {
@@ -423,6 +550,9 @@ _COMMUNITY_HTML = """
       document.getElementById("live-feed").innerHTML = feed.length
         ? feed.map((item) => eventRow(item)).join("")
         : `<p class="note">No recent activity in the last 7 days.</p>`;
+      document.getElementById("live-feed-table").innerHTML = feed.length
+        ? feed.map((item) => feedTableRow(item)).join("")
+        : `<tr><td colspan="6" class="note">No recent activity in the last 7 days.</td></tr>`;
 
       renderBars("platform-breakdown", data.platform_breakdown || []);
       renderBars("demand-contrib", (data.demand && data.demand.top_contribution_types) || []);
@@ -446,6 +576,12 @@ _COMMUNITY_HTML = """
 
     document.getElementById("match-status-filter").addEventListener("change", loadMatches);
     document.getElementById("match-days-filter").addEventListener("change", loadMatches);
+    document.getElementById("live-view-story").addEventListener("click", () => {
+      setLiveActivityTab("live-feed-panel");
+    });
+    document.getElementById("live-view-table").addEventListener("click", () => {
+      setLiveActivityTab("live-feed-table-panel");
+    });
     load();
     setInterval(load, 60000);
   </script>
