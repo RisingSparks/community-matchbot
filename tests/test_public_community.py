@@ -362,7 +362,8 @@ def test_community_data_redacts_story_and_feed_identifiers(monkeypatch, tmp_path
             for i in range(len(feed) - 1)
         )
         assert all(event["event_type"] != "post_raw" for event in feed)
-        assert all(not event["event_type"].startswith("post_") for event in feed)
+        assert all(event["event_type"] != "post_indexed" for event in feed)
+        assert any(event["event_type"] == "post_needs_review" for event in feed)
 
         feed_blob = " ".join((event["summary"] or "") for event in feed)
         assert "real@example.com" not in feed_blob
@@ -387,8 +388,8 @@ def test_community_data_redacts_story_and_feed_identifiers(monkeypatch, tmp_path
         _reset_engine()
 
 
-def test_live_feed_excludes_post_events(monkeypatch, tmp_path) -> None:
-    _setup_sqlite_db(monkeypatch, tmp_path, "community_no_post_feed_events.db")
+def test_live_feed_excludes_post_indexed_events(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_no_post_indexed_feed_events.db")
 
     now = datetime.now(UTC).replace(tzinfo=None)
 
@@ -441,8 +442,9 @@ def test_live_feed_excludes_post_events(monkeypatch, tmp_path) -> None:
         payload = response.json()
 
         feed = payload["live_feed"]
-        assert len(feed) == 1
-        assert all(not item["event_type"].startswith("post_") for item in feed)
-        assert feed[0]["event_type"] == "match_approved"
+        assert len(feed) == 2
+        assert any(item["event_type"] == "post_needs_review" for item in feed)
+        assert any(item["event_type"] == "match_approved" for item in feed)
+        assert all(item["event_type"] != "post_indexed" for item in feed)
     finally:
         _reset_engine()

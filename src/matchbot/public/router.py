@@ -766,6 +766,20 @@ def _build_live_feed(
 ) -> list[dict[str, Any]]:
     feed: list[dict[str, Any]] = []
 
+    for post in posts:
+        if post.detected_at < since or post.status != PostStatus.NEEDS_REVIEW:
+            continue
+        summary = _sanitize_text(post.raw_text or post.title, max_len=120)
+        occurred_at = (post.source_created_at or post.detected_at).replace(tzinfo=UTC).isoformat()
+        feed.append(
+            {
+                "event_type": "post_needs_review",
+                "occurred_at": occurred_at,
+                "platform": post.platform,
+                "summary": summary,
+            }
+        )
+
     for match in matches:
         if match.created_at >= since:
             feed.append(
