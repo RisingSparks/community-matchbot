@@ -1,4 +1,4 @@
-name: Deploy to Production
+name: deploy-over-ssh
 
 on:
   workflow_dispatch:
@@ -29,18 +29,18 @@ jobs:
         run: |
           rsync -az --delete \
             --exclude ".git" \
-            --exclude ".env" \
-            --exclude ".venv" \
-            --exclude "matchbot.db" \
-            --exclude "reports/" \
             ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ vars.DEPLOY_PATH }}"
 
-      - name: Build and restart
+      - name: Deploy on host
         run: |
-          ssh -p "${{ secrets.DEPLOY_SSH_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" bash <<'EOF'
+          ssh -p "${{ secrets.DEPLOY_SSH_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" <<'EOF'
             set -euo pipefail
             cd "${{ vars.DEPLOY_PATH }}"
-            docker compose build --pull
-            docker compose up -d --remove-orphans
-            docker image prune -f
+            if [ -f docker-compose.yml ] || [ -f compose.yml ]; then
+              docker compose pull
+              docker compose up -d --remove-orphans
+            else
+              echo "No docker compose file found; provide project-specific deploy command."
+              exit 1
+            fi
           EOF
