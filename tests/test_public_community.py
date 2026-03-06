@@ -32,8 +32,8 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         client = TestClient(create_app(enable_scheduler=False))
         response = client.get("/community/")
         assert response.status_code == 200
-        assert "Show more good-fit connections." in response.text
-        assert "How would you improve this?" in response.text
+        assert "Find your people. Build the city." in response.text
+        assert "Help us build this?" in response.text
     finally:
         _reset_engine()
 

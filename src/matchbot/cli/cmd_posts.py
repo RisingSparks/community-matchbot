@@ -16,7 +16,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from matchbot.cli._db import with_session
 from matchbot.db.models import Event, Post, PostStatus, PostType
 
-app = typer.Typer(help="Browse and manage indexed posts")
+app = typer.Typer(help="Browse and manage community signals")
 console = Console()
 
 
@@ -28,7 +28,7 @@ def posts_list(
     post_type: Annotated[str | None, typer.Option("--type", help="mentorship|infrastructure")] = None,
     limit: Annotated[int, typer.Option("--limit")] = 20,
 ) -> None:
-    """List posts."""
+    """List community signals (seekers and groups)."""
 
     async def _run(session):
         q = select(Post)
@@ -44,10 +44,10 @@ def posts_list(
 
         posts = (await session.exec(q)).all()
         if not posts:
-            rprint("[yellow]No posts found.[/yellow]")
+            rprint("[yellow]No signals found.[/yellow]")
             return
 
-        table = Table(title="Posts")
+        table = Table(title="Community Signals")
         table.add_column("ID", style="dim", width=10)
         table.add_column("Platform", width=10)
         table.add_column("Type", width=14)
@@ -73,12 +73,12 @@ def posts_list(
 
 @app.command("show")
 def posts_show(post_id: str) -> None:
-    """Show full details of a post."""
+    """Examine a community signal."""
 
     async def _run(session):
         post = await _resolve_post(session, post_id)
         if not post:
-            rprint(f"[red]Post {post_id!r} not found.[/red]")
+            rprint(f"[red]Signal {post_id!r} not found.[/red]")
             raise typer.Exit(1)
 
         if post.post_type == PostType.INFRASTRUCTURE:
@@ -95,32 +95,32 @@ def posts_show(post_id: str) -> None:
                 f"[bold]Vibes:[/bold] {post.vibes}\n"
                 f"[bold]Contributions:[/bold] {post.contribution_types}\n"
                 f"[bold]Year:[/bold] {post.year}  |  "
-                f"[bold]Camp:[/bold] {post.camp_name}  |  "
+                f"[bold]Camp/Project:[/bold] {post.camp_name}  |  "
                 f"[bold]Availability:[/bold] {post.availability_notes}\n"
             )
 
         content = (
             f"[bold]Platform:[/bold] {post.platform} / {post.source_community}\n"
             f"[bold]Type:[/bold] {post.post_type}  |  [bold]Status:[/bold] {post.status}\n"
-            f"[bold]Confidence:[/bold] {post.extraction_confidence}  |  "
+            f"[bold]Extraction Confidence:[/bold] {post.extraction_confidence}  |  "
             f"[bold]Method:[/bold] {post.extraction_method}\n"
             f"{type_detail}\n"
             f"[bold yellow]Title:[/bold yellow] {post.title}\n\n"
-            f"[bold]Body:[/bold]\n{post.raw_text}"
+            f"[bold]Original Signal:[/bold]\n{post.raw_text}"
         )
-        console.print(Panel(content, title=f"Post {post.id[:8]}", expand=False))
+        console.print(Panel(content, title=f"Signal {post.id[:8]}", expand=False))
 
     with_session(_run)
 
 
 @app.command("re-extract")
 def posts_re_extract(post_id: str) -> None:
-    """Re-run LLM extraction on a post."""
+    """Re-analyze a signal for better alignment."""
 
     async def _run(session):
         post = await _resolve_post(session, post_id)
         if not post:
-            rprint(f"[red]Post {post_id!r} not found.[/red]")
+            rprint(f"[red]Signal {post_id!r} not found.[/red]")
             raise typer.Exit(1)
 
         from matchbot.extraction import process_post
@@ -143,7 +143,7 @@ def posts_re_extract(post_id: str) -> None:
             updated = await process_post(session, post, extractor)
         finally:
             await extractor.aclose()
-        rprint(f"[green]Re-extracted post {post_id[:8]}: status={updated.status}[/green]")
+        rprint(f"[green]Re-analyzed signal {post_id[:8]}: status={updated.status}[/green]")
 
     with_session(_run)
 
@@ -153,21 +153,22 @@ def posts_flag(
     post_id: str,
     note: Annotated[str | None, typer.Option("--note")] = None,
 ) -> None:
-    """Flag a post for human review."""
+    """Flag a signal for moderator attention."""
 
     async def _run(session):
         post = await _resolve_post(session, post_id)
         if not post:
-            rprint(f"[red]Post {post_id!r} not found.[/red]")
+            rprint(f"[red]Signal {post_id!r} not found.[/red]")
             raise typer.Exit(1)
         post.status = PostStatus.NEEDS_REVIEW
         session.add(post)
         await session.commit()
-        rprint(f"[yellow]Post {post_id[:8]} flagged for review.[/yellow]")
+        rprint(f"[yellow]Signal {post_id[:8]} flagged for human review.[/yellow]")
         if note:
             rprint(f"  Note: {note}")
 
     with_session(_run)
+
 
 
 # ---------------------------------------------------------------------------
@@ -305,15 +306,15 @@ def posts_edit(
     condition: Annotated[str | None, typer.Option("--condition")] = None,
     note: Annotated[str | None, typer.Option("--note")] = None,
 ) -> None:
-    """Correct extraction fields on a NEEDS_REVIEW post."""
+    """Refine signal details."""
 
     async def _run(session):
         post = await _resolve_post(session, post_id)
         if not post:
-            rprint(f"[red]Post {post_id!r} not found.[/red]")
+            rprint(f"[red]Signal {post_id!r} not found.[/red]")
             raise typer.Exit(1)
         if post.status != PostStatus.NEEDS_REVIEW:
-            rprint(f"[red]Post {post_id[:8]} has status {post.status!r}. Only NEEDS_REVIEW posts can be edited.[/red]")
+            rprint(f"[red]Signal {post_id[:8]} has status {post.status!r}. Only NEEDS_REVIEW signals can be refined.[/red]")
             raise typer.Exit(1)
 
         overrides = {
@@ -337,7 +338,7 @@ def posts_edit(
         await _write_event(session, post, "post_edited", {"changes": changes}, note=note)
         await session.commit()
 
-        rprint(f"[green]Post {post_id[:8]} updated:[/green]")
+        rprint(f"[green]Signal {post_id[:8]} refined:[/green]")
         for c in changes:
             rprint(f"  {c}")
         if note:
@@ -360,15 +361,15 @@ def posts_approve(
     quantity: Annotated[str | None, typer.Option("--quantity")] = None,
     condition: Annotated[str | None, typer.Option("--condition")] = None,
 ) -> None:
-    """Promote a NEEDS_REVIEW post to INDEXED, optionally correcting fields first."""
+    """Verify and index a community signal."""
 
     async def _run(session):
         post = await _resolve_post(session, post_id)
         if not post:
-            rprint(f"[red]Post {post_id!r} not found.[/red]")
+            rprint(f"[red]Signal {post_id!r} not found.[/red]")
             raise typer.Exit(1)
         if post.status != PostStatus.NEEDS_REVIEW:
-            rprint(f"[red]Post {post_id[:8]} has status {post.status!r}. Only NEEDS_REVIEW posts can be approved.[/red]")
+            rprint(f"[red]Signal {post_id[:8]} has status {post.status!r}. Only NEEDS_REVIEW signals can be approved.[/red]")
             raise typer.Exit(1)
 
         overrides = {
@@ -396,7 +397,7 @@ def posts_approve(
         await session.commit()
         await session.refresh(post)
 
-        rprint(f"[green]Post {post_id[:8]} approved → INDEXED.[/green]")
+        rprint(f"[green]Signal {post_id[:8]} verified → INDEXED.[/green]")
         for c in changes:
             rprint(f"  {c}")
         if note:
@@ -407,7 +408,7 @@ def posts_approve(
 
         await propose_matches(session, post)
         await session.refresh(post)
-        rprint(f"[dim]Matches proposed for {post_id[:8]}.[/dim]")
+        rprint(f"[dim]Connections explored for {post_id[:8]}.[/dim]")
 
     with_session(_run)
 
@@ -417,17 +418,17 @@ def posts_dismiss(
     post_id: str,
     reason: Annotated[str | None, typer.Option("--reason", help="spam|off-topic|duplicate|other")] = None,
 ) -> None:
-    """Permanently skip a NEEDS_REVIEW post (spam, off-topic, duplicate)."""
+    """Dismiss a signal (off-topic or noise)."""
 
     async def _run(session):
         post = await _resolve_post(session, post_id)
         if not post:
-            rprint(f"[red]Post {post_id!r} not found.[/red]")
+            rprint(f"[red]Signal {post_id!r} not found.[/red]")
             raise typer.Exit(1)
         if post.status not in {PostStatus.NEEDS_REVIEW, PostStatus.ERROR}:
             rprint(
-                f"[red]Post {post_id[:8]} has status {post.status!r}. "
-                "Only NEEDS_REVIEW or ERROR posts can be dismissed.[/red]"
+                f"[red]Signal {post_id[:8]} has status {post.status!r}. "
+                "Only NEEDS_REVIEW or ERROR signals can be dismissed.[/red]"
             )
             raise typer.Exit(1)
 
@@ -444,7 +445,7 @@ def posts_dismiss(
         )
         await session.commit()
 
-        rprint(f"[yellow]Post {post_id[:8]} dismissed → SKIPPED.[/yellow]")
+        rprint(f"[yellow]Signal {post_id[:8]} dismissed → SKIPPED.[/yellow]")
         if reason:
             rprint(f"  Reason: {reason}")
 

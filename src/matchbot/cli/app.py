@@ -15,15 +15,15 @@ from matchbot.settings import get_settings
 
 app = typer.Typer(
     name="matchbot",
-    help="Burning Man Theme Camp Connection Bot — moderator CLI",
+    help="Rising Sparks Matchmaking: Connecting Seekers & Builders",
     no_args_is_help=True,
 )
 
-app.add_typer(queue_app, name="queue", help="Review and manage the match queue")
-app.add_typer(posts_app, name="posts", help="Browse and manage indexed posts")
-app.add_typer(report_app, name="report", help="Generate pilot reports")
-app.add_typer(submit_app, name="submit", help="Manually ingest posts")
-app.add_typer(enrich_app, name="enrich", help="Enrich posts from external data sources")
+app.add_typer(queue_app, name="queue", help="Review and facilitate potential connections")
+app.add_typer(posts_app, name="posts", help="Browse and manage community signals")
+app.add_typer(report_app, name="report", help="Generate impact and pilot findings")
+app.add_typer(submit_app, name="submit", help="Manually add community signals")
+app.add_typer(enrich_app, name="enrich", help="Enrich signals from the WWW Guide")
 
 
 @app.callback()

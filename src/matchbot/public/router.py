@@ -31,7 +31,7 @@ _COMMUNITY_HTML = """
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Matchbot Community Value</title>
+  <title>Rising Sparks Community Value</title>
   <style>
     :root {
       --sand: #f4e6cf;
@@ -139,27 +139,27 @@ _COMMUNITY_HTML = """
 <body>
   <main class="wrap">
     <section class="hero hidden" style="animation-delay:60ms">
-      <div class="eyebrow">Community Matchmaking, Human-Led</div>
-      <h1>Show more good-fit connections. Miss fewer people.</h1>
+      <div class="eyebrow">Rising Sparks: Strengthening the Builder Pipeline</div>
+      <h1>Find your people. Build the city.</h1>
       <p class="sub">
-        Matchbot helps volunteers triage public posts, surface likely fits, and send
-        moderator-reviewed introductions faster.
+        We help self-motivated newcomers find the theme camps and art projects where they can 
+        learn, contribute, and grow. Discovery for the next generation of builders.
       </p>
       <div class="grid" id="summary-grid"></div>
     </section>
 
-    <h2 class="section-title hidden" style="animation-delay:120ms">How the flow works</h2>
+    <h2 class="section-title hidden" style="animation-delay:120ms">Our Connection Pipeline</h2>
     <section class="pipeline hidden" style="animation-delay:160ms" id="pipeline"></section>
 
-    <h2 class="section-title hidden" style="animation-delay:220ms">Recent anonymized examples</h2>
+    <h2 class="section-title hidden" style="animation-delay:220ms">Community Signals</h2>
     <section class="stories hidden" style="animation-delay:260ms" id="stories"></section>
 
     <section class="cta hidden" style="animation-delay:320ms">
       <div>
-        <strong>How would you improve this?</strong><br>
-        Tell us what feels useful, missing, or too complicated.
+        <strong>Help us build this?</strong><br>
+        Tell us what feels useful, what's missing, or what feels too automated.
       </div>
-      <a id="feedback-link" href="/forms/">Send Organizer Feedback</a>
+      <a id="feedback-link" href="/forms/">Send Feedback to Organizers</a>
     </section>
     <div class="updated" id="updated"></div>
   </main>
@@ -207,22 +207,22 @@ _COMMUNITY_HTML = """
 
       document.getElementById("summary-grid").innerHTML = [
         metricCard(
-          "Posts Ingested",
+          "Conversations Heard",
           summary.total_ingested,
           `${fmt(weekly.ingested_7d)} in last 7 days`
         ),
         metricCard(
-          "Structured Posts",
+          "Signals Analyzed",
           summary.indexed,
-          `${fmt(weekly.indexed_7d)} indexed in last 7 days`
+          `${fmt(weekly.indexed_7d)} analyzed in last 7 days`
         ),
         metricCard(
-          "Potential Matches",
+          "Likely Connections",
           summary.proposed_matches,
           `${fmt(weekly.matches_7d)} new in last 7 days`
         ),
         metricCard(
-          "Introductions Sent",
+          "Handshakes Facilitated",
           summary.intros_sent,
           `${fmt(weekly.intros_7d)} in last 7 days`
         ),
@@ -236,7 +236,7 @@ _COMMUNITY_HTML = """
         ? stories.map(storyCard).join("")
         : (
           `<article class="card"><p class="note">` +
-          `No examples yet. As activity grows, anonymized stories appear here.` +
+          `Awaiting the first signal. As activity grows, anonymized examples appear here.` +
           `</p></article>`
         );
 
@@ -245,10 +245,10 @@ _COMMUNITY_HTML = """
       }
 
       const backlogText = backlog.oldest_needs_review_age_hours == null
-        ? "No review backlog right now."
-        : `Oldest pending review: ${backlog.oldest_needs_review_age_hours}h`;
+        ? "All current signals are reviewed."
+        : `Oldest pending: ${backlog.oldest_needs_review_age_hours}h`;
       document.getElementById("updated").textContent = (
-        `Needs review: ${fmt(backlog.needs_review_count)} • ` +
+        `Review queue: ${fmt(backlog.needs_review_count)} • ` +
         `${backlogText} • Updated ${new Date(data.updated_at).toLocaleString()}`
       );
     }
@@ -315,10 +315,10 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
 
     structured_count = sum(1 for p in posts if p.status != PostStatus.RAW)
     pipeline = [
-        {"stage": "Ingested", "count": total_ingested},
-        {"stage": "Structured", "count": structured_count},
-        {"stage": "Potential Matches", "count": proposed_matches},
-        {"stage": "Intros Sent", "count": intros_sent},
+        {"stage": "Heard", "count": total_ingested},
+        {"stage": "Analyzed", "count": structured_count},
+        {"stage": "Matched", "count": proposed_matches},
+        {"stage": "Introduced", "count": intros_sent},
     ]
 
     stories = _build_stories(posts, matches)
@@ -376,9 +376,9 @@ def _build_stories(posts: list[Post], matches: list[Match]) -> list[dict[str, st
         overlap_text = ", ".join(overlap[:3]) if overlap else "shared contribution signals"
         story_rows.append(
             {
-                "title": f"Connection Opportunity {idx}",
+                "title": f"Potential Connection {idx}",
                 "problem": _sanitize_text(seeker.raw_text or seeker.title, max_len=140),
-                "intervention": f"Matched with a compatible camp using {overlap_text}.",
+                "intervention": f"Found common ground through {overlap_text}.",
                 "outcome": _outcome_label(match.status),
                 "confidence_note": _confidence_note(match),
             }
@@ -396,11 +396,11 @@ def _build_stories(posts: list[Post], matches: list[Match]) -> list[dict[str, st
     ):
         story_rows.append(
             {
-                "title": f"Active Request {idx}",
+                "title": f"Active Signal {idx}",
                 "problem": _sanitize_text(post.raw_text or post.title, max_len=140),
-                "intervention": "Post was structured and added to the matching pool.",
-                "outcome": "Awaiting the best-fit counterpart.",
-                "confidence_note": "Anonymized community example.",
+                "intervention": "Analyzed for alignment with the builder community.",
+                "outcome": "Awaiting a likely counterpart.",
+                "confidence_note": "Anonymized community signal.",
             }
         )
         if len(story_rows) >= 3:
@@ -411,22 +411,22 @@ def _build_stories(posts: list[Post], matches: list[Match]) -> list[dict[str, st
 
 def _outcome_label(status: str) -> str:
     if status == MatchStatus.INTRO_SENT:
-        return "Moderator intro sent."
+        return "Handshake facilitated."
     if status == MatchStatus.CONVERSATION_STARTED:
-        return "Conversation started."
+        return "They’re talking."
     if status in {MatchStatus.ACCEPTED_PENDING, MatchStatus.ONBOARDED}:
-        return "Connection progressed beyond intro."
+        return "Aligned for the playa."
     if status == MatchStatus.APPROVED:
-        return "Approved for introduction."
-    return "Queued for moderator review."
+        return "Verified for intro."
+    return "Awaiting human review."
 
 
 def _confidence_note(match: Match) -> str:
     if match.confidence is not None:
-        return f"Confidence signal: {round(match.confidence * 100)}%."
+        return f"Vibe match: {round(match.confidence * 100)}%."
     if match.score:
-        return f"Compatibility score: {round(match.score * 100)}%."
-    return "Scored using structured fit signals."
+        return f"Contribution alignment: {round(match.score * 100)}%."
+    return "Matched on skills and ethos."
 
 
 def _sanitize_text(text: str, *, max_len: int = 160) -> str:

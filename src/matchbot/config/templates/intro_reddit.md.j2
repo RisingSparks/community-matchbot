@@ -1,16 +1,16 @@
 Hey {{ seeker_username }}!
 
-I'm reaching out because I think you and {{ camp_name or "a camp I work with" }} might be a great fit for each other — and I wanted to make a warm introduction.
+I’m {{ moderator_name }} from Rising Sparks. We’re working to strengthen the builder pipeline by helping self-motivated people find their projects and their people.
 
-{% if shared_vibes %}You both vibe with: **{{ shared_vibes | join(", ") }}**{% endif %}
-{% if shared_contrib %}You're both interested in: **{{ shared_contrib | join(", ") }}**{% endif %}
+I’m reaching out because I think you and **{{ camp_name or "a camp I work with" }}** might have a lot to build together — and I wanted to make a warm introduction.
 
-The camp contact is u/{{ camp_contact }}, and [their post is here]({{ camp_url }}).
-Your post I'm referencing: [here]({{ seeker_url }}).
+{% if shared_vibes %}You both share these vibes: **{{ shared_vibes | join(", ") }}**{% endif %}
+{% if shared_contrib %}You both value these contributions: **{{ shared_contrib | join(", ") }}**{% endif %}
 
-I'm {{ moderator_name }}, and I help connect folks in the BM community. I've looked at both your posts and thought you might have a lot to offer each other — but from here, it's totally up to you both.
+The camp contact is u/{{ camp_contact }}. You can find [their project post here]({{ camp_url }}).
+Your post I’m referencing: [here]({{ seeker_url }}).
 
-Feel free to reach out to them directly, or reply here if you have any questions.
+I facilitate these handshakes to reduce friction for the interested. From here, it’s up to you both to see if the alignment is right. Feel free to reach out to them directly, or reply here if you have any questions.
 
 ---
 *You received this because you posted looking for a camp match. To opt out of future introductions, reply "opt out".*

@@ -1,14 +1,16 @@
 Hey {{ camp_contact }}!
 
-I wanted to give you a heads-up — I just reached out to u/{{ seeker_username }}, a seeker who looks like a potential fit for {{ camp_name or "your camp" }}.
+I’m {{ moderator_name }} from Rising Sparks. We’re focused on reducing friction for the interested builder and helping camps find aligned collaborators.
+
+I just introduced **{{ camp_name or "your project" }}** to u/{{ seeker_username }}. Based on their signals, they seem like a potential fit for what you’re building.
 
 {% if shared_vibes %}You share these vibes: **{{ shared_vibes | join(", ") }}**{% endif %}
-{% if shared_contrib %}You're both interested in: **{{ shared_contrib | join(", ") }}**{% endif %}
+{% if shared_contrib %}You both value: **{{ shared_contrib | join(", ") }}**{% endif %}
 
 Their post: [here]({{ seeker_url }})
-Your post I'm referencing: [here]({{ camp_url }}).
+Your post I’m referencing: [here]({{ camp_url }}).
 
-I'm {{ moderator_name }}. I've shared your contact info with them — they may reach out. No pressure to respond, and you own the vetting from here.
+I’ve shared your contact info with them. They may reach out to learn more about your project. As always, you own the vetting and intake from here.
 
 ---
 *You received this because your camp has an opening post. To opt out of future introductions, reply "opt out".*

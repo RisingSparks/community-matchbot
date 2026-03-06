@@ -47,33 +47,34 @@ button { margin-top: 20px; padding: 10px 24px; background: #c0392b; color: white
 """
 
 _LANDING_HTML = f"""
-<!DOCTYPE html><html><head><title>Matchbot Intake</title>
+<!DOCTYPE html><html><head><title>Rising Sparks Pool</title>
 <style>{_BASE_CSS}</style></head><body>
-<h1>🔥 Matchbot Intake Forms</h1>
-<p>Submit your information to be included in the camp-matching pool for Burning Man.</p>
+<h1>Join the Rising Sparks Pool</h1>
+<p>We help self-motivated people find aligned communities where they can contribute and learn. 
+Tell us about yourself or your project to get started.</p>
 <div class="nav">
-  <a href="/forms/seeker">I'm looking for a camp →</a>
-  <a href="/forms/camp">My camp has openings →</a>
+  <a href="/forms/seeker">I want to contribute & learn →</a>
+  <a href="/forms/camp">We’re looking for builders & collaborators →</a>
 </div>
 </body></html>
 """
 
 _SEEKER_FORM_HTML = f"""
-<!DOCTYPE html><html><head><title>Seeker Intake – Matchbot</title>
+<!DOCTYPE html><html><head><title>Find Your Community – Rising Sparks</title>
 <style>{_BASE_CSS}</style></head><body>
 <div class="nav"><a href="/forms/">← Back</a></div>
-<h1>🔥 I'm Looking for a Camp</h1>
+<h1>I want to contribute & learn</h1>
 <form method="post" action="/forms/seeker">
-  <label>Your name / handle *</label>
+  <label>How should we call you? *</label>
   <input name="display_name" required maxlength="80">
 
-  <label>About you (skills, experience, why you want to burn)</label>
+  <label>What are you building? (Tell us about your skills, your experience, and what draws you to the dust.)</label>
   <textarea name="bio" rows="5" maxlength="2000"></textarea>
-  <div class="hint">This becomes the "post body" used for matching.</div>
+  <div class="hint">This helps our moderators understand your contribution style.</div>
 
   <label>Vibes you're looking for (comma-separated)</label>
   <input name="vibes" placeholder="art, build_focused, family_friendly">
-  <div class="hint">See taxonomy for valid values.</div>
+  <div class="hint">e.g. sober, loud, late-night, workshop, wellness</div>
 
   <label>What can you contribute? (comma-separated)</label>
   <input name="contributions" placeholder="build, art, kitchen, medic">
@@ -82,39 +83,39 @@ _SEEKER_FORM_HTML = f"""
   <input name="year" type="number" min="2020" max="2040" placeholder="2026">
 
   <label>Availability / dates</label>
-  <input name="availability_notes" placeholder="Available for build week and the full event">
+  <input name="availability_notes" placeholder="e.g. Available for build week and the full event">
 
-  <label>How should camps contact you?</label>
+  <label>How should potential matches contact you?</label>
   <input name="contact_method" placeholder="DM on Reddit, email, etc.">
 
-  <button type="submit">Submit →</button>
+  <button type="submit">Join the Pool →</button>
 </form>
 </body></html>
 """
 
 _CAMP_FORM_HTML = f"""
-<!DOCTYPE html><html><head><title>Camp Intake – Matchbot</title>
+<!DOCTYPE html><html><head><title>Find Your Builders – Rising Sparks</title>
 <style>{_BASE_CSS}</style></head><body>
 <div class="nav"><a href="/forms/">← Back</a></div>
-<h1>🔥 My Camp Has Openings</h1>
+<h1>We’re looking for builders & collaborators</h1>
 <form method="post" action="/forms/camp">
-  <label>Camp name *</label>
+  <label>Camp or Art Project name *</label>
   <input name="camp_name" required maxlength="120">
 
-  <label>Your name / handle (camp contact) *</label>
+  <label>Your name / handle (project contact) *</label>
   <input name="display_name" required maxlength="80">
 
-  <label>About your camp (vibe, activities, expectations)</label>
+  <label>Tell us about your project (Describe your vibe, what you build, and what you expect from collaborators.)</label>
   <textarea name="bio" rows="5" maxlength="2000"></textarea>
-  <div class="hint">This becomes the "post body" used for matching.</div>
+  <div class="hint">This helps self-motivated seekers find your project.</div>
 
-  <label>Camp vibes (comma-separated)</label>
+  <label>Project vibes (comma-separated)</label>
   <input name="vibes" placeholder="art, build_focused, dance">
 
-  <label>Roles / contributions you need (comma-separated)</label>
+  <label>Who are you looking for? (roles/skills, comma-separated)</label>
   <input name="contributions" placeholder="build, art, kitchen, sound">
 
-  <label>Approximate camp size</label>
+  <label>Approximate group size</label>
   <input name="camp_size" type="number" min="1" max="5000" placeholder="50">
 
   <label>Year</label>
@@ -126,18 +127,18 @@ _CAMP_FORM_HTML = f"""
   <label>How should seekers contact you?</label>
   <input name="contact_method" placeholder="Post in comments, email us at...">
 
-  <button type="submit">Submit →</button>
+  <button type="submit">List Your Openings →</button>
 </form>
 </body></html>
 """
 
 _THANKS_HTML = f"""
-<!DOCTYPE html><html><head><title>Thank you! – Matchbot</title>
+<!DOCTYPE html><html><head><title>Welcome to the Pool – Rising Sparks</title>
 <style>{_BASE_CSS}</style></head><body>
-<h1>🔥 Thank you!</h1>
-<p>Your submission has been received and will be reviewed shortly.</p>
-<p>If there's a good match, a moderator will reach out to make introductions.</p>
-<div class="nav"><a href="/forms/">Submit another →</a></div>
+<h1>Welcome to the pool.</h1>
+<p>We’ve received your signals. Our volunteer moderators will review them to find potential connections.</p>
+<p>If we find a likely match, we’ll reach out to make a human introduction.</p>
+<div class="nav"><a href="/forms/">Submit another signal →</a></div>
 </body></html>
 """
 

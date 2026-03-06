@@ -16,7 +16,7 @@ from matchbot.db.models import Match, MatchStatus, Post
 from matchbot.lifecycle.status import transition
 from matchbot.matching.queue import get_match, get_queue
 
-app = typer.Typer(help="Review and manage the match queue")
+app = typer.Typer(help="Review and facilitate potential connections")
 console = Console()
 
 
@@ -31,7 +31,7 @@ def queue_list(
     limit: Annotated[int, typer.Option("--limit")] = 25,
     post_type: Annotated[str | None, typer.Option("--type", help="mentorship|infrastructure")] = None,
 ) -> None:
-    """List matches in the queue."""
+    """List pending connection opportunities."""
 
     async def _run(session):
 
@@ -47,10 +47,10 @@ def queue_list(
             matches = filtered
 
         if not matches:
-            rprint(f"[yellow]No matches with status={status!r} and score≥{min_score}[/yellow]")
+            rprint(f"[yellow]No potential connections with status={status!r} and score≥{min_score}[/yellow]")
             return
 
-        title = f"Match Queue  [{status}]  ≥{min_score:.2f}"
+        title = f"Potential Connections  [{status}]  ≥{min_score:.2f}"
         if post_type:
             title += f"  [{post_type}]"
 
@@ -58,9 +58,9 @@ def queue_list(
         table.add_column("ID", style="dim", width=12)
         table.add_column("Score", justify="right")
         table.add_column("Method", width=18)
-        table.add_column("Post A snippet", no_wrap=False, max_width=35)
-        table.add_column("Post B snippet", no_wrap=False, max_width=35)
-        table.add_column("Created")
+        table.add_column("Seeker snippet", no_wrap=False, max_width=35)
+        table.add_column("Camp snippet", no_wrap=False, max_width=35)
+        table.add_column("Detected")
 
         for m in matches:
             seeker = await session.get(Post, m.seeker_post_id)
@@ -83,12 +83,12 @@ def queue_list(
 
 @app.command("view")
 def queue_view(match_id: str) -> None:
-    """View full details of a match."""
+    """Examine a potential connection."""
 
     async def _run(session):
         match = await get_match(session, match_id)
         if not match:
-            rprint(f"[red]Match {match_id!r} not found.[/red]")
+            rprint(f"[red]Connection {match_id!r} not found.[/red]")
             raise typer.Exit(1)
 
         seeker = await session.get(Post, match.seeker_post_id)
@@ -101,16 +101,16 @@ def queue_view(match_id: str) -> None:
             f"[bold]Status:[/bold] {match.status}\n"
             f"[bold]Score:[/bold] {match.score:.4f}  (method: {match.match_method})\n"
             f"[bold]Confidence:[/bold] {match.confidence}\n\n"
-            f"[bold cyan]Score breakdown:[/bold cyan]\n{breakdown_str}\n\n"
+            f"[bold cyan]Alignment breakdown:[/bold cyan]\n{breakdown_str}\n\n"
             f"[bold]Moderator notes:[/bold] {match.moderator_notes or '—'}\n\n"
             f"[bold magenta]Intro draft:[/bold magenta]\n{match.intro_draft or '(not yet rendered)'}\n\n"
             f"[bold yellow]SEEKER:[/bold yellow] {seeker.title if seeker else '?'}\n"
             f"{seeker.raw_text[:500] if seeker else ''}\n\n"
-            f"[bold green]CAMP:[/bold green] {camp.title if camp else '?'}\n"
+            f"[bold green]CAMP/PROJECT:[/bold green] {camp.title if camp else '?'}\n"
             f"{camp.raw_text[:500] if camp else ''}"
         )
 
-        console.print(Panel(panel_content, title=f"Match {match.id[:8]}", expand=False))
+        console.print(Panel(panel_content, title=f"Connection {match.id[:8]}", expand=False))
 
     with_session(_run)
 
@@ -120,15 +120,15 @@ def queue_approve(
     match_id: str,
     note: Annotated[str | None, typer.Option("--note")] = None,
 ) -> None:
-    """Approve a proposed match."""
+    """Verify this connection for introduction."""
 
     async def _run(session):
         match = await get_match(session, match_id)
         if not match:
-            rprint(f"[red]Match {match_id!r} not found.[/red]")
+            rprint(f"[red]Connection {match_id!r} not found.[/red]")
             raise typer.Exit(1)
         await transition(session, match, MatchStatus.APPROVED, actor="moderator", note=note)
-        rprint(f"[green]Match {match_id[:8]} approved.[/green]")
+        rprint(f"[green]Connection {match_id[:8]} verified for intro.[/green]")
         if note:
             rprint(f"  Note: {note}")
 
@@ -140,18 +140,18 @@ def queue_reject(
     match_id: str,
     reason: Annotated[str, typer.Option("--reason")] = "",
 ) -> None:
-    """Decline a proposed match."""
+    """Dismiss this connection as a mismatch."""
 
     async def _run(session):
         match = await get_match(session, match_id)
         if not match:
-            rprint(f"[red]Match {match_id!r} not found.[/red]")
+            rprint(f"[red]Connection {match_id!r} not found.[/red]")
             raise typer.Exit(1)
         match.mismatch_reason = reason or None
         session.add(match)
         await session.commit()
         await transition(session, match, MatchStatus.DECLINED, actor="moderator", note=reason)
-        rprint(f"[yellow]Match {match_id[:8]} declined.[/yellow]")
+        rprint(f"[yellow]Connection {match_id[:8]} dismissed.[/yellow]")
         if reason:
             rprint(f"  Reason: {reason}")
 
@@ -164,15 +164,15 @@ def queue_send_intro(
     platform: Annotated[str | None, typer.Option("--platform", help="reddit|discord|facebook")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
 ) -> None:
-    """Send intro message for an approved match."""
+    """Facilitate a handshake between parties."""
 
     async def _run(session):
         match = await get_match(session, match_id)
         if not match:
-            rprint(f"[red]Match {match_id!r} not found.[/red]")
+            rprint(f"[red]Connection {match_id!r} not found.[/red]")
             raise typer.Exit(1)
         if match.status != MatchStatus.APPROVED:
-            rprint(f"[red]Match must be APPROVED before sending intro (current: {match.status}).[/red]")
+            rprint(f"[red]Connection must be VERIFIED before sending intro (current: {match.status}).[/red]")
             raise typer.Exit(1)
 
         seeker = await session.get(Post, match.seeker_post_id)
@@ -184,13 +184,13 @@ def queue_send_intro(
 
         intro_text = match.intro_draft or render_intro(seeker, camp, target_platform)
 
-        console.print(Panel(intro_text, title="[cyan]Intro Message Preview[/cyan]", expand=False))
+        console.print(Panel(intro_text, title="[cyan]Intro Handshake Preview[/cyan]", expand=False))
 
         if dry_run:
             rprint("[dim]--dry-run: not sending.[/dim]")
             return
 
-        confirmed = typer.confirm("Send this intro?", default=False)
+        confirmed = typer.confirm("Send this handshake?", default=False)
         if not confirmed:
             rprint("[yellow]Aborted.[/yellow]")
             return
@@ -204,7 +204,7 @@ def queue_send_intro(
         match.intro_platform = target_platform
         session.add(match)
         await transition(session, match, MatchStatus.INTRO_SENT, actor="moderator")
-        rprint(f"[green]Intro sent via {target_platform}.[/green]")
+        rprint(f"[green]Handshake sent via {target_platform}.[/green]")
 
     with_session(_run)
 
@@ -214,18 +214,18 @@ def queue_triage(
     match_id: str,
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
 ) -> None:
-    """Run LLM triage on an ambiguous match and update its record."""
+    """Analyze alignment for an ambiguous connection."""
 
     async def _run(session):
         match = await get_match(session, match_id)
         if not match:
-            rprint(f"[red]Match {match_id!r} not found.[/red]")
+            rprint(f"[red]Connection {match_id!r} not found.[/red]")
             raise typer.Exit(1)
 
         seeker = await session.get(Post, match.seeker_post_id)
         camp = await session.get(Post, match.camp_post_id)
         if not seeker or not camp:
-            rprint("[red]Could not load seeker or camp post.[/red]")
+            rprint("[red]Could not load seeker or camp signal.[/red]")
             raise typer.Exit(1)
 
         from matchbot.extraction.anthropic_extractor import AnthropicExtractor
@@ -236,7 +236,7 @@ def queue_triage(
         settings = get_settings()
         extractor = OpenAIExtractor() if settings.llm_provider == "openai" else AnthropicExtractor()
 
-        rprint(f"[cyan]Running LLM triage on match {match_id[:8]}…[/cyan]")
+        rprint(f"[cyan]Analyzing alignment for connection {match_id[:8]}…[/cyan]")
         try:
             confidence, rationale = await llm_triage(seeker, camp, extractor)
         finally:
@@ -258,7 +258,7 @@ def queue_triage(
         match.confidence = confidence
         session.add(match)
         await session.commit()
-        rprint(f"[green]Triage complete. Match {match_id[:8]} updated.[/green]")
+        rprint(f"[green]Analysis complete. Connection {match_id[:8]} updated.[/green]")
 
     with_session(_run)
 
@@ -267,7 +267,7 @@ def queue_triage(
 def queue_feedback_list(
     limit: Annotated[int, typer.Option("--limit")] = 25,
 ) -> None:
-    """List matches with feedback pending."""
+    """List connections awaiting feedback."""
 
     async def _run(session):
         from sqlmodel import select
@@ -285,16 +285,16 @@ def queue_feedback_list(
         ).all()
 
         if not matches:
-            rprint("[yellow]No matches with [feedback pending].[/yellow]")
+            rprint("[yellow]No connections with [feedback pending].[/yellow]")
             return
 
         table = Table(title="Feedback Pending")
         table.add_column("ID", style="dim", width=12)
         table.add_column("Score", justify="right")
         table.add_column("Platform", width=10)
-        table.add_column("Post A snippet", no_wrap=False, max_width=35)
-        table.add_column("Post B snippet", no_wrap=False, max_width=35)
-        table.add_column("Intro sent")
+        table.add_column("Seeker snippet", no_wrap=False, max_width=35)
+        table.add_column("Camp snippet", no_wrap=False, max_width=35)
+        table.add_column("Handshake sent")
 
         for m in matches:
             seeker = await session.get(Post, m.seeker_post_id)
@@ -321,22 +321,22 @@ def queue_send_feedback(
     match_id: str,
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
 ) -> None:
-    """Send feedback follow-up message and clear the [feedback pending] tag."""
+    """Check in on a facilitated connection."""
 
     async def _run(session):
         match = await get_match(session, match_id)
         if not match:
-            rprint(f"[red]Match {match_id!r} not found.[/red]")
+            rprint(f"[red]Connection {match_id!r} not found.[/red]")
             raise typer.Exit(1)
 
         if not match.moderator_notes or "[feedback pending]" not in match.moderator_notes:
-            rprint(f"[red]Match {match_id[:8]} does not have [feedback pending] in notes.[/red]")
+            rprint(f"[red]Connection {match_id[:8]} does not have [feedback pending] in notes.[/red]")
             raise typer.Exit(1)
 
         seeker = await session.get(Post, match.seeker_post_id)
         camp = await session.get(Post, match.camp_post_id)
         if not seeker or not camp:
-            rprint("[red]Could not load seeker or camp post.[/red]")
+            rprint("[red]Could not load seeker or camp signal.[/red]")
             raise typer.Exit(1)
 
         platform = match.intro_platform or (seeker.platform if seeker else "reddit")
@@ -346,14 +346,14 @@ def queue_send_feedback(
         seeker_text = render_feedback(seeker, camp, platform)
         camp_text = render_feedback(camp, seeker, platform)
 
-        console.print(Panel(seeker_text, title=f"[cyan]Feedback → {seeker.author_display_name or seeker.platform_author_id}[/cyan]", expand=False))
-        console.print(Panel(camp_text, title=f"[cyan]Feedback → {camp.author_display_name or camp.platform_author_id}[/cyan]", expand=False))
+        console.print(Panel(seeker_text, title=f"[cyan]Check-in → {seeker.author_display_name or seeker.platform_author_id}[/cyan]", expand=False))
+        console.print(Panel(camp_text, title=f"[cyan]Check-in → {camp.author_display_name or camp.platform_author_id}[/cyan]", expand=False))
 
         if dry_run:
             rprint("[dim]--dry-run: not sending.[/dim]")
             return
 
-        confirmed = typer.confirm("Send these feedback messages?", default=False)
+        confirmed = typer.confirm("Send these check-in messages?", default=False)
         if not confirmed:
             rprint("[yellow]Aborted.[/yellow]")
             return
@@ -368,7 +368,7 @@ def queue_send_feedback(
         session.add(match)
         await session.commit()
 
-        rprint(f"[green]Feedback sent for match {match_id[:8]}.[/green]")
+        rprint(f"[green]Check-in sent for connection {match_id[:8]}.[/green]")
 
     with_session(_run)
 
@@ -379,14 +379,14 @@ def queue_status(
     new_status: str,
     note: Annotated[str | None, typer.Option("--note")] = None,
 ) -> None:
-    """Manually override match status."""
+    """Manually override connection status."""
 
     async def _run(session):
         match = await get_match(session, match_id)
         if not match:
-            rprint(f"[red]Match {match_id!r} not found.[/red]")
+            rprint(f"[red]Connection {match_id!r} not found.[/red]")
             raise typer.Exit(1)
         await transition(session, match, new_status, actor="moderator", note=note)
-        rprint(f"[green]Match {match_id[:8]} → {new_status}.[/green]")
+        rprint(f"[green]Connection {match_id[:8]} → {new_status}.[/green]")
 
     with_session(_run)
