@@ -346,6 +346,10 @@ _COMMUNITY_HTML = """
       </div>
       <a id="feedback-link" href="/forms/">Send Feedback to Organizers</a>
     </section>
+    <div class="updated">
+      Rising Sparks is a volunteer-led community experiment. While we collaborate with folks across the ecosystem, 
+      this is not an official Burning Man Project initiative.
+    </div>
     <div class="updated" id="updated"></div>
   </main>
 

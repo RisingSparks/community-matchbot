@@ -44,6 +44,14 @@ button { margin-top: 20px; padding: 10px 24px; background: #c0392b; color: white
 .hint { font-size: 12px; color: #666; margin-top: 2px; }
 .nav { margin-bottom: 24px; }
 .nav a { margin-right: 16px; color: #c0392b; }
+.disclaimer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #888; line-height: 1.4; }
+"""
+
+_DISCLAIMER_HTML = """
+<div class="disclaimer">
+  Rising Sparks is a volunteer-led community experiment. While we collaborate with folks across 
+  the ecosystem, this is not an official Burning Man Project initiative.
+</div>
 """
 
 _LANDING_HTML = f"""
@@ -56,6 +64,7 @@ Tell us about yourself or your project to get started.</p>
   <a href="/forms/seeker">I want to contribute & learn →</a>
   <a href="/forms/camp">We’re looking for builders & collaborators →</a>
 </div>
+{_DISCLAIMER_HTML}
 </body></html>
 """
 
@@ -90,6 +99,7 @@ _SEEKER_FORM_HTML = f"""
 
   <button type="submit">Join the Pool →</button>
 </form>
+{_DISCLAIMER_HTML}
 </body></html>
 """
 
@@ -129,6 +139,7 @@ _CAMP_FORM_HTML = f"""
 
   <button type="submit">List Your Openings →</button>
 </form>
+{_DISCLAIMER_HTML}
 </body></html>
 """
 
@@ -139,6 +150,7 @@ _THANKS_HTML = f"""
 <p>We’ve received your signals. Our volunteer moderators will review them to find potential connections.</p>
 <p>If we find a likely match, we’ll reach out to make a human introduction.</p>
 <div class="nav"><a href="/forms/">Submit another signal →</a></div>
+{_DISCLAIMER_HTML}
 </body></html>
 """
 
