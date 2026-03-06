@@ -65,6 +65,42 @@ def test_community_data_zero_state(monkeypatch, tmp_path) -> None:
         _reset_engine()
 
 
+def test_community_rest_api_endpoints_exist_and_are_nonbreaking(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_api_endpoints.db")
+    try:
+        client = TestClient(create_app(enable_scheduler=False))
+
+        legacy = client.get("/community/data")
+        assert legacy.status_code == 200
+        legacy_payload = legacy.json()
+
+        overview = client.get("/community/api/overview")
+        metrics = client.get("/community/api/metrics")
+        pipeline = client.get("/community/api/pipeline")
+        platforms = client.get("/community/api/platforms")
+        feed = client.get("/community/api/feed")
+        demand = client.get("/community/api/demand")
+        stories = client.get("/community/api/stories")
+
+        assert overview.status_code == 200
+        assert metrics.status_code == 200
+        assert pipeline.status_code == 200
+        assert platforms.status_code == 200
+        assert feed.status_code == 200
+        assert demand.status_code == 200
+        assert stories.status_code == 200
+
+        assert overview.json()["summary"] == legacy_payload["summary"]
+        assert metrics.json()["key_metrics"] == legacy_payload["key_metrics"]
+        assert pipeline.json()["pipeline"] == legacy_payload["pipeline"]
+        assert platforms.json()["platform_breakdown"] == legacy_payload["platform_breakdown"]
+        assert feed.json()["live_feed"] == legacy_payload["live_feed"]
+        assert demand.json()["demand"] == legacy_payload["demand"]
+        assert stories.json()["stories"] == legacy_payload["stories"]
+    finally:
+        _reset_engine()
+
+
 def test_community_data_redacts_story_and_feed_identifiers(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_redaction.db")
 
@@ -226,5 +262,45 @@ def test_community_data_redacts_story_and_feed_identifiers(monkeypatch, tmp_path
         assert "@SeekerReal" not in story_blob
         assert "https://example.com/help" not in story_blob
         assert "[contact]" in story_blob or "[link]" in story_blob
+    finally:
+        _reset_engine()
+
+
+def test_live_feed_uses_source_created_at_for_post_events(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_source_created_at.db")
+
+    source_created_at = datetime(2026, 1, 10, 15, 0, 0)
+    detected_at = datetime(2026, 3, 5, 16, 0, 0)
+
+    async def _seed() -> None:
+        async with get_session() as session:
+            session.add(
+                Post(
+                    platform=Platform.REDDIT,
+                    platform_post_id="source_time_1",
+                    platform_author_id="t2_source_time",
+                    author_display_name="SourceTimeUser",
+                    source_community="BurningMan",
+                    title="Need a camp",
+                    raw_text="Trying to find a camp",
+                    role=PostRole.SEEKER,
+                    status=PostStatus.INDEXED,
+                    source_created_at=source_created_at,
+                    detected_at=detected_at,
+                )
+            )
+            await session.commit()
+
+    try:
+        asyncio.run(_seed())
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get("/community/data")
+        assert response.status_code == 200
+        payload = response.json()
+
+        feed = payload["live_feed"]
+        assert len(feed) == 1
+        assert feed[0]["event_type"] == "post_indexed"
+        assert feed[0]["occurred_at"] == source_created_at.replace(tzinfo=UTC).isoformat()
     finally:
         _reset_engine()

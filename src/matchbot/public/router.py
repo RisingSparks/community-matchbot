@@ -357,6 +357,71 @@ async def community_data(session: AsyncSession = Depends(_get_session)) -> dict[
     return await build_public_community_payload(session)
 
 
+@router.get("/api/overview")
+async def community_api_overview(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
+    payload = await build_public_community_payload(session)
+    return {
+        "summary": payload["summary"],
+        "weekly": payload["weekly"],
+        "backlog": payload["backlog"],
+        "updated_at": payload["updated_at"],
+    }
+
+
+@router.get("/api/metrics")
+async def community_api_metrics(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
+    payload = await build_public_community_payload(session)
+    return {
+        "key_metrics": payload["key_metrics"],
+        "updated_at": payload["updated_at"],
+    }
+
+
+@router.get("/api/pipeline")
+async def community_api_pipeline(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
+    payload = await build_public_community_payload(session)
+    return {
+        "pipeline": payload["pipeline"],
+        "updated_at": payload["updated_at"],
+    }
+
+
+@router.get("/api/platforms")
+async def community_api_platforms(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
+    payload = await build_public_community_payload(session)
+    return {
+        "platform_breakdown": payload["platform_breakdown"],
+        "updated_at": payload["updated_at"],
+    }
+
+
+@router.get("/api/feed")
+async def community_api_feed(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
+    payload = await build_public_community_payload(session)
+    return {
+        "live_feed": payload["live_feed"],
+        "updated_at": payload["updated_at"],
+    }
+
+
+@router.get("/api/demand")
+async def community_api_demand(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
+    payload = await build_public_community_payload(session)
+    return {
+        "demand": payload["demand"],
+        "updated_at": payload["updated_at"],
+    }
+
+
+@router.get("/api/stories")
+async def community_api_stories(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
+    payload = await build_public_community_payload(session)
+    return {
+        "stories": payload["stories"],
+        "updated_at": payload["updated_at"],
+    }
+
+
 async def build_public_community_payload(session: AsyncSession) -> dict[str, Any]:
     now = datetime.now(UTC)
     now_naive = now.replace(tzinfo=None)
@@ -505,10 +570,11 @@ def _build_live_feed(
             continue
         summary = _sanitize_text(post.raw_text or post.title, max_len=120)
         status_label = "indexed" if post.status == PostStatus.INDEXED else "needs_review"
+        occurred_at = (post.source_created_at or post.detected_at).replace(tzinfo=UTC).isoformat()
         feed.append(
             {
                 "event_type": f"post_{status_label}",
-                "occurred_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
+                "occurred_at": occurred_at,
                 "platform": post.platform,
                 "summary": summary,
             }
