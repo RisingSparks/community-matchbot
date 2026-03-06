@@ -65,8 +65,8 @@ def score_infra_match(post_a: Post, post_b: Post) -> tuple[float, dict]:
         return 0.0, {}
 
     older_date = min(
-        post_a.detected_at or datetime.now(UTC),
-        post_b.detected_at or datetime.now(UTC),
+        post_a.detected_at or datetime.now(UTC).replace(tzinfo=None),
+        post_b.detected_at or datetime.now(UTC).replace(tzinfo=None),
     )
     recency = _recency_score(older_date)
     role_match = 1.0  # already validated above

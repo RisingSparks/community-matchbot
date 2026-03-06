@@ -73,7 +73,7 @@ async def transition(
         )
 
     match.status = new_status
-    match.updated_at = datetime.now(UTC)
+    match.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
     event = Event(
         event_type="match_status_changed",

@@ -592,7 +592,7 @@ async def send_match_intro(
     from matchbot.messaging import send_intro_message
 
     await send_intro_message(session, match, seeker, camp, target_platform)
-    match.intro_sent_at = datetime.now(UTC)
+    match.intro_sent_at = datetime.now(UTC).replace(tzinfo=None)
     match.intro_platform = target_platform
     session.add(match)
     await transition(session, match, MatchStatus.INTRO_SENT, actor="moderator")

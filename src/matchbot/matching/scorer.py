@@ -77,8 +77,8 @@ def score_match(seeker: Post, camp: Post, seeker_intent: str | None = None) -> t
 
     # Use the older (more stale) post for recency — penalise stale pairs
     older_date = min(
-        seeker.detected_at or datetime.now(UTC),
-        camp.detected_at or datetime.now(UTC),
+        seeker.detected_at or datetime.now(UTC).replace(tzinfo=None),
+        camp.detected_at or datetime.now(UTC).replace(tzinfo=None),
     )
     recency = _recency_score(older_date)
     year_match = _year_score(seeker.year, camp.year)
