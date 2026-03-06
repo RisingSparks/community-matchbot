@@ -44,7 +44,7 @@ async def expire_stale_posts(_engine=None) -> int:
 
     Returns the number of posts expired.
     """
-    cutoff = datetime.now(UTC) - timedelta(days=STALE_POST_DAYS)
+    cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=STALE_POST_DAYS)
     engine = _engine or get_engine()
     expired = 0
 
@@ -77,7 +77,7 @@ async def trigger_feedback_surveys(_engine=None) -> int:
 
     Returns the number of matches flagged.
     """
-    cutoff = datetime.now(UTC) - timedelta(days=FEEDBACK_WINDOW_DAYS)
+    cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=FEEDBACK_WINDOW_DAYS)
     engine = _engine or get_engine()
     flagged = 0
 
@@ -111,7 +111,7 @@ async def enforce_data_retention(_engine=None) -> int:
 
     Returns the number of posts anonymised.
     """
-    cutoff = datetime.now(UTC) - timedelta(days=RETENTION_DAYS)
+    cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=RETENTION_DAYS)
     engine = _engine or get_engine()
     anonymised = 0
 
