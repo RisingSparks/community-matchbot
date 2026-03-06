@@ -439,6 +439,7 @@ _COMMUNITY_HTML = """
     function matchedRow(item) {
       const confidence = item.confidence == null ? "n/a" : `${Math.round(item.confidence * 100)}%`;
       const score = item.score == null ? "n/a" : item.score.toFixed(3);
+      const reason = item.match_reason || item.shared_signals || "Low-signal potential match.";
       const seekerLink = item.seeker_source_url
         ? (
           `<a href="${item.seeker_source_url}" target="_blank" rel="noopener noreferrer">` +
@@ -460,8 +461,9 @@ _COMMUNITY_HTML = """
             ${item.seeker_platform} → ${item.camp_platform}
           </div>
           <div class="event-text">
-            Score ${score} • Confidence ${confidence} • Shared: ${item.shared_signals}
+            Score ${score} • Confidence ${confidence}
           </div>
+          <div class="event-text"><strong>Why this might fit:</strong> ${reason}</div>
           <div class="event-text"><strong>Seeker:</strong> ${item.seeker_summary}</div>
           <div class="event-text"><strong>Camp:</strong> ${item.camp_summary}</div>
           <div class="event-meta">${seekerLink} • ${campLink}</div>
@@ -777,6 +779,7 @@ def _build_matches_payload(
         overlap = sorted(
             set(seeker.contribution_types_list()).intersection(camp.contribution_types_list())
         )
+        match_reason = _build_match_reason(match, seeker, camp)
         rows.append(
             {
                 "match_id": match.id,
@@ -788,9 +791,8 @@ def _build_matches_payload(
                 "camp_platform": camp.platform,
                 "seeker_summary": _sanitize_text(seeker.raw_text or seeker.title, max_len=120),
                 "camp_summary": _sanitize_text(camp.raw_text or camp.title, max_len=120),
-                "shared_signals": (
-                    ", ".join(overlap[:3]) if overlap else "shared contribution signals"
-                ),
+                "shared_signals": ", ".join(overlap[:3]) if overlap else "none",
+                "match_reason": match_reason,
                 "seeker_source_url": seeker.source_url,
                 "camp_source_url": camp.source_url,
             }
@@ -1083,15 +1085,12 @@ def _build_stories(posts: list[Post], matches: list[Match]) -> list[dict[str, st
         if seeker is None or camp is None:
             continue
 
-        overlap = sorted(
-            set(seeker.contribution_types_list()).intersection(camp.contribution_types_list())
-        )
-        overlap_text = ", ".join(overlap[:3]) if overlap else "shared contribution signals"
+        match_reason = _build_match_reason(match, seeker, camp)
         story_rows.append(
             {
                 "title": f"Potential Connection {idx}",
                 "problem": _sanitize_text(seeker.raw_text or seeker.title, max_len=140),
-                "intervention": f"Found common ground through {overlap_text}.",
+                "intervention": f"Potential fit: {match_reason}",
                 "outcome": _outcome_label(match.status),
                 "confidence_note": _confidence_note(match),
             }
@@ -1153,10 +1152,71 @@ def _outcome_label(status: str) -> str:
 
 def _confidence_note(match: Match) -> str:
     if match.confidence is not None:
-        return f"Vibe match: {round(match.confidence * 100)}%."
+        return f"Deterministic match score: {round(match.confidence * 100)}%."
     if match.score:
-        return f"Contribution alignment: {round(match.score * 100)}%."
-    return "Matched on skills and ethos."
+        return f"Deterministic match score: {round(match.score * 100)}%."
+    return "Candidate generated from extracted tags."
+
+
+def _build_match_reason(match: Match, seeker: Post, camp: Post) -> str:
+    reasons: list[str] = []
+    shared_contrib = sorted(
+        set(seeker.contribution_types_list()).intersection(camp.contribution_types_list())
+    )
+    shared_vibes = sorted(set(seeker.vibes_list()).intersection(camp.vibes_list()))
+
+    if shared_contrib:
+        reasons.append(
+            f"Both mention {_human_list(shared_contrib[:3])} as contribution styles."
+        )
+    else:
+        reasons.append("No shared contribution tags were extracted.")
+
+    if shared_vibes:
+        reasons.append(f"They share a {_human_list(shared_vibes[:2])} vibe.")
+
+    if seeker.year is not None and camp.year is not None and seeker.year == camp.year:
+        reasons.append(f"Both are tagged for Burning Man {seeker.year}.")
+    elif seeker.year is not None and camp.year is not None and seeker.year != camp.year:
+        reasons.append("The extracted burn years do not match.")
+
+    breakdown = match.score_breakdown_dict() or {}
+    recency = _parse_float(breakdown.get("recency"))
+    if recency is not None:
+        if recency >= 0.8:
+            reasons.append("Both posts are recent.")
+        elif recency >= 0.5:
+            reasons.append("At least one post is moderately recent.")
+        else:
+            reasons.append("One or both posts may be older.")
+
+    return " ".join(reasons[:3])
+
+
+def _human_list(items: list[str]) -> str:
+    human = [_human_token(item) for item in items if item]
+    if not human:
+        return "related signals"
+    if len(human) == 1:
+        return human[0]
+    if len(human) == 2:
+        return f"{human[0]} and {human[1]}"
+    return f"{', '.join(human[:-1])}, and {human[-1]}"
+
+
+def _human_token(value: str) -> str:
+    return value.replace("_", " ").strip()
+
+
+def _parse_float(value: Any) -> float | None:
+    if isinstance(value, (float, int)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
 
 
 def _sanitize_text(text: str, *, max_len: int = 160) -> str:

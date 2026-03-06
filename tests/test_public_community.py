@@ -171,7 +171,7 @@ def test_community_matches_api_filters_and_sanitizes(monkeypatch, tmp_path) -> N
                 raw_text="Old camp text",
                 role=PostRole.CAMP,
                 status=PostStatus.INDEXED,
-                contribution_types="art",
+                contribution_types="sound",
                 detected_at=now - timedelta(days=50),
             )
 
@@ -220,16 +220,20 @@ def test_community_matches_api_filters_and_sanitizes(monkeypatch, tmp_path) -> N
         row = filtered_payload["matched"][0]
         assert row["status"] == MatchStatus.APPROVED
         assert row["shared_signals"] == "build"
+        assert row["match_reason"] == "Both mention build as contribution styles."
         assert row["seeker_source_url"] == "https://reddit.com/seek_recent"
         assert row["camp_source_url"] == "https://discord.com/channels/x/y"
         assert "recent@example.com" not in row["seeker_summary"]
         assert "u/RecentUser" not in row["seeker_summary"]
 
-        wide = client.get("/community/api/matches?days=all&limit=1")
+        wide = client.get("/community/api/matches?days=all&limit=2")
         assert wide.status_code == 200
         wide_payload = wide.json()
         assert wide_payload["summary"]["total"] == 2
-        assert len(wide_payload["matched"]) == 1
+        assert len(wide_payload["matched"]) == 2
+        older = wide_payload["matched"][1]
+        assert older["shared_signals"] == "none"
+        assert older["match_reason"].startswith("No shared contribution tags were extracted.")
     finally:
         _reset_engine()
 
