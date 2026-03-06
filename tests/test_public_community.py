@@ -44,8 +44,8 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert "Rising Sparks Public Dashboard" in response.text
         assert "Live Activity" in response.text
         assert "Most Requested Skills" in response.text
-        assert "Most Sought Skills (Order Book)" in response.text
-        assert "Most Sought Vibes (Order Book)" in response.text
+        assert "Most Sought Skills" in response.text
+        assert "Most Sought Vibes" in response.text
         assert "Matched Drill-Down" in response.text
     finally:
         _reset_engine()

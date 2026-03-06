@@ -329,11 +329,11 @@ _COMMUNITY_HTML = """
 
     <section class="panel grid2">
       <div>
-        <h2 class="section-title">Most Sought Skills (Order Book)</h2>
+        <h2 class="section-title">Most Sought Skills</h2>
         <div class="bars" id="demand-sought-skills"></div>
       </div>
       <div>
-        <h2 class="section-title">Most Sought Vibes (Order Book)</h2>
+        <h2 class="section-title">Most Sought Vibes</h2>
         <div class="bars" id="demand-sought-vibes"></div>
       </div>
     </section>
