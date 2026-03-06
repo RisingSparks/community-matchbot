@@ -7,7 +7,7 @@ from collections import Counter
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -180,6 +180,37 @@ _COMMUNITY_HTML = """
       <div class="grid4" id="pipeline"></div>
     </section>
 
+    <section class="panel">
+      <h2 class="section-title">Matched Drill-Down</h2>
+      <div class="grid2" style="margin-bottom: 10px;">
+        <label class="note">
+          Status
+          <select id="match-status-filter">
+            <option value="all" selected>All statuses</option>
+            <option value="proposed">Proposed</option>
+            <option value="approved">Approved</option>
+            <option value="intro_sent">Intro sent</option>
+            <option value="conversation_started">Conversation started</option>
+            <option value="accepted_pending">Accepted pending</option>
+            <option value="onboarded">Onboarded</option>
+            <option value="declined">Declined</option>
+            <option value="closed_stale">Closed stale</option>
+          </select>
+        </label>
+        <label class="note">
+          Time window
+          <select id="match-days-filter">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="all">All time</option>
+          </select>
+        </label>
+      </div>
+      <div class="grid4" id="matched-summary"></div>
+      <div class="timeline" id="matched-list"></div>
+    </section>
+
     <section class="panel grid2">
       <div>
         <h2 class="section-title">Live Activity</h2>
@@ -226,11 +257,20 @@ _COMMUNITY_HTML = """
       `;
     }
 
+    const funnelStageNotes = {
+      Seen: "Public posts ingested from configured channels.",
+      Analyzed: "Signals that moved beyond raw ingestion.",
+      Matched: "Potential seeker-camp connections created.",
+      Introduced: "Connections where an intro was sent.",
+    };
+
     function pipelineCard(stage, count) {
+      const note = funnelStageNotes[stage] || "";
       return `
         <article class="card">
           <div class="kicker">${stage}</div>
           <div class="metric">${fmt(count)}</div>
+          <p class="note">${note}</p>
         </article>
       `;
     }
@@ -258,6 +298,69 @@ _COMMUNITY_HTML = """
       `;
     }
 
+    function matchedRow(item) {
+      const confidence = item.confidence == null ? "n/a" : `${Math.round(item.confidence * 100)}%`;
+      const score = item.score == null ? "n/a" : item.score.toFixed(3);
+      const seekerLink = item.seeker_source_url
+        ? (
+          `<a href="${item.seeker_source_url}" target="_blank" rel="noopener noreferrer">` +
+          `Seeker source</a>`
+        )
+        : "Seeker source: n/a";
+      const campLink = item.camp_source_url
+        ? (
+          `<a href="${item.camp_source_url}" target="_blank" rel="noopener noreferrer">` +
+          `Camp source</a>`
+        )
+        : "Camp source: n/a";
+
+      return `
+        <div class="event-row">
+          <div class="pill">match_${item.status}</div>
+          <div class="event-meta">
+            ${new Date(item.created_at).toLocaleString()} •
+            ${item.seeker_platform} → ${item.camp_platform}
+          </div>
+          <div class="event-text">
+            Score ${score} • Confidence ${confidence} • Shared: ${item.shared_signals}
+          </div>
+          <div class="event-text"><strong>Seeker:</strong> ${item.seeker_summary}</div>
+          <div class="event-text"><strong>Camp:</strong> ${item.camp_summary}</div>
+          <div class="event-meta">${seekerLink} • ${campLink}</div>
+        </div>
+      `;
+    }
+
+    async function loadMatches() {
+      const status = document.getElementById("match-status-filter").value || "all";
+      const days = document.getElementById("match-days-filter").value || "30";
+      const qs = new URLSearchParams({ status, days, limit: "50" });
+      const res = await fetch(`/community/api/matches?${qs.toString()}`);
+      const data = await res.json();
+      const rows = data.matched || [];
+      const byStatus = (data.summary && data.summary.by_status) || {};
+      const introSentPlus =
+        (byStatus.intro_sent || 0) +
+        (byStatus.conversation_started || 0) +
+        (byStatus.accepted_pending || 0) +
+        (byStatus.onboarded || 0);
+
+      document.getElementById("matched-summary").innerHTML = [
+        metricCard(
+          "Filtered Total",
+          (data.summary && data.summary.total) || 0,
+          "Within current filters"
+        ),
+        metricCard("Proposed", byStatus.proposed || 0, "Potential matches awaiting action"),
+        metricCard("Approved", byStatus.approved || 0, "Ready for introductions"),
+        metricCard("Intro Sent+", introSentPlus, "Intro sent or further progressed"),
+      ].join("");
+
+      document.getElementById("matched-list").innerHTML = rows.length
+        ? rows.map((item) => matchedRow(item)).join("")
+        : `<p class="note">No matches for current filters.</p>`;
+    }
+
     function renderBars(elId, rows) {
       const el = document.getElementById(elId);
       if (!rows || !rows.length) {
@@ -276,7 +379,7 @@ _COMMUNITY_HTML = """
       const weekly = data.weekly || {};
       document.getElementById("summary-grid").innerHTML = [
         metricCard(
-          "Conversations Heard",
+          "Conversations Seen",
           summary.total_ingested,
           `${fmt(weekly.ingested_7d)} in last 7 days`
         ),
@@ -337,8 +440,12 @@ _COMMUNITY_HTML = """
         `Review queue: ${fmt(backlog.needs_review_count)} • ` +
         `${backlogText} • Updated ${new Date(data.updated_at).toLocaleString()}`
       );
+
+      await loadMatches();
     }
 
+    document.getElementById("match-status-filter").addEventListener("change", loadMatches);
+    document.getElementById("match-days-filter").addEventListener("change", loadMatches);
     load();
     setInterval(load, 60000);
   </script>
@@ -413,12 +520,107 @@ async def community_api_demand(session: AsyncSession = Depends(_get_session)) ->
     }
 
 
+@router.get("/api/matches")
+async def community_api_matches(
+    status: str = Query(default="all"),
+    days: str = Query(default="30"),
+    limit: int = Query(default=50, ge=1, le=200),
+    session: AsyncSession = Depends(_get_session),
+) -> dict[str, Any]:
+    now = datetime.now(UTC).replace(tzinfo=None)
+    posts = (await session.exec(select(Post))).all()
+    matches = (await session.exec(select(Match))).all()
+    return _build_matches_payload(posts, matches, now, status=status, days=days, limit=limit)
+
+
 @router.get("/api/stories")
 async def community_api_stories(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
     payload = await build_public_community_payload(session)
     return {
         "stories": payload["stories"],
         "updated_at": payload["updated_at"],
+    }
+
+
+def _build_matches_payload(
+    posts: list[Post],
+    matches: list[Match],
+    now: datetime,
+    *,
+    status: str,
+    days: str,
+    limit: int,
+) -> dict[str, Any]:
+    allowed_statuses = {
+        "all",
+        MatchStatus.PROPOSED,
+        MatchStatus.APPROVED,
+        MatchStatus.INTRO_SENT,
+        MatchStatus.CONVERSATION_STARTED,
+        MatchStatus.ACCEPTED_PENDING,
+        MatchStatus.ONBOARDED,
+        MatchStatus.DECLINED,
+        MatchStatus.CLOSED_STALE,
+    }
+    window_days = {"7": 7, "30": 30, "90": 90, "all": None}
+
+    status_value = status if status in allowed_statuses else "all"
+    days_value = days if days in window_days else "30"
+    since = (
+        None
+        if window_days[days_value] is None
+        else now - timedelta(days=window_days[days_value])
+    )
+
+    post_by_id = {post.id: post for post in posts}
+    filtered_matches: list[Match] = []
+    for match in matches:
+        seeker = post_by_id.get(match.seeker_post_id)
+        camp = post_by_id.get(match.camp_post_id)
+        if seeker is None or camp is None:
+            continue
+        if status_value != "all" and match.status != status_value:
+            continue
+        if since is not None and match.created_at < since:
+            continue
+        filtered_matches.append(match)
+
+    filtered_matches.sort(key=lambda row: row.created_at, reverse=True)
+    by_status = dict(Counter(match.status for match in filtered_matches))
+
+    rows: list[dict[str, Any]] = []
+    for match in filtered_matches[:limit]:
+        seeker = post_by_id[match.seeker_post_id]
+        camp = post_by_id[match.camp_post_id]
+        overlap = sorted(
+            set(seeker.contribution_types_list()).intersection(camp.contribution_types_list())
+        )
+        rows.append(
+            {
+                "match_id": match.id,
+                "created_at": match.created_at.replace(tzinfo=UTC).isoformat(),
+                "status": match.status,
+                "score": round(match.score, 3),
+                "confidence": round(match.confidence, 3) if match.confidence is not None else None,
+                "seeker_platform": seeker.platform,
+                "camp_platform": camp.platform,
+                "seeker_summary": _sanitize_text(seeker.raw_text or seeker.title, max_len=120),
+                "camp_summary": _sanitize_text(camp.raw_text or camp.title, max_len=120),
+                "shared_signals": (
+                    ", ".join(overlap[:3]) if overlap else "shared contribution signals"
+                ),
+                "seeker_source_url": seeker.source_url,
+                "camp_source_url": camp.source_url,
+            }
+        )
+
+    return {
+        "matched": rows,
+        "summary": {
+            "total": len(filtered_matches),
+            "by_status": by_status,
+        },
+        "updated_at": now.replace(tzinfo=UTC).isoformat(),
     }
 
 
@@ -534,7 +736,7 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
         "platform_breakdown": platform_breakdown,
         "platform_mix": platform_breakdown,
         "pipeline": [
-            {"stage": "Heard", "count": total_ingested},
+            {"stage": "Seen", "count": total_ingested},
             {"stage": "Analyzed", "count": structured_count},
             {"stage": "Matched", "count": proposed_matches},
             {"stage": "Introduced", "count": intros_sent},
@@ -563,22 +765,6 @@ def _build_live_feed(
     since: datetime,
 ) -> list[dict[str, Any]]:
     feed: list[dict[str, Any]] = []
-    relevant_post_statuses = {PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}
-
-    for post in posts:
-        if post.detected_at < since or post.status not in relevant_post_statuses:
-            continue
-        summary = _sanitize_text(post.raw_text or post.title, max_len=120)
-        status_label = "indexed" if post.status == PostStatus.INDEXED else "needs_review"
-        occurred_at = (post.source_created_at or post.detected_at).replace(tzinfo=UTC).isoformat()
-        feed.append(
-            {
-                "event_type": f"post_{status_label}",
-                "occurred_at": occurred_at,
-                "platform": post.platform,
-                "summary": summary,
-            }
-        )
 
     for match in matches:
         if match.created_at >= since:

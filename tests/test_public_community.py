@@ -35,6 +35,7 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert "Rising Sparks Public Dashboard" in response.text
         assert "Live Activity" in response.text
         assert "Most Requested Skills" in response.text
+        assert "Matched Drill-Down" in response.text
     finally:
         _reset_engine()
 
@@ -80,6 +81,7 @@ def test_community_rest_api_endpoints_exist_and_are_nonbreaking(monkeypatch, tmp
         platforms = client.get("/community/api/platforms")
         feed = client.get("/community/api/feed")
         demand = client.get("/community/api/demand")
+        matches = client.get("/community/api/matches")
         stories = client.get("/community/api/stories")
 
         assert overview.status_code == 200
@@ -88,6 +90,7 @@ def test_community_rest_api_endpoints_exist_and_are_nonbreaking(monkeypatch, tmp
         assert platforms.status_code == 200
         assert feed.status_code == 200
         assert demand.status_code == 200
+        assert matches.status_code == 200
         assert stories.status_code == 200
 
         assert overview.json()["summary"] == legacy_payload["summary"]
@@ -97,6 +100,123 @@ def test_community_rest_api_endpoints_exist_and_are_nonbreaking(monkeypatch, tmp
         assert feed.json()["live_feed"] == legacy_payload["live_feed"]
         assert demand.json()["demand"] == legacy_payload["demand"]
         assert stories.json()["stories"] == legacy_payload["stories"]
+    finally:
+        _reset_engine()
+
+
+def test_community_matches_api_filters_and_sanitizes(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_matches_api.db")
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    old_match_time = now - timedelta(days=45)
+    recent_match_time = now - timedelta(days=2)
+
+    async def _seed() -> None:
+        async with get_session() as session:
+            seeker_recent = Post(
+                platform=Platform.REDDIT,
+                platform_post_id="seek_recent",
+                platform_author_id="s_recent",
+                source_url="https://reddit.com/seek_recent",
+                title="Need builders",
+                raw_text="Email me at recent@example.com u/RecentUser",
+                role=PostRole.SEEKER,
+                status=PostStatus.INDEXED,
+                contribution_types="build|art",
+                detected_at=now - timedelta(days=3),
+            )
+            camp_recent = Post(
+                platform=Platform.DISCORD,
+                platform_post_id="camp_recent",
+                platform_author_id="c_recent",
+                source_url="https://discord.com/channels/x/y",
+                title="Camp needs build",
+                raw_text="@CampRecent needs build team",
+                role=PostRole.CAMP,
+                status=PostStatus.INDEXED,
+                contribution_types="build|kitchen",
+                detected_at=now - timedelta(days=3),
+            )
+            seeker_old = Post(
+                platform=Platform.FACEBOOK,
+                platform_post_id="seek_old",
+                platform_author_id="s_old",
+                source_url="https://facebook.com/groups/z/posts/1",
+                title="Old seeker",
+                raw_text="Old text",
+                role=PostRole.SEEKER,
+                status=PostStatus.INDEXED,
+                contribution_types="art",
+                detected_at=now - timedelta(days=50),
+            )
+            camp_old = Post(
+                platform=Platform.REDDIT,
+                platform_post_id="camp_old",
+                platform_author_id="c_old",
+                source_url="https://reddit.com/camp_old",
+                title="Old camp",
+                raw_text="Old camp text",
+                role=PostRole.CAMP,
+                status=PostStatus.INDEXED,
+                contribution_types="art",
+                detected_at=now - timedelta(days=50),
+            )
+
+            session.add(seeker_recent)
+            session.add(camp_recent)
+            session.add(seeker_old)
+            session.add(camp_old)
+            await session.commit()
+            await session.refresh(seeker_recent)
+            await session.refresh(camp_recent)
+            await session.refresh(seeker_old)
+            await session.refresh(camp_old)
+
+            session.add(
+                Match(
+                    seeker_post_id=seeker_recent.id,
+                    camp_post_id=camp_recent.id,
+                    status=MatchStatus.APPROVED,
+                    score=0.91,
+                    confidence=0.82,
+                    created_at=recent_match_time,
+                )
+            )
+            session.add(
+                Match(
+                    seeker_post_id=seeker_old.id,
+                    camp_post_id=camp_old.id,
+                    status=MatchStatus.DECLINED,
+                    score=0.33,
+                    confidence=0.2,
+                    created_at=old_match_time,
+                )
+            )
+            await session.commit()
+
+    try:
+        asyncio.run(_seed())
+        client = TestClient(create_app(enable_scheduler=False))
+
+        filtered = client.get("/community/api/matches?status=approved&days=30&limit=50")
+        assert filtered.status_code == 200
+        filtered_payload = filtered.json()
+        assert filtered_payload["summary"]["total"] == 1
+        assert filtered_payload["summary"]["by_status"]["approved"] == 1
+        assert len(filtered_payload["matched"]) == 1
+        row = filtered_payload["matched"][0]
+        assert row["status"] == MatchStatus.APPROVED
+        assert row["shared_signals"] == "build"
+        assert row["seeker_source_url"] == "https://reddit.com/seek_recent"
+        assert row["camp_source_url"] == "https://discord.com/channels/x/y"
+        assert "recent@example.com" not in row["seeker_summary"]
+        assert "u/RecentUser" not in row["seeker_summary"]
+
+        wide = client.get("/community/api/matches?days=all&limit=1")
+        assert wide.status_code == 200
+        wide_payload = wide.json()
+        assert wide_payload["summary"]["total"] == 2
+        assert len(wide_payload["matched"]) == 1
     finally:
         _reset_engine()
 
@@ -236,12 +356,13 @@ def test_community_data_redacts_story_and_feed_identifiers(monkeypatch, tmp_path
         assert demand["top_contribution_types"][0]["count"] == 2
 
         feed = payload["live_feed"]
-        assert len(feed) >= 3
+        assert len(feed) >= 2
         assert all(
             feed[i]["occurred_at"] >= feed[i + 1]["occurred_at"]
             for i in range(len(feed) - 1)
         )
         assert all(event["event_type"] != "post_raw" for event in feed)
+        assert all(not event["event_type"].startswith("post_") for event in feed)
 
         feed_blob = " ".join((event["summary"] or "") for event in feed)
         assert "real@example.com" not in feed_blob
@@ -266,27 +387,48 @@ def test_community_data_redacts_story_and_feed_identifiers(monkeypatch, tmp_path
         _reset_engine()
 
 
-def test_live_feed_uses_source_created_at_for_post_events(monkeypatch, tmp_path) -> None:
-    _setup_sqlite_db(monkeypatch, tmp_path, "community_source_created_at.db")
+def test_live_feed_excludes_post_events(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_no_post_feed_events.db")
 
-    source_created_at = datetime(2026, 1, 10, 15, 0, 0)
-    detected_at = datetime(2026, 3, 5, 16, 0, 0)
+    now = datetime.now(UTC).replace(tzinfo=None)
 
     async def _seed() -> None:
         async with get_session() as session:
+            seeker = Post(
+                platform=Platform.REDDIT,
+                platform_post_id="seek_no_feed",
+                platform_author_id="t2_seek_no_feed",
+                title="Need build help",
+                raw_text="Looking for help",
+                role=PostRole.SEEKER,
+                status=PostStatus.INDEXED,
+                source_created_at=now - timedelta(days=2),
+                detected_at=now - timedelta(days=1),
+            )
+            camp = Post(
+                platform=Platform.DISCORD,
+                platform_post_id="camp_no_feed",
+                platform_author_id="discord_camp_no_feed",
+                title="Camp seeking builders",
+                raw_text="We have open spots",
+                role=PostRole.CAMP,
+                status=PostStatus.NEEDS_REVIEW,
+                detected_at=now - timedelta(hours=12),
+            )
+            session.add(seeker)
+            session.add(camp)
+            await session.commit()
+            await session.refresh(seeker)
+            await session.refresh(camp)
+
             session.add(
-                Post(
-                    platform=Platform.REDDIT,
-                    platform_post_id="source_time_1",
-                    platform_author_id="t2_source_time",
-                    author_display_name="SourceTimeUser",
-                    source_community="BurningMan",
-                    title="Need a camp",
-                    raw_text="Trying to find a camp",
-                    role=PostRole.SEEKER,
-                    status=PostStatus.INDEXED,
-                    source_created_at=source_created_at,
-                    detected_at=detected_at,
+                Match(
+                    seeker_post_id=seeker.id,
+                    camp_post_id=camp.id,
+                    status=MatchStatus.APPROVED,
+                    score=0.76,
+                    confidence=0.65,
+                    created_at=now - timedelta(hours=2),
                 )
             )
             await session.commit()
@@ -300,7 +442,7 @@ def test_live_feed_uses_source_created_at_for_post_events(monkeypatch, tmp_path)
 
         feed = payload["live_feed"]
         assert len(feed) == 1
-        assert feed[0]["event_type"] == "post_indexed"
-        assert feed[0]["occurred_at"] == source_created_at.replace(tzinfo=UTC).isoformat()
+        assert all(not item["event_type"].startswith("post_") for item in feed)
+        assert feed[0]["event_type"] == "match_approved"
     finally:
         _reset_engine()
