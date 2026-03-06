@@ -268,6 +268,29 @@ _COMMUNITY_HTML = """
 
     <section class="panel grid2">
       <div>
+        <h2 class="section-title">Most Requested Skills</h2>
+        <div class="bars" id="demand-contrib"></div>
+      </div>
+      <div>
+        <h2 class="section-title">Most Requested Vibes</h2>
+        <div class="bars" id="demand-vibes"></div>
+      </div>
+    </section>
+
+    <section class="panel grid2">
+      <div>
+        <h2 class="section-title">Most Sought Skills</h2>
+        <div class="bars" id="demand-sought-skills"></div>
+      </div>
+      <div>
+        <h2 class="section-title">Most Sought Vibes</h2>
+        <div class="bars" id="demand-sought-vibes"></div>
+      </div>
+    </section>
+
+    
+    <section class="panel grid2">
+      <div>
         <h2 class="section-title">Live Activity</h2>
         <div class="tab-bar" role="tablist" aria-label="Live activity views">
           <button
@@ -313,28 +336,6 @@ _COMMUNITY_HTML = """
       <div>
         <h2 class="section-title">Where Signals Come From</h2>
         <div class="bars" id="platform-breakdown"></div>
-      </div>
-    </section>
-
-    <section class="panel grid2">
-      <div>
-        <h2 class="section-title">Most Requested Skills</h2>
-        <div class="bars" id="demand-contrib"></div>
-      </div>
-      <div>
-        <h2 class="section-title">Most Requested Vibes</h2>
-        <div class="bars" id="demand-vibes"></div>
-      </div>
-    </section>
-
-    <section class="panel grid2">
-      <div>
-        <h2 class="section-title">Most Sought Skills</h2>
-        <div class="bars" id="demand-sought-skills"></div>
-      </div>
-      <div>
-        <h2 class="section-title">Most Sought Vibes</h2>
-        <div class="bars" id="demand-sought-vibes"></div>
       </div>
     </section>
 
