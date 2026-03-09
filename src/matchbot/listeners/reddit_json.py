@@ -234,6 +234,51 @@ async def _ingest_reddit_json_item(
         return "matched_extracted", extractor
 
 
+async def _ingest_reddit_json_batch(
+    items: list[dict[str, Any]],
+    *,
+    dry_run: bool,
+    max_concurrency: int,
+) -> list[_IngestOutcome]:
+    if not items:
+        return []
+
+    concurrency = max(1, max_concurrency)
+    if concurrency == 1:
+        outcomes: list[_IngestOutcome] = []
+        extractor = None
+        try:
+            for data in items:
+                outcome, extractor = await _ingest_reddit_json_item(
+                    data,
+                    extractor,
+                    dry_run=dry_run,
+                )
+                outcomes.append(outcome)
+        finally:
+            if extractor is not None:
+                await extractor.aclose()
+        return outcomes
+
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def _run_one(data: dict[str, Any]) -> _IngestOutcome:
+        async with semaphore:
+            extractor = None
+            try:
+                outcome, extractor = await _ingest_reddit_json_item(
+                    data,
+                    extractor,
+                    dry_run=dry_run,
+                )
+                return outcome
+            finally:
+                if extractor is not None:
+                    await extractor.aclose()
+
+    return list(await asyncio.gather(*(_run_one(data) for data in items)))
+
+
 async def poll_reddit_json_once(client: httpx.AsyncClient | None = None) -> dict[str, int]:
     """Poll Reddit JSON once and ingest posts newer than the latest stored post."""
     settings = get_settings()
@@ -273,18 +318,13 @@ async def poll_reddit_json_once(client: httpx.AsyncClient | None = None) -> dict
 
         counts["new_candidates"] = len(new_items)
 
-        extractor = None
-        try:
-            for data in reversed(new_items):  # process oldest->newest
-                outcome, extractor = await _ingest_reddit_json_item(
-                    data,
-                    extractor,
-                    dry_run=False,
-                )
-                _apply_outcome(counts, outcome)
-        finally:
-            if extractor is not None:
-                await extractor.aclose()
+        outcomes = await _ingest_reddit_json_batch(
+            list(reversed(new_items)),
+            dry_run=False,
+            max_concurrency=settings.reddit_json_max_concurrent_extractions,
+        )
+        for outcome in outcomes:
+            _apply_outcome(counts, outcome)
 
         return counts
     finally:
@@ -322,7 +362,6 @@ async def backfill_reddit_json(
     counts["pages"] = 0
 
     after: str | None = None
-    extractor = None
     reached_cutoff = False
     try:
         for _ in range(max_pages):
@@ -350,12 +389,12 @@ async def backfill_reddit_json(
 
             counts["new_candidates"] += len(in_scope)
 
-            for data in reversed(in_scope):
-                outcome, extractor = await _ingest_reddit_json_item(
-                    data,
-                    extractor,
-                    dry_run=dry_run,
-                )
+            outcomes = await _ingest_reddit_json_batch(
+                list(reversed(in_scope)),
+                dry_run=dry_run,
+                max_concurrency=settings.reddit_json_max_concurrent_extractions,
+            )
+            for outcome in outcomes:
                 _apply_outcome(counts, outcome)
 
             if reached_cutoff:
@@ -370,8 +409,6 @@ async def backfill_reddit_json(
 
         return counts
     finally:
-        if extractor is not None:
-            await extractor.aclose()
         if owns_client and client is not None:
             await client.aclose()
 

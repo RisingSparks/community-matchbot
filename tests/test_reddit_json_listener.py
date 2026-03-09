@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
@@ -9,7 +10,8 @@ from sqlmodel import select
 
 from matchbot.db import engine as engine_module
 from matchbot.db.engine import create_db_and_tables, get_session
-from matchbot.db.models import Platform, Post, PostStatus
+from matchbot.db.models import Platform, Post, PostRole, PostStatus, PostType
+from matchbot.extraction.keywords import KeywordResult
 from matchbot.listeners import reddit_json
 from matchbot.settings import get_settings
 
@@ -42,6 +44,7 @@ async def test_poll_reddit_json_once_uses_checkpoint_and_persists_skipped_with_b
     monkeypatch.setenv("DATABASE_BACKEND", "sqlite")
     monkeypatch.setenv("DB_PATH", str(db_path))
     monkeypatch.setenv("REDDIT_JSON_FETCH_LIMIT", "100")
+    monkeypatch.setenv("REDDIT_JSON_MAX_CONCURRENT_EXTRACTIONS", "1")
     get_settings.cache_clear()
     engine_module._engine = None
 
@@ -172,6 +175,7 @@ async def test_poll_reddit_json_once_persists_soft_match_without_llm(
     monkeypatch.setenv("DATABASE_BACKEND", "sqlite")
     monkeypatch.setenv("DB_PATH", str(db_path))
     monkeypatch.setenv("REDDIT_JSON_FETCH_LIMIT", "100")
+    monkeypatch.setenv("REDDIT_JSON_MAX_CONCURRENT_EXTRACTIONS", "1")
     get_settings.cache_clear()
     engine_module._engine = None
 
@@ -198,6 +202,33 @@ async def test_poll_reddit_json_once_persists_soft_match_without_llm(
     }
     client = AsyncMock()
     client.get = AsyncMock(return_value=response)
+    monkeypatch.setattr(
+        reddit_json,
+        "keyword_filter",
+        lambda title, body: KeywordResult(
+            matched=False,
+            candidate_role=PostRole.UNKNOWN,
+            post_type=PostType.INFRASTRUCTURE,
+            infra_role="seeking",
+            tier="soft_match",
+            score=3,
+            reasons=("test_soft_match",),
+        ),
+    )
+    monkeypatch.setattr(reddit_json, "_get_extractor", lambda: mock_extractor)
+
+    async def fake_process_post(session, post, extractor, on_extraction_error="error"):
+        post.status = PostStatus.NEEDS_REVIEW
+        post.post_type = PostType.INFRASTRUCTURE
+        post.infra_role = "seeking"
+        post.role = PostRole.UNKNOWN
+        post.extraction_method = "keyword_soft"
+        session.add(post)
+        await session.commit()
+        await session.refresh(post)
+        return post
+
+    monkeypatch.setattr(reddit_json, "process_post", fake_process_post)
 
     counts = await reddit_json.poll_reddit_json_once(client=client)
 
@@ -226,6 +257,7 @@ async def test_poll_reddit_json_once_retries_old_reddit_after_403(
     monkeypatch.setenv("DATABASE_BACKEND", "sqlite")
     monkeypatch.setenv("DB_PATH", str(db_path))
     monkeypatch.setenv("REDDIT_JSON_FETCH_LIMIT", "100")
+    monkeypatch.setenv("REDDIT_JSON_MAX_CONCURRENT_EXTRACTIONS", "1")
     get_settings.cache_clear()
     engine_module._engine = None
 
@@ -258,6 +290,8 @@ async def test_poll_reddit_json_once_retries_old_reddit_after_403(
 async def test_backfill_reddit_json_pages_with_after_and_stops_at_cutoff(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("REDDIT_JSON_MAX_CONCURRENT_EXTRACTIONS", "1")
+    get_settings.cache_clear()
     cutoff = datetime.fromtimestamp(180, UTC).replace(tzinfo=None)
     seen_ids: list[str] = []
 
@@ -326,6 +360,7 @@ async def test_backfill_reddit_json_dedupes_and_runs_same_pipeline(
     db_path = tmp_path / "reddit_json_backfill.db"
     monkeypatch.setenv("DATABASE_BACKEND", "sqlite")
     monkeypatch.setenv("DB_PATH", str(db_path))
+    monkeypatch.setenv("REDDIT_JSON_MAX_CONCURRENT_EXTRACTIONS", "1")
     get_settings.cache_clear()
     engine_module._engine = None
 
@@ -436,6 +471,7 @@ async def test_backfill_reddit_json_dry_run_does_not_write_or_extract(
     db_path = tmp_path / "reddit_json_backfill_dry_run.db"
     monkeypatch.setenv("DATABASE_BACKEND", "sqlite")
     monkeypatch.setenv("DB_PATH", str(db_path))
+    monkeypatch.setenv("REDDIT_JSON_MAX_CONCURRENT_EXTRACTIONS", "1")
     get_settings.cache_clear()
     engine_module._engine = None
 
@@ -502,4 +538,80 @@ async def test_backfill_reddit_json_dry_run_does_not_write_or_extract(
         rows = (await session.exec(select(Post))).all()
 
     assert rows == []
+    engine_module._engine = None
+
+
+@pytest.mark.asyncio
+async def test_poll_reddit_json_once_parallelizes_bounded_extraction(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    db_path = tmp_path / "reddit_json_listener_parallel.db"
+    monkeypatch.setenv("DATABASE_BACKEND", "sqlite")
+    monkeypatch.setenv("DB_PATH", str(db_path))
+    monkeypatch.setenv("REDDIT_JSON_FETCH_LIMIT", "100")
+    monkeypatch.setenv("REDDIT_JSON_MAX_CONCURRENT_EXTRACTIONS", "2")
+    get_settings.cache_clear()
+    engine_module._engine = None
+
+    await create_db_and_tables()
+
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {
+        "data": {
+            "children": [
+                {
+                    "data": {
+                        "id": "post_a",
+                        "title": "Looking for camp A",
+                        "selftext": "Happy to help with build.",
+                        "author": "author_a",
+                        "author_fullname": "t2_author_a",
+                        "permalink": "/r/BurningMan/comments/post_a/post/",
+                        "created_utc": 1735819200,
+                    }
+                },
+                {
+                    "data": {
+                        "id": "post_b",
+                        "title": "Looking for camp B",
+                        "selftext": "Happy to help with kitchen.",
+                        "author": "author_b",
+                        "author_fullname": "t2_author_b",
+                        "permalink": "/r/BurningMan/comments/post_b/post/",
+                        "created_utc": 1735819100,
+                    }
+                },
+            ]
+        }
+    }
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=response)
+
+    state = {"in_flight": 0, "max_in_flight": 0}
+
+    async def fake_process_post(session, post, extractor, on_extraction_error="error"):
+        state["in_flight"] += 1
+        state["max_in_flight"] = max(state["max_in_flight"], state["in_flight"])
+        await asyncio.sleep(0.05)
+        post.status = PostStatus.INDEXED
+        session.add(post)
+        await session.commit()
+        await session.refresh(post)
+        state["in_flight"] -= 1
+        return post
+
+    class StubExtractor:
+        def __init__(self) -> None:
+            self.aclose = AsyncMock(return_value=None)
+
+    monkeypatch.setattr(reddit_json, "_get_extractor", StubExtractor)
+    monkeypatch.setattr(reddit_json, "process_post", fake_process_post)
+
+    counts = await reddit_json.poll_reddit_json_once(client=client)
+
+    assert counts["matched"] == 2
+    assert counts["extracted"] == 2
+    assert state["max_in_flight"] == 2
     engine_module._engine = None
