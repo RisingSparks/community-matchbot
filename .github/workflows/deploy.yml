@@ -32,7 +32,7 @@ jobs:
       - name: Add known_hosts entry
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -p "${{ secrets.DEPLOY_SSH_PORT }}" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          printf '%s\n' "${{ vars.DEPLOY_HOST_KEY }}" > ~/.ssh/known_hosts
 
       - name: Verify remote deploy path access
         run: |
