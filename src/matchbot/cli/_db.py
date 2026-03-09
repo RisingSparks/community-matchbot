@@ -6,6 +6,7 @@ from typing import Any, TypeVar
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from matchbot.db.engine import dispose_engine
 from matchbot.db.engine import get_session
 
 T = TypeVar("T")
@@ -17,8 +18,11 @@ def run_async[T](coro: Coroutine[Any, Any, T]) -> T:
 
 
 async def _with_session[T](fn: Callable[[AsyncSession], Coroutine[Any, Any, T]]) -> T:
-    async with get_session() as session:
-        return await fn(session)
+    try:
+        async with get_session() as session:
+            return await fn(session)
+    finally:
+        await dispose_engine()
 
 
 def with_session[T](fn: Callable[[AsyncSession], Coroutine[Any, Any, T]]) -> T:

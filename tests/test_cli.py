@@ -75,6 +75,23 @@ def run_in(loop: asyncio.AbstractEventLoop, coro):
     return loop.run_until_complete(coro)
 
 
+def test_cli_helper_disposes_engine(cli_env):
+    session, factory, loop = cli_env
+    disposed: list[str] = []
+
+    async def fake_dispose() -> None:
+        disposed.append("dispose")
+
+    with (
+        patch("matchbot.cli._db.get_session", factory),
+        patch("matchbot.cli._db.dispose_engine", fake_dispose),
+    ):
+        result = runner.invoke(app, ["posts", "list"])
+
+    assert result.exit_code == 0, result.output
+    assert disposed == ["dispose"]
+
+
 # ---------------------------------------------------------------------------
 # Queue tests
 # ---------------------------------------------------------------------------
