@@ -130,6 +130,47 @@ def test_community_rest_api_endpoints_exist_and_are_nonbreaking(monkeypatch, tmp
         _reset_engine()
 
 
+def test_community_rest_api_endpoints_share_cached_payload(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_api_cache.db")
+    calls = {"count": 0}
+
+    async def _payload(_session):
+        calls["count"] += 1
+        return {
+            "summary": {"total_ingested": 1},
+            "weekly": {"ingested_7d": 1},
+            "backlog": {"needs_review_count": 0, "oldest_needs_review_age_hours": None},
+            "key_metrics": {"active_camps": 0},
+            "pipeline": [{"stage": "Seen", "count": 1}],
+            "platform_breakdown": [{"platform": "reddit", "count": 1, "pct": 100.0}],
+            "live_feed": [],
+            "demand": {
+                "top_contribution_types": [],
+                "top_vibes": [],
+                "most_sought_skills": [],
+                "most_sought_vibes": [],
+            },
+            "stories": [{"title": "cached"}],
+            "updated_at": "cached-ts",
+        }
+
+    try:
+        monkeypatch.setattr(public_router, "build_public_community_payload", _payload)
+        client = TestClient(create_app(enable_scheduler=False))
+
+        overview = client.get("/community/api/overview")
+        stories = client.get("/community/api/stories")
+        metrics = client.get("/community/api/metrics")
+
+        assert overview.status_code == 200
+        assert stories.status_code == 200
+        assert metrics.status_code == 200
+        assert stories.json()["stories"] == [{"title": "cached"}]
+        assert calls["count"] == 1
+    finally:
+        _reset_engine()
+
+
 def test_community_matches_api_filters_and_sanitizes(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_matches_api.db")
 

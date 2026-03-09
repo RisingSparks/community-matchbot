@@ -5,10 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from collections.abc import Awaitable, Callable
 from collections import Counter
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
-from typing import Any, TypeVar
+from typing import Any
 
 from fastapi import APIRouter, Query
 from fastapi.responses import HTMLResponse
@@ -21,7 +21,6 @@ from matchbot.settings import get_settings
 
 router = APIRouter(prefix="/community", tags=["community"])
 logger = logging.getLogger(__name__)
-T = TypeVar("T")
 
 _community_cache: dict = {}
 _CACHE_TTL = 30.0  # seconds
@@ -32,7 +31,7 @@ def clear_community_cache() -> None:
     _community_cache.clear()
 
 
-async def _run_with_db_retry(
+async def _run_with_db_retry[T](
     operation_name: str,
     callback: Callable[[AsyncSession], Awaitable[T]],
     *,
@@ -59,6 +58,18 @@ async def _run_with_db_retry(
             await asyncio.sleep(backoff_seconds)
 
     raise RuntimeError(f"Unreachable retry termination for operation {operation_name}.")
+
+
+async def _exec_in_isolated_session(
+    statement: Any,
+    *,
+    operation_name: str,
+) -> Any:
+    """Execute a read query in its own session so concurrent reads don't share one AsyncSession."""
+    return await _run_with_db_retry(
+        operation_name,
+        lambda session: session.exec(statement),
+    )
 
 
 _COMMUNITY_HTML = """
@@ -358,7 +369,7 @@ _COMMUNITY_HTML = """
       </div>
       <div>
         <h2 class="section-title">Vibes</h2>
-        <p class="group-desc">What camps are looking for vs. what seekers bring.</p>
+        <p class="group-desc">What camps need and what seekers hope to contribute.</p>
         <div id="vibes-paired"></div>
       </div>
     </section>
@@ -667,7 +678,7 @@ _COMMUNITY_HTML = """
         funnelStep(
           "Intros Sent",
           introduced,
-          `Moderator confirmed the match and notified both parties — ${fmt(weekly.intros_7d || 0)} in the last 7 days`
+          `Human confirmed the match and notified both parties — ${fmt(weekly.intros_7d || 0)} in the last 7 days`
         ),
       ].join("");
 
@@ -750,10 +761,11 @@ async def _get_cached_community_payload() -> dict[str, Any]:
     import time
 
     now = time.monotonic()
-    if _community_cache and now - _community_cache["ts"] < _CACHE_TTL:
+    ts = _community_cache.get("ts")
+    if ts is not None and now - ts < _CACHE_TTL:
         return _community_cache["data"]
     result = await _run_with_db_retry("community_data", build_public_community_payload)
-    _community_cache["ts"] = now
+    _community_cache["ts"] = time.monotonic()
     _community_cache["data"] = result
     return result
 
@@ -838,7 +850,7 @@ async def community_api_matches(
 
 @router.get("/api/stories")
 async def community_api_stories() -> dict[str, Any]:
-    payload = await _run_with_db_retry("community_api_stories", build_public_community_payload)
+    payload = await _get_cached_community_payload()
     return {
         "stories": payload["stories"],
         "updated_at": payload["updated_at"],
@@ -958,7 +970,7 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
         MatchStatus.ONBOARDED,
     }
 
-    # Run all independent scalar COUNT queries in parallel.
+    # Parallelize independent reads, but keep each query on its own session.
     (
         total_ingested_r,
         indexed_count_r,
@@ -977,22 +989,84 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
         conversation_started_r,
         onboarded_r,
     ) = await asyncio.gather(
-        session.exec(select(func.count()).select_from(Post)),
-        session.exec(select(func.count()).select_from(Post).where(Post.status == PostStatus.INDEXED)),
-        session.exec(select(func.count()).select_from(Match)),
-        session.exec(select(func.count()).select_from(Match).where(Match.status.in_(intro_terminal))),
-        session.exec(select(func.count()).select_from(Post).where(Post.detected_at >= seven_days_ago)),
-        session.exec(select(func.count()).select_from(Post).where(Post.status == PostStatus.INDEXED, Post.detected_at >= seven_days_ago)),
-        session.exec(select(func.count()).select_from(Match).where(Match.created_at >= seven_days_ago)),
-        session.exec(select(func.count()).select_from(Match).where(Match.intro_sent_at.is_not(None), Match.intro_sent_at >= seven_days_ago)),
-        session.exec(select(func.count()).select_from(Post).where(Post.status == PostStatus.NEEDS_REVIEW)),
-        session.exec(select(func.min(Post.detected_at)).where(Post.status == PostStatus.NEEDS_REVIEW)),
-        session.exec(select(Post.platform, func.count()).group_by(Post.platform)),
-        session.exec(select(func.count()).select_from(Post).where(Post.status != PostStatus.RAW)),
-        session.exec(select(func.count()).select_from(Post).where(Post.status == PostStatus.INDEXED, Post.role == PostRole.CAMP)),
-        session.exec(select(func.count()).select_from(Post).where(Post.status == PostStatus.INDEXED, Post.role == PostRole.SEEKER)),
-        session.exec(select(func.count()).select_from(Match).where(Match.status.in_(conversation_terminal))),
-        session.exec(select(func.count()).select_from(Match).where(Match.status == MatchStatus.ONBOARDED)),
+        _exec_in_isolated_session(
+            select(func.count()).select_from(Post),
+            operation_name="community_total_ingested",
+        ),
+        _exec_in_isolated_session(
+            select(func.count()).select_from(Post).where(Post.status == PostStatus.INDEXED),
+            operation_name="community_indexed_count",
+        ),
+        _exec_in_isolated_session(
+            select(func.count()).select_from(Match),
+            operation_name="community_proposed_matches",
+        ),
+        _exec_in_isolated_session(
+            select(func.count()).select_from(Match).where(Match.status.in_(intro_terminal)),
+            operation_name="community_intros_sent",
+        ),
+        _exec_in_isolated_session(
+            select(func.count()).select_from(Post).where(Post.detected_at >= seven_days_ago),
+            operation_name="community_ingested_7d",
+        ),
+        _exec_in_isolated_session(
+            select(func.count()).select_from(Post).where(
+                Post.status == PostStatus.INDEXED,
+                Post.detected_at >= seven_days_ago,
+            ),
+            operation_name="community_indexed_7d",
+        ),
+        _exec_in_isolated_session(
+            select(func.count()).select_from(Match).where(Match.created_at >= seven_days_ago),
+            operation_name="community_matches_7d",
+        ),
+        _exec_in_isolated_session(
+            select(func.count()).select_from(Match).where(
+                Match.intro_sent_at.is_not(None),
+                Match.intro_sent_at >= seven_days_ago,
+            ),
+            operation_name="community_intros_7d",
+        ),
+        _exec_in_isolated_session(
+            select(func.count()).select_from(Post).where(Post.status == PostStatus.NEEDS_REVIEW),
+            operation_name="community_needs_review_count",
+        ),
+        _exec_in_isolated_session(
+            select(func.min(Post.detected_at)).where(Post.status == PostStatus.NEEDS_REVIEW),
+            operation_name="community_oldest_needs_review",
+        ),
+        _exec_in_isolated_session(
+            select(Post.platform, func.count()).group_by(Post.platform),
+            operation_name="community_platform_rows",
+        ),
+        _exec_in_isolated_session(
+            select(func.count()).select_from(Post).where(Post.status != PostStatus.RAW),
+            operation_name="community_structured_count",
+        ),
+        _exec_in_isolated_session(
+            select(func.count()).select_from(Post).where(
+                Post.status == PostStatus.INDEXED,
+                Post.role == PostRole.CAMP,
+            ),
+            operation_name="community_active_camps",
+        ),
+        _exec_in_isolated_session(
+            select(func.count()).select_from(Post).where(
+                Post.status == PostStatus.INDEXED,
+                Post.role == PostRole.SEEKER,
+            ),
+            operation_name="community_active_seekers",
+        ),
+        _exec_in_isolated_session(
+            select(func.count()).select_from(Match).where(
+                Match.status.in_(conversation_terminal)
+            ),
+            operation_name="community_conversation_started",
+        ),
+        _exec_in_isolated_session(
+            select(func.count()).select_from(Match).where(Match.status == MatchStatus.ONBOARDED),
+            operation_name="community_onboarded",
+        ),
     )
 
     total_ingested = int(total_ingested_r.one() or 0)
@@ -1197,7 +1271,7 @@ def _build_live_feed(
                     "event_type": "intro_sent",
                     "occurred_at": match.intro_sent_at.replace(tzinfo=UTC).isoformat(),
                     "platform": match.intro_platform or "multi",
-                    "summary": "Moderator-facilitated introduction sent.",
+                    "summary": "Human-facilitated introduction sent.",
                     "score": round(match.score, 3),
                     "confidence": (
                         round(match.confidence, 3)
@@ -1334,7 +1408,7 @@ def _build_stories(posts: list[Post], matches: list[Match]) -> list[dict[str, st
 
 def _match_summary(match: Match) -> str:
     if match.status == MatchStatus.PROPOSED:
-        return "Potential match added to moderator queue."
+        return "Potential match added to review queue."
     if match.status == MatchStatus.APPROVED:
         return "Potential match approved for intro."
     if match.status in {
