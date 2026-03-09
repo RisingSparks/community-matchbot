@@ -122,7 +122,7 @@ class Post(SQLModel, table=True):
     title: str = Field(default="")
     raw_text: str = Field(default="")  # max 2000 chars
 
-    detected_at: datetime = Field(default_factory=_now)
+    detected_at: datetime = Field(default_factory=_now, index=True)
     source_created_at: datetime | None = Field(default=None)
     status: str = Field(default=PostStatus.RAW, index=True)
     expires_at: datetime | None = Field(default=None)
@@ -142,7 +142,10 @@ class Post(SQLModel, table=True):
     availability_notes: str | None = Field(default=None)
     contact_method: str | None = Field(default=None)
     extraction_confidence: float | None = Field(default=None)
-    extraction_method: str | None = Field(default=None)  # keyword | llm_anthropic | llm_openai
+    extraction_method: str | None = Field(
+        default=None,
+        index=True,
+    )  # keyword | llm_anthropic | llm_openai
 
     # Post type routing
     post_type: str | None = Field(default=None, index=True)  # mentorship | infrastructure
@@ -205,12 +208,12 @@ class Match(SQLModel, table=True):
     match_method: str = Field(default="deterministic")  # deterministic | llm_triage
     confidence: float | None = Field(default=None)
     moderator_notes: str | None = Field(default=None)
-    intro_sent_at: datetime | None = Field(default=None)
+    intro_sent_at: datetime | None = Field(default=None, index=True)
     intro_platform: str | None = Field(default=None)
     mismatch_reason: str | None = Field(default=None)
     intro_draft: str | None = Field(default=None)
 
-    created_at: datetime = Field(default_factory=_now)
+    created_at: datetime = Field(default_factory=_now, index=True)
     updated_at: datetime = Field(default_factory=_now)
 
     def score_breakdown_dict(self) -> dict:

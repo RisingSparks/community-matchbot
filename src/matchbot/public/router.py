@@ -1137,9 +1137,15 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
         )
     ).all()
 
-    demand_posts = (
+    demand_rows = (
         await session.exec(
-            select(Post).where(Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}))
+            select(
+                Post.role,
+                Post.status,
+                Post.post_type,
+                Post.contribution_types,
+                Post.vibes,
+            ).where(Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}))
         )
     ).all()
 
@@ -1167,7 +1173,7 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
 
     stories = _build_stories(list(deduped_story_posts.values()), story_matches)
     live_feed = _build_live_feed(live_feed_posts, live_feed_matches, seven_days_ago)
-    demand = _build_demand(demand_posts)
+    demand = _build_demand_rows(demand_rows)
     settings = get_settings()
 
     feedback_url = "/forms/"
@@ -1304,21 +1310,13 @@ def _build_live_feed(
     return feed[:20]
 
 
-def _build_demand(posts: list[Post]) -> dict[str, list[dict[str, Any]]]:
-    statuses = {PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}
-    seeker_posts = [
-        p
-        for p in posts
-        if p.role == PostRole.SEEKER and p.status in statuses
-    ]
-    mentorship_posts = [
-        p
-        for p in posts
-        if p.status in statuses and p.post_type in {None, PostType.MENTORSHIP}
-    ]
-    camp_mentorship_posts = [p for p in mentorship_posts if p.role == PostRole.CAMP]
-    seeker_mentorship_posts = [p for p in mentorship_posts if p.role == PostRole.SEEKER]
+def _split_pipe_values(raw: str | None) -> list[str]:
+    return [value for value in (raw or "").split("|") if value]
 
+
+def _build_demand_rows(
+    rows: list[tuple[str | None, str, str | None, str, str]],
+) -> dict[str, list[dict[str, Any]]]:
     contrib_counts: Counter[str] = Counter()
     vibe_counts: Counter[str] = Counter()
     camp_contrib_counts: Counter[str] = Counter()
@@ -1326,15 +1324,23 @@ def _build_demand(posts: list[Post]) -> dict[str, list[dict[str, Any]]]:
     camp_vibe_counts: Counter[str] = Counter()
     seeker_vibe_counts: Counter[str] = Counter()
 
-    for post in seeker_posts:
-        contrib_counts.update(post.contribution_types_list())
-        vibe_counts.update(post.vibes_list())
-    for post in camp_mentorship_posts:
-        camp_contrib_counts.update(post.contribution_types_list())
-        camp_vibe_counts.update(post.vibes_list())
-    for post in seeker_mentorship_posts:
-        seeker_contrib_counts.update(post.contribution_types_list())
-        seeker_vibe_counts.update(post.vibes_list())
+    for role, _status, post_type, contribution_types, vibes in rows:
+        contribution_values = _split_pipe_values(contribution_types)
+        vibe_values = _split_pipe_values(vibes)
+
+        if role == PostRole.SEEKER:
+            contrib_counts.update(contribution_values)
+            vibe_counts.update(vibe_values)
+
+        if post_type not in {None, PostType.MENTORSHIP}:
+            continue
+
+        if role == PostRole.CAMP:
+            camp_contrib_counts.update(contribution_values)
+            camp_vibe_counts.update(vibe_values)
+        elif role == PostRole.SEEKER:
+            seeker_contrib_counts.update(contribution_values)
+            seeker_vibe_counts.update(vibe_values)
 
     top_contrib = [
         {"name": name, "count": count}
