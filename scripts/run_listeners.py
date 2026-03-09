@@ -16,7 +16,8 @@ import uvicorn
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from matchbot.db.engine import create_db_and_tables, dispose_engine
+from matchbot.db.engine import dispose_engine
+from matchbot.db.migrations import upgrade_db_to_head
 from matchbot.listeners.discord_bot import run_discord_bot
 from matchbot.listeners.reddit import run_reddit_inbox_listener, run_reddit_listener
 from matchbot.log_config import configure_logging
@@ -30,12 +31,11 @@ async def main() -> None:
     settings = get_settings()
     verbose = configure_logging(settings.verbose)
 
-    # Initialize DB schema
-    await create_db_and_tables()
-    logger.info("Database ready.")
+    await upgrade_db_to_head()
+    logger.info("Database migrated to head.")
 
     # Configure uvicorn for the Facebook webhook server
-    fastapi_app = create_app()
+    fastapi_app = create_app(run_migrations_on_startup=False)
     uvicorn_config = uvicorn.Config(
         fastapi_app,
         host=settings.server_host,

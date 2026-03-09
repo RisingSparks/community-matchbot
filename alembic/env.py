@@ -64,22 +64,32 @@ def _table_has_column(db_inspector, table_name: str, column_name: str) -> bool:
         return False
 
 
-def _schema_matches_current_models(db_inspector) -> bool:
-    required_tables = {"profile", "post", "match", "event", "opt_out"}
+def _missing_tables_and_columns(db_inspector) -> tuple[list[str], list[str]]:
     existing_tables = set(db_inspector.get_table_names())
-    if not required_tables.issubset(existing_tables):
-        return False
+    model_tables = {
+        table_name: table
+        for table_name, table in target_metadata.tables.items()
+        if table_name != "alembic_version"
+    }
 
-    required_columns = (
-        ("post", "post_type"),
-        ("post", "source_created_at"),
-        ("profile", "seeker_intent"),
-        ("match", "intro_draft"),
+    missing_tables = sorted(
+        table_name for table_name in model_tables if table_name not in existing_tables
     )
-    return all(
-        _table_has_column(db_inspector, table_name, column_name)
-        for table_name, column_name in required_columns
-    )
+    missing_columns: list[str] = []
+
+    for table_name, table in model_tables.items():
+        if table_name in missing_tables:
+            continue
+        for column in table.columns:
+            if not _table_has_column(db_inspector, table_name, column.name):
+                missing_columns.append(f"{table_name}.{column.name}")
+
+    return missing_tables, missing_columns
+
+
+def _schema_matches_current_models(db_inspector) -> bool:
+    missing_tables, missing_columns = _missing_tables_and_columns(db_inspector)
+    return not missing_tables and not missing_columns
 
 
 def _stamp_head_if_needed(connection) -> None:
@@ -132,7 +142,7 @@ async def run_async_migrations() -> None:
         connect_args=connect_args,
         poolclass=pool.NullPool,
     )
-    async with engine.connect() as connection:
+    async with engine.begin() as connection:
         await connection.run_sync(do_run_migrations)
     await engine.dispose()
 

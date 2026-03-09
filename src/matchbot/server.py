@@ -5,34 +5,42 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from matchbot.forms.router import router as forms_router
 from matchbot.listeners.facebook import router as facebook_router
 from matchbot.log_config import configure_logging
 from matchbot.mod.router import router as mod_router
-from matchbot.public.router import community_page, router as community_router
+from matchbot.public.router import community_page
+from matchbot.public.router import router as community_router
 
 
-@asynccontextmanager
-async def _lifespan(app: FastAPI):
-    """Start scheduler on startup; shut it down on shutdown."""
-    from matchbot.db.engine import dispose_engine
-    from matchbot.scheduler import create_scheduler
+def _build_lifespan(run_migrations_on_startup: bool):
+    @asynccontextmanager
+    async def _lifespan(app: FastAPI):
+        """Run migrations, then start scheduler on startup; shut it down on shutdown."""
+        from matchbot.db.engine import dispose_engine
+        from matchbot.db.migrations import upgrade_db_to_head
+        from matchbot.scheduler import create_scheduler
 
-    scheduler = create_scheduler()
-    scheduler.start()
-    try:
-        yield
-    finally:
-        scheduler.shutdown(wait=False)
-        await dispose_engine()
+        if run_migrations_on_startup:
+            await upgrade_db_to_head()
+
+        scheduler = create_scheduler()
+        scheduler.start()
+        try:
+            yield
+        finally:
+            scheduler.shutdown(wait=False)
+            await dispose_engine()
+
+    return _lifespan
 
 
-def create_app(enable_scheduler: bool = True) -> FastAPI:
+def create_app(enable_scheduler: bool = True, run_migrations_on_startup: bool = True) -> FastAPI:
     configure_logging()
-    lifespan = _lifespan if enable_scheduler else None
+    lifespan = _build_lifespan(run_migrations_on_startup) if enable_scheduler else None
     app = FastAPI(title="Matchbot API", version="0.1.0", lifespan=lifespan)
 
     app.add_middleware(

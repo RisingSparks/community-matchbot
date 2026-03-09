@@ -17,6 +17,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, PostType
+from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
 
 router = APIRouter(prefix="/community", tags=["community"])
@@ -802,7 +803,11 @@ async def _get_cached_community_payload() -> dict[str, Any]:
     ts = _community_cache.get("ts")
     if ts is not None and now - ts < _CACHE_TTL:
         return _community_cache["data"]
-    result = await _run_with_db_retry("community_data", build_public_community_payload)
+    try:
+        result = await _run_with_db_retry("community_data", build_public_community_payload)
+    except Exception as exc:
+        log_exception(logger, "Failed to build community payload: %s", exc)
+        raise
     _community_cache["ts"] = time.monotonic()
     _community_cache["data"] = result
     return result
