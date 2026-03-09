@@ -327,6 +327,13 @@ _COMMUNITY_HTML = """
       </p>
       <div class="grid3" id="pool-metrics"></div>
       <div class="metrics-divider"></div>
+      <div class="grid2">
+        <div>
+          <h2 class="section-title">Infrastructure Exchange Snapshot</h2>
+          <p class="group-desc">Active infrastructure needs and offers across indexed and reviewable posts.</p>
+          <div id="infra-paired"></div>
+        </div>
+      </div>
     </section>
 
     <section class="panel">
@@ -705,6 +712,8 @@ _COMMUNITY_HTML = """
       const seekers = m.active_seekers || 0;
       const softMatches = m.soft_matches_total || 0;
       const softMatches7d = m.soft_matches_7d || 0;
+      const infraSeeking = m.active_infra_seeking || 0;
+      const infraOffering = m.active_infra_offering || 0;
       const unclassified = Math.max(0, analyzed - camps - seekers);
       const campPct = analyzed > 0 ? Math.round((camps / analyzed) * 100) : 0;
       const seekerPct = analyzed > 0 ? Math.round((seekers / analyzed) * 100) : 0;
@@ -719,6 +728,16 @@ _COMMUNITY_HTML = """
           "Seekers",
           seekers,
           `${seekerPct}% of indexed posts — people looking to join or contribute`
+        ),
+        metricCard(
+          "Infra Needs",
+          infraSeeking,
+          "Indexed or reviewable posts seeking gear, logistics, or support"
+        ),
+        metricCard(
+          "Infra Offers",
+          infraOffering,
+          "Indexed or reviewable posts offering gear, logistics, or support"
         ),
         mutedCard(
           "Soft Matches",
@@ -745,6 +764,7 @@ _COMMUNITY_HTML = """
       renderBars("platform-breakdown", data.platform_breakdown || []);
       renderPaired("skills-paired", (data.demand && data.demand.most_sought_skills) || []);
       renderPaired("vibes-paired", (data.demand && data.demand.most_sought_vibes) || []);
+      renderPaired("infra-paired", (data.demand && data.demand.infra_exchange) || []);
 
       if (data.cta && data.cta.feedback_url) {
         document.getElementById("feedback-link").href = data.cta.feedback_url;
@@ -1009,6 +1029,8 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
         structured_count,
         active_camps,
         active_seekers,
+        active_infra_seeking,
+        active_infra_offering,
         soft_matches_total,
         soft_matches_7d,
     ) = (
@@ -1043,6 +1065,20 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
                         Post.role == PostRole.SEEKER,
                     )
                 ).label("active_seekers"),
+                _count_when(
+                    and_(
+                        Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}),
+                        Post.post_type == PostType.INFRASTRUCTURE,
+                        Post.infra_role == "seeking",
+                    )
+                ).label("active_infra_seeking"),
+                _count_when(
+                    and_(
+                        Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}),
+                        Post.post_type == PostType.INFRASTRUCTURE,
+                        Post.infra_role == "offering",
+                    )
+                ).label("active_infra_offering"),
                 _count_when(Post.extraction_method == "keyword_soft").label("soft_matches_total"),
                 _count_when(
                     and_(
@@ -1055,7 +1091,11 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
     ).one()
 
     platform_rows = (
-        await session.exec(select(Post.platform, func.count()).group_by(Post.platform))
+        await session.exec(
+            select(Post.platform, Post.source_community, func.count()).group_by(
+                Post.platform, Post.source_community
+            )
+        )
     ).all()
 
     (
@@ -1093,6 +1133,8 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
     structured_count = int(structured_count or 0)
     active_camps = int(active_camps or 0)
     active_seekers = int(active_seekers or 0)
+    active_infra_seeking = int(active_infra_seeking or 0)
+    active_infra_offering = int(active_infra_offering or 0)
     soft_matches_total = int(soft_matches_total or 0)
     soft_matches_7d = int(soft_matches_7d or 0)
     proposed_matches = int(proposed_matches or 0)
@@ -1145,6 +1187,8 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
                 Post.post_type,
                 Post.contribution_types,
                 Post.vibes,
+                Post.infra_role,
+                Post.infra_categories,
             ).where(Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}))
         )
     ).all()
@@ -1207,6 +1251,8 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
         "key_metrics": {
             "active_camps": active_camps,
             "active_seekers": active_seekers,
+            "active_infra_seeking": active_infra_seeking,
+            "active_infra_offering": active_infra_offering,
             "soft_matches_total": soft_matches_total,
             "soft_matches_7d": soft_matches_7d,
             "match_attempts_total": proposed_matches,
@@ -1242,12 +1288,22 @@ def _platform_breakdown(posts: list[Post]) -> list[dict[str, Any]]:
     return rows
 
 
+def _platform_label(platform: str, source_community: str | None) -> str:
+    if platform == "manual" and source_community == "intake_form":
+        return "submission form"
+    return platform
+
+
 def _platform_breakdown_from_rows(
-    rows: list[tuple[str, int]],
+    rows: list[tuple[str, str | None, int]],
     total_ingested: int,
 ) -> list[dict[str, Any]]:
+    aggregated: Counter[str] = Counter()
+    for platform, source_community, count in rows:
+        aggregated[_platform_label(platform, source_community)] += count
+
     formatted: list[dict[str, Any]] = []
-    for platform, count in sorted(rows, key=lambda x: x[1], reverse=True):
+    for platform, count in sorted(aggregated.items(), key=lambda x: x[1], reverse=True):
         pct = round((count / total_ingested) * 100, 1) if total_ingested else 0.0
         formatted.append({"platform": platform, "count": count, "pct": pct})
     return formatted
@@ -1315,7 +1371,7 @@ def _split_pipe_values(raw: str | None) -> list[str]:
 
 
 def _build_demand_rows(
-    rows: list[tuple[str | None, str, str | None, str, str]],
+    rows: list[tuple[str | None, str, str | None, str, str, str | None, str]],
 ) -> dict[str, list[dict[str, Any]]]:
     contrib_counts: Counter[str] = Counter()
     vibe_counts: Counter[str] = Counter()
@@ -1323,14 +1379,24 @@ def _build_demand_rows(
     seeker_contrib_counts: Counter[str] = Counter()
     camp_vibe_counts: Counter[str] = Counter()
     seeker_vibe_counts: Counter[str] = Counter()
+    infra_demand_counts: Counter[str] = Counter()
+    infra_supply_counts: Counter[str] = Counter()
 
-    for role, _status, post_type, contribution_types, vibes in rows:
+    for role, _status, post_type, contribution_types, vibes, infra_role, infra_categories in rows:
         contribution_values = _split_pipe_values(contribution_types)
         vibe_values = _split_pipe_values(vibes)
+        infra_values = _split_pipe_values(infra_categories)
 
         if role == PostRole.SEEKER:
             contrib_counts.update(contribution_values)
             vibe_counts.update(vibe_values)
+
+        if post_type == PostType.INFRASTRUCTURE:
+            if infra_role == "seeking":
+                infra_demand_counts.update(infra_values)
+            elif infra_role == "offering":
+                infra_supply_counts.update(infra_values)
+            continue
 
         if post_type not in {None, PostType.MENTORSHIP}:
             continue
@@ -1356,6 +1422,7 @@ def _build_demand_rows(
         "top_vibes": top_vibes,
         "most_sought_skills": _build_order_book_rows(camp_contrib_counts, seeker_contrib_counts),
         "most_sought_vibes": _build_order_book_rows(camp_vibe_counts, seeker_vibe_counts),
+        "infra_exchange": _build_order_book_rows(infra_demand_counts, infra_supply_counts),
     }
 
 

@@ -215,6 +215,7 @@ async def test_post_detail_returns_events(mod_client, db_session):
     assert data["contribution_types_other"] == []
     assert data["infra_categories_other"] == []
     assert data["condition_other"] is None
+    assert data["dates_needed"] is None
     assert len(data["events"]) == 1
     assert data["events"][0]["event_type"] == "test_event"
 
@@ -415,6 +416,29 @@ async def test_edit_normalizes_valid_condition(mod_client, db_session):
 
     await db_session.refresh(post)
     assert post.condition == "good"
+
+
+async def test_edit_updates_dates_needed(mod_client, db_session):
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="edit_dates_needed",
+        platform_author_id="u1",
+        title="Edit me",
+        raw_text="text",
+        status=PostStatus.NEEDS_REVIEW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    resp = await mod_client.post(
+        f"/api/mod/posts/{post.id}/edit",
+        json={"dates_needed": "build week only"},
+    )
+    assert resp.status_code == 200
+
+    await db_session.refresh(post)
+    assert post.dates_needed == "build week only"
 
 
 async def test_edit_syncs_profile_for_indexed_post(mod_client, db_session):

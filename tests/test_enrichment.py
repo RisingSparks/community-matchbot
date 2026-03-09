@@ -328,6 +328,7 @@ def test_intake_landing_page():
     assert "Rising Sparks Pool" in response.text
     assert "/forms/seeker" in response.text
     assert "/forms/camp" in response.text
+    assert "/forms/infra" in response.text
 
 
 def test_intake_seeker_form_renders():
@@ -354,6 +355,20 @@ def test_intake_camp_form_renders():
     assert response.status_code == 200
     assert "Find Your Builders" in response.text
     assert 'name="camp_name"' in response.text
+
+
+def test_intake_infra_form_renders():
+    """GET /forms/infra returns the infrastructure form HTML."""
+    from fastapi.testclient import TestClient
+
+    from matchbot.server import create_app
+
+    client = TestClient(create_app())
+    response = client.get("/forms/infra")
+    assert response.status_code == 200
+    assert "Share Infra Signals" in response.text
+    assert 'name="infra_role"' in response.text
+    assert 'name="infra_categories"' in response.text
 
 
 def test_intake_seeker_submit_redirects():
@@ -397,6 +412,30 @@ def test_intake_camp_submit_redirects():
             "camp_size": "40",
             "year": "2026",
             "availability_notes": "Need early arrival crew",
+            "contact_method": "DM on Reddit",
+        },
+    )
+    assert response.status_code == 303
+    assert response.headers["location"] == "/forms/thanks"
+
+
+def test_intake_infra_submit_redirects():
+    """POST /forms/infra creates a Post and redirects to /forms/thanks."""
+    from fastapi.testclient import TestClient
+
+    from matchbot.server import create_app
+
+    client = TestClient(create_app(), follow_redirects=False)
+    response = client.post(
+        "/forms/infra",
+        data={
+            "display_name": "DustOps",
+            "infra_role": "seeking",
+            "infra_categories": "power, shade",
+            "quantity": "2 generators",
+            "condition": "good",
+            "dates_needed": "build week",
+            "bio": "Need backup generation and extra shade.",
             "contact_method": "DM on Reddit",
         },
     )

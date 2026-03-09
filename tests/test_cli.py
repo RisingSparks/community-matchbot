@@ -21,7 +21,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from typer.testing import CliRunner
 
 from matchbot.cli.app import app
-from matchbot.db.models import Match, MatchStatus
+from matchbot.db.models import Match, MatchStatus, Platform, Post, PostStatus, PostType
 
 runner = CliRunner()
 
@@ -221,6 +221,57 @@ def test_queue_view(cli_env, seeker_post_factory, camp_post_factory):
         result = runner.invoke(app, ["queue", "view", match.id])
     assert result.exit_code == 0, result.output
     assert match.id[:8] in result.output
+
+
+def test_queue_view_labels_infra_matches(cli_env):
+    session, factory, loop = cli_env
+
+    async def seed():
+        seeking = Post(
+            platform=Platform.REDDIT,
+            platform_post_id="infra_seek",
+            platform_author_id="infra_seek",
+            title="Need generator",
+            raw_text="Seeking power for build week",
+            status=PostStatus.INDEXED,
+            post_type=PostType.INFRASTRUCTURE,
+            infra_role="seeking",
+            infra_categories="power",
+        )
+        offering = Post(
+            platform=Platform.REDDIT,
+            platform_post_id="infra_offer",
+            platform_author_id="infra_offer",
+            title="Offering generator",
+            raw_text="Offering power support",
+            status=PostStatus.INDEXED,
+            post_type=PostType.INFRASTRUCTURE,
+            infra_role="offering",
+            infra_categories="power",
+        )
+        session.add(seeking)
+        session.add(offering)
+        await session.commit()
+        await session.refresh(seeking)
+        await session.refresh(offering)
+        match = Match(
+            seeker_post_id=seeking.id,
+            camp_post_id=offering.id,
+            status=MatchStatus.PROPOSED,
+            score=0.75,
+        )
+        session.add(match)
+        await session.commit()
+        await session.refresh(match)
+        return match
+
+    match = run_in(loop, seed())
+
+    with patch("matchbot.cli._db.get_session", factory):
+        result = runner.invoke(app, ["queue", "view", match.id])
+    assert result.exit_code == 0, result.output
+    assert "SEEKING" in result.output
+    assert "OFFERING" in result.output
 
 
 def test_queue_send_intro_dry_run(cli_env, seeker_post_factory, camp_post_factory):

@@ -24,6 +24,12 @@ def _short_text(text: str, max_len: int = 60) -> str:
     return text[:max_len] + "…" if len(text) > max_len else text
 
 
+def _match_party_labels(seeker: Post | None, camp: Post | None) -> tuple[str, str]:
+    if (seeker and seeker.post_type == "infrastructure") or (camp and camp.post_type == "infrastructure"):
+        return "Seeking snippet", "Offering snippet"
+    return "Seeker snippet", "Camp snippet"
+
+
 @app.command("list")
 def queue_list(
     status: Annotated[str, typer.Option("--status")] = MatchStatus.PROPOSED,
@@ -58,8 +64,8 @@ def queue_list(
         table.add_column("ID", style="dim", width=12)
         table.add_column("Score", justify="right")
         table.add_column("Method", width=18)
-        table.add_column("Seeker snippet", no_wrap=False, max_width=35)
-        table.add_column("Camp snippet", no_wrap=False, max_width=35)
+        table.add_column("Party A", no_wrap=False, max_width=35)
+        table.add_column("Party B", no_wrap=False, max_width=35)
         table.add_column("Detected")
 
         for m in matches:
@@ -93,6 +99,7 @@ def queue_view(match_id: str) -> None:
 
         seeker = await session.get(Post, match.seeker_post_id)
         camp = await session.get(Post, match.camp_post_id)
+        left_label, right_label = _match_party_labels(seeker, camp)
 
         breakdown = match.score_breakdown_dict()
         breakdown_str = "\n".join(f"  {k}: {v:.4f}" for k, v in breakdown.items())
@@ -104,9 +111,9 @@ def queue_view(match_id: str) -> None:
             f"[bold cyan]Alignment breakdown:[/bold cyan]\n{breakdown_str}\n\n"
             f"[bold]Moderator notes:[/bold] {match.moderator_notes or '—'}\n\n"
             f"[bold magenta]Intro draft:[/bold magenta]\n{match.intro_draft or '(not yet rendered)'}\n\n"
-            f"[bold yellow]SEEKER:[/bold yellow] {seeker.title if seeker else '?'}\n"
+            f"[bold yellow]{left_label.upper().rstrip(':')}:[/bold yellow] {seeker.title if seeker else '?'}\n"
             f"{seeker.raw_text[:500] if seeker else ''}\n\n"
-            f"[bold green]CAMP/PROJECT:[/bold green] {camp.title if camp else '?'}\n"
+            f"[bold green]{right_label.upper().rstrip(':')}:[/bold green] {camp.title if camp else '?'}\n"
             f"{camp.raw_text[:500] if camp else ''}"
         )
 

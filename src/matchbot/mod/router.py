@@ -99,6 +99,7 @@ class OverrideFields(BaseModel):
     infra_categories: list[str] | None = None
     quantity: str | None = None
     condition: str | None = None
+    dates_needed: str | None = None
 
     @field_validator("role")
     @classmethod
@@ -183,6 +184,8 @@ def _apply_mod_overrides(post: Post, body: OverrideFields) -> None:
         post.quantity = body.quantity
     if body.condition is not None:
         post.condition = body.condition
+    if body.dates_needed is not None:
+        post.dates_needed = body.dates_needed
 
 
 async def _write_event(
@@ -236,6 +239,7 @@ def _post_to_dict(post: Post, age_hours: float | None = None) -> dict[str, Any]:
         "quantity": post.quantity,
         "condition": post.condition,
         "condition_other": post.condition_other,
+        "dates_needed": post.dates_needed,
     }
     if age_hours is not None:
         d["age_hours"] = age_hours

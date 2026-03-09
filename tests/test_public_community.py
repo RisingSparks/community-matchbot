@@ -47,6 +47,7 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert "Live Activity" in response.text
         assert "Skills" in response.text
         assert "Vibes" in response.text
+        assert "Infrastructure Exchange Snapshot" in response.text
         assert "Matched Drill-Down" in response.text
     finally:
         _reset_engine()
@@ -82,6 +83,8 @@ def test_community_data_zero_state(monkeypatch, tmp_path) -> None:
 
         assert payload["key_metrics"]["active_camps"] == 0
         assert payload["key_metrics"]["active_seekers"] == 0
+        assert payload["key_metrics"]["active_infra_seeking"] == 0
+        assert payload["key_metrics"]["active_infra_offering"] == 0
         assert payload["key_metrics"]["soft_matches_total"] == 0
         assert payload["key_metrics"]["soft_matches_7d"] == 0
         assert payload["key_metrics"]["intro_to_conversation_rate"] == 0
@@ -91,6 +94,7 @@ def test_community_data_zero_state(monkeypatch, tmp_path) -> None:
         assert payload["demand"]["top_vibes"] == []
         assert payload["demand"]["most_sought_skills"] == []
         assert payload["demand"]["most_sought_vibes"] == []
+        assert payload["demand"]["infra_exchange"] == []
     finally:
         _reset_engine()
 
@@ -656,6 +660,11 @@ def test_community_order_book_for_skills_and_vibes(monkeypatch, tmp_path) -> Non
         assert vibes[0]["net_gap"] == 1
         assert vibes[0]["fill_ratio"] == 0.5
         assert all(row["name"] != "party" for row in vibes)
+
+        infra = demand["infra_exchange"]
+        assert infra[0]["name"] == "power"
+        assert infra[0]["demand_count"] == 1
+        assert infra[0]["supply_count"] == 0
     finally:
         _reset_engine()
 

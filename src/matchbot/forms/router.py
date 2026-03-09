@@ -1,13 +1,15 @@
 """
-Optional intake form — allows seekers and camps to submit directly
-without going through Reddit/Discord/Facebook.
+Optional intake form — allows seekers, camps, and infra requests/offers to
+submit directly without going through Reddit/Discord/Facebook.
 
 Routes:
-  GET  /forms/                 — landing page with links to both forms
+  GET  /forms/                 — landing page with links to forms
   GET  /forms/seeker           — seeker intake form
   POST /forms/seeker           — process seeker submission
   GET  /forms/camp             — camp intake form
   POST /forms/camp             — process camp submission
+  GET  /forms/infra            — infrastructure intake form
+  POST /forms/infra            — process infrastructure submission
   GET  /forms/thanks           — confirmation page
 """
 
@@ -63,6 +65,7 @@ Tell us about yourself or your project to get started.</p>
 <div class="nav">
   <a href="/forms/seeker">I want to contribute & learn →</a>
   <a href="/forms/camp">We’re looking for builders & collaborators →</a>
+  <a href="/forms/infra">We need or can offer infrastructure →</a>
 </div>
 {_DISCLAIMER_HTML}
 </body></html>
@@ -143,6 +146,54 @@ _CAMP_FORM_HTML = f"""
 </body></html>
 """
 
+_INFRA_FORM_HTML = f"""
+<!DOCTYPE html><html><head><title>Share Infra Signals – Rising Sparks</title>
+<style>{_BASE_CSS}</style></head><body>
+<div class="nav"><a href="/forms/">← Back</a></div>
+<h1>We need or can offer infrastructure</h1>
+<form method="post" action="/forms/infra">
+  <label>Your name / handle *</label>
+  <input name="display_name" required maxlength="80">
+
+  <label>Is this a need or an offer? *</label>
+  <select name="infra_role" required>
+    <option value="seeking">We need something</option>
+    <option value="offering">We can offer / lend / share</option>
+  </select>
+
+  <label>What categories fit best? (comma-separated) *</label>
+  <input name="infra_categories" required placeholder="power, shade, tools, kitchen">
+  <div class="hint">Use short tags like power, transport, water, tools, sound_gear.</div>
+
+  <label>Quantity / size / amount</label>
+  <input name="quantity" placeholder="e.g. 2 generators, 40ft shade cloth">
+
+  <label>Condition</label>
+  <select name="condition">
+    <option value="">Unknown / not relevant</option>
+    <option value="new">New</option>
+    <option value="good">Good</option>
+    <option value="fair">Fair</option>
+    <option value="worn">Worn</option>
+    <option value="needs_repair">Needs repair</option>
+  </select>
+
+  <label>When is it needed / available?</label>
+  <input name="dates_needed" placeholder="e.g. build week, Aug 20-31, strike only">
+
+  <label>Details</label>
+  <textarea name="bio" rows="5" maxlength="2000"></textarea>
+  <div class="hint">Describe the gear, constraints, pickup/dropoff, or anything moderators should know.</div>
+
+  <label>How should people contact you?</label>
+  <input name="contact_method" placeholder="DM on Reddit, email, etc.">
+
+  <button type="submit">Share Infra Signal →</button>
+</form>
+{_DISCLAIMER_HTML}
+</body></html>
+"""
+
 _THANKS_HTML = f"""
 <!DOCTYPE html><html><head><title>Welcome to the Pool – Rising Sparks</title>
 <style>{_BASE_CSS}</style></head><body>
@@ -173,6 +224,11 @@ async def seeker_form() -> str:
 @router.get("/camp", response_class=HTMLResponse)
 async def camp_form() -> str:
     return _CAMP_FORM_HTML
+
+
+@router.get("/infra", response_class=HTMLResponse)
+async def infra_form() -> str:
+    return _INFRA_FORM_HTML
 
 
 @router.get("/thanks", response_class=HTMLResponse)
@@ -293,6 +349,57 @@ async def camp_submit(
         camp_size_max=camp_size_int,
         year=year_int,
         availability_notes=availability_notes or None,
+        contact_method=contact_method or None,
+    )
+    session.add(post)
+    await session.commit()
+
+    _schedule_extraction(post.id)
+
+    return RedirectResponse("/forms/thanks", status_code=303)
+
+
+@router.post("/infra")
+async def infra_submit(
+    display_name: Annotated[str, Form()],
+    infra_role: Annotated[str, Form()],
+    infra_categories: Annotated[str, Form()],
+    quantity: Annotated[str, Form()] = "",
+    condition: Annotated[str, Form()] = "",
+    dates_needed: Annotated[str, Form()] = "",
+    bio: Annotated[str, Form()] = "",
+    contact_method: Annotated[str, Form()] = "",
+    session: AsyncSession = Depends(_get_session),
+) -> RedirectResponse:
+    title = f"[Intake] Infra {infra_role.title()}: {display_name}"
+    body_parts = [f"Infra role: {infra_role}", f"Categories: {infra_categories}"]
+    if quantity:
+        body_parts.append(f"Quantity: {quantity}")
+    if condition:
+        body_parts.append(f"Condition: {condition}")
+    if dates_needed:
+        body_parts.append(f"Dates needed: {dates_needed}")
+    if bio:
+        body_parts.append(bio)
+    if contact_method:
+        body_parts.append(f"Contact: {contact_method}")
+
+    post = Post(
+        platform=Platform.MANUAL,
+        platform_post_id=f"intake_infra_{datetime.now(UTC).timestamp()}",
+        platform_author_id=display_name,
+        author_display_name=display_name,
+        source_url="",
+        source_community="intake_form",
+        title=title,
+        raw_text="\n".join(body_parts),
+        status=PostStatus.RAW,
+        post_type=PostType.INFRASTRUCTURE,
+        role=PostRole.UNKNOWN,
+        infra_role=infra_role.strip().lower() or None,
+        quantity=quantity or None,
+        condition=condition or None,
+        dates_needed=dates_needed or None,
         contact_method=contact_method or None,
     )
     session.add(post)
