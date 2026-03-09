@@ -280,7 +280,12 @@ _COMMUNITY_HTML = """
     }
     .group-desc { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
     .paired-row { margin-bottom: 16px; }
-    .paired-label { font-size: 13px; font-weight: 600; margin-bottom: 5px; text-transform: capitalize; }
+    .paired-label {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 5px;
+      text-transform: capitalize;
+    }
     .paired-bar-group {
       display: grid;
       grid-template-columns: 88px 1fr 28px;
@@ -318,14 +323,18 @@ _COMMUNITY_HTML = """
       <div class="eyebrow">Rising Sparks Connection Dashboard</div>
       <h1>Find your people. Build the city.</h1>
       <p class="sub">
-        A live, anonymized view of how signals become connections across camps, art projects, and seekers looking to participate.
+        A live, anonymized view of how signals become connections across camps,
+        art projects, and seekers looking to participate.
       </p>
       <div id="summary-funnel" class="funnel-flow"></div>
     </section>
 
     <section class="panel">
       <h2 class="section-title">Who's in the Pool</h2>
-      <p class="group-desc">Active indexed posts by role — the supply and demand the bot is working with right now.</p>
+      <p class="group-desc">
+        Active indexed posts by role — the supply and demand the bot is working
+        with right now.
+      </p>
       <div class="grid3" id="pool-metrics"></div>
       <div class="metrics-divider"></div>
     </section>
@@ -437,7 +446,8 @@ _COMMUNITY_HTML = """
       <a id="feedback-link" href="/forms/">Send Feedback to Organizers</a>
     </section>
     <div class="updated">
-      Rising Sparks is a volunteer-led community experiment. While we collaborate with folks across the ecosystem, 
+      Rising Sparks is a volunteer-led community experiment. While we
+      collaborate with folks across the ecosystem,
       this is not an official Burning Man Project initiative.
     </div>
     <div class="updated" id="updated"></div>
@@ -628,12 +638,16 @@ _COMMUNITY_HTML = """
           <div class="paired-label">${(item.name || "unknown").replace(/_/g, " ")}</div>
           <div class="paired-bar-group">
             <div class="paired-bar-label">Camp posts</div>
-            <div class="bar-track"><div class="bar-fill bar-demand" style="width:${dw}%"></div></div>
+            <div class="bar-track">
+              <div class="bar-fill bar-demand" style="width:${dw}%"></div>
+            </div>
             <div class="bar-value">${fmt(demand)}</div>
           </div>
           <div class="paired-bar-group">
             <div class="paired-bar-label">Seeker posts</div>
-            <div class="bar-track"><div class="bar-fill bar-supply" style="width:${sw}%"></div></div>
+            <div class="bar-track">
+              <div class="bar-fill bar-supply" style="width:${sw}%"></div>
+            </div>
             <div class="bar-value">${fmt(supply)}</div>
           </div>
         </div>
@@ -646,7 +660,9 @@ _COMMUNITY_HTML = """
         el.innerHTML = `<p class="note">No data yet.</p>`;
         return;
       }
-      const maxVal = Math.max(...rows.map((r) => Math.max(r.demand_count || 0, r.supply_count || 0)));
+      const maxVal = Math.max(
+        ...rows.map((r) => Math.max(r.demand_count || 0, r.supply_count || 0))
+      );
       el.innerHTML = rows.map((r) => pairedRow(r, maxVal)).join("");
     }
 
@@ -664,31 +680,41 @@ _COMMUNITY_HTML = """
         funnelStep(
           "Posts Detected",
           seen,
-          `Raw posts ingested from Reddit, Discord & Facebook — ${fmt(weekly.ingested_7d || 0)} in the last 7 days`
+          `Raw posts ingested from Reddit, Discord & Facebook — ${
+            fmt(weekly.ingested_7d || 0)
+          } in the last 7 days`
         ),
         funnelConnector(seen, analyzed),
         funnelStep(
           "Structured & Indexed",
           analyzed,
-          `LLM extracted role, vibes, and skills — ${fmt(weekly.indexed_7d || 0)} in the last 7 days`
+          `LLM extracted role, vibes, and skills — ${
+            fmt(weekly.indexed_7d || 0)
+          } in the last 7 days`
         ),
         funnelConnector(analyzed, matched),
         funnelStep(
           "Connections Found",
           matched,
-          `Seeker↔camp pairs the algorithm flagged as a potential fit — ${fmt(weekly.matches_7d || 0)} in the last 7 days`
+          `Seeker↔camp pairs the algorithm flagged as a potential fit — ${
+            fmt(weekly.matches_7d || 0)
+          } in the last 7 days`
         ),
         funnelConnector(matched, introduced),
         funnelStep(
           "Intros Sent",
           introduced,
-          `Human confirmed the match and notified both parties — ${fmt(weekly.intros_7d || 0)} in the last 7 days`
+          `Human confirmed the match and notified both parties — ${
+            fmt(weekly.intros_7d || 0)
+          } in the last 7 days`
         ),
       ].join("");
 
       const m = data.key_metrics || {};
       const camps = m.active_camps || 0;
       const seekers = m.active_seekers || 0;
+      const softMatches = m.soft_matches_total || 0;
+      const softMatches7d = m.soft_matches_7d || 0;
       const unclassified = Math.max(0, analyzed - camps - seekers);
       const campPct = analyzed > 0 ? Math.round((camps / analyzed) * 100) : 0;
       const seekerPct = analyzed > 0 ? Math.round((seekers / analyzed) * 100) : 0;
@@ -705,9 +731,16 @@ _COMMUNITY_HTML = """
           `${seekerPct}% of indexed posts — people looking to join or contribute`
         ),
         mutedCard(
+          "Soft Matches",
+          softMatches,
+          `${fmt(softMatches7d)} in the last 7 days — keyword-only candidates
+          waiting for human review`
+        ),
+        mutedCard(
           "Role Unclear",
           unclassified,
-          `${unclassifiedPct}% of indexed posts - LLM tried but failed to categorize — for us to review`
+          `${unclassifiedPct}% of indexed posts - LLM tried but failed to
+          categorize — for us to review`
         ),
       ].join("");
 
@@ -731,9 +764,10 @@ _COMMUNITY_HTML = """
       const backlogText = backlog.oldest_needs_review_age_hours == null
         ? "All current signals are reviewed."
         : `Oldest pending: ${backlog.oldest_needs_review_age_hours}h`;
+      const softQueueText = `Soft matches: ${fmt(backlog.soft_matches_count || 0)}`;
       document.getElementById("updated").textContent = (
         `Review queue: ${fmt(backlog.needs_review_count)} • ` +
-        `${backlogText} • Updated ${new Date(data.updated_at).toLocaleString()}`
+        `${softQueueText} • ${backlogText} • Updated ${new Date(data.updated_at).toLocaleString()}`
       );
 
       await loadMatches();
@@ -990,6 +1024,8 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
         structured_count_r,
         active_camps_r,
         active_seekers_r,
+        soft_matches_total_r,
+        soft_matches_7d_r,
         conversation_started_r,
         onboarded_r,
     ) = await asyncio.gather(
@@ -1062,6 +1098,17 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
             operation_name="community_active_seekers",
         ),
         _exec_in_isolated_session(
+            select(func.count()).select_from(Post).where(Post.extraction_method == "keyword_soft"),
+            operation_name="community_soft_matches_total",
+        ),
+        _exec_in_isolated_session(
+            select(func.count()).select_from(Post).where(
+                Post.extraction_method == "keyword_soft",
+                Post.detected_at >= seven_days_ago,
+            ),
+            operation_name="community_soft_matches_7d",
+        ),
+        _exec_in_isolated_session(
             select(func.count()).select_from(Match).where(
                 Match.status.in_(conversation_terminal)
             ),
@@ -1087,6 +1134,8 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
     structured_count = int(structured_count_r.one() or 0)
     active_camps = int(active_camps_r.one() or 0)
     active_seekers = int(active_seekers_r.one() or 0)
+    soft_matches_total = int(soft_matches_total_r.one() or 0)
+    soft_matches_7d = int(soft_matches_7d_r.one() or 0)
     conversation_started_total = int(conversation_started_r.one() or 0)
     onboarded_total = int(onboarded_r.one() or 0)
 
@@ -1183,11 +1232,14 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
         },
         "backlog": {
             "needs_review_count": needs_review_count,
+            "soft_matches_count": soft_matches_total,
             "oldest_needs_review_age_hours": oldest_needs_review_age_hours,
         },
         "key_metrics": {
             "active_camps": active_camps,
             "active_seekers": active_seekers,
+            "soft_matches_total": soft_matches_total,
+            "soft_matches_7d": soft_matches_7d,
             "match_attempts_total": proposed_matches,
             "intro_sent_total": intros_sent,
             "conversation_started_total": conversation_started_total,

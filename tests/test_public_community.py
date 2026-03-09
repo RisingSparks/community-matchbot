@@ -77,10 +77,13 @@ def test_community_data_zero_state(monkeypatch, tmp_path) -> None:
         assert payload["summary"]["proposed_matches"] == 0
         assert payload["summary"]["intros_sent"] == 0
         assert payload["backlog"]["needs_review_count"] == 0
+        assert payload["backlog"]["soft_matches_count"] == 0
         assert payload["backlog"]["oldest_needs_review_age_hours"] is None
 
         assert payload["key_metrics"]["active_camps"] == 0
         assert payload["key_metrics"]["active_seekers"] == 0
+        assert payload["key_metrics"]["soft_matches_total"] == 0
+        assert payload["key_metrics"]["soft_matches_7d"] == 0
         assert payload["key_metrics"]["intro_to_conversation_rate"] == 0
         assert payload["key_metrics"]["conversation_to_onboarding_rate"] == 0
         assert payload["live_feed"] == []
@@ -139,8 +142,12 @@ def test_community_rest_api_endpoints_share_cached_payload(monkeypatch, tmp_path
         return {
             "summary": {"total_ingested": 1},
             "weekly": {"ingested_7d": 1},
-            "backlog": {"needs_review_count": 0, "oldest_needs_review_age_hours": None},
-            "key_metrics": {"active_camps": 0},
+            "backlog": {
+                "needs_review_count": 0,
+                "soft_matches_count": 0,
+                "oldest_needs_review_age_hours": None,
+            },
+            "key_metrics": {"active_camps": 0, "soft_matches_total": 0, "soft_matches_7d": 0},
             "pipeline": [{"stage": "Seen", "count": 1}],
             "platform_breakdown": [{"platform": "reddit", "count": 1, "pct": 100.0}],
             "live_feed": [],
@@ -346,6 +353,20 @@ def test_community_data_redacts_story_and_feed_identifiers(monkeypatch, tmp_path
                 contribution_types="art",
                 vibes="cozy",
             )
+            soft_match = Post(
+                platform=Platform.REDDIT,
+                platform_post_id="soft_1",
+                platform_author_id="soft_user",
+                author_display_name="SoftUser",
+                source_url="https://reddit.com/r/BurningMan/comments/soft_1/",
+                source_community="BurningMan",
+                title="Any camp recs?",
+                raw_text="Any camp recs for someone into fire spinning?",
+                role=PostRole.SEEKER,
+                status=PostStatus.NEEDS_REVIEW,
+                detected_at=now - timedelta(hours=4),
+                extraction_method="keyword_soft",
+            )
             raw_post = Post(
                 platform=Platform.FACEBOOK,
                 platform_post_id="raw_1",
@@ -381,6 +402,7 @@ def test_community_data_redacts_story_and_feed_identifiers(monkeypatch, tmp_path
             session.add(seeker)
             session.add(camp)
             session.add(needs_review)
+            session.add(soft_match)
             session.add(raw_post)
             session.add(camp_profile)
             session.add(seeker_profile)
@@ -408,15 +430,18 @@ def test_community_data_redacts_story_and_feed_identifiers(monkeypatch, tmp_path
         assert response.status_code == 200
         payload = response.json()
 
-        assert payload["summary"]["total_ingested"] == 4
+        assert payload["summary"]["total_ingested"] == 5
         assert payload["summary"]["indexed"] == 2
         assert payload["summary"]["proposed_matches"] == 1
         assert payload["summary"]["intros_sent"] == 1
-        assert payload["backlog"]["needs_review_count"] == 1
+        assert payload["backlog"]["needs_review_count"] == 2
+        assert payload["backlog"]["soft_matches_count"] == 1
 
         key_metrics = payload["key_metrics"]
         assert key_metrics["active_camps"] == 1
         assert key_metrics["active_seekers"] == 1
+        assert key_metrics["soft_matches_total"] == 1
+        assert key_metrics["soft_matches_7d"] == 1
         assert key_metrics["match_attempts_total"] == 1
         assert key_metrics["intro_sent_total"] == 1
         assert key_metrics["conversation_started_total"] == 0
