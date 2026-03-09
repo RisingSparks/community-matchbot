@@ -16,6 +16,24 @@ _QUIET_LOGGERS = (
     "openai",
 )
 
+_DISCORD_WARNING_FILTERS = (
+    "parameter 'timeout' of type 'float' is deprecated",
+)
+
+_DISCORD_LOG_SUPPRESSED = (
+    "PyNaCl is not installed",
+)
+
+
+class _DiscordWarningFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not any(msg in record.getMessage() for msg in _DISCORD_LOG_SUPPRESSED)
+
+    @classmethod
+    def install(cls) -> None:
+        f = cls()
+        logging.getLogger("discord").addFilter(f)
+
 
 def configure_logging(verbose: bool | None = None) -> bool:
     """
@@ -35,6 +53,11 @@ def configure_logging(verbose: bool | None = None) -> bool:
 
     for logger_name in _QUIET_LOGGERS:
         logging.getLogger(logger_name).setLevel(logging.WARNING)
+
+    # Suppress known noisy discord.py warnings.
+    for msg in _DISCORD_WARNING_FILTERS:
+        warnings.filterwarnings("ignore", message=msg)
+    _DiscordWarningFilter.install()
 
     if verbose:
         # Ensure deprecations/runtime warnings are visible while debugging.

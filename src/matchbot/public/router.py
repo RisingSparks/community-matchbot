@@ -16,7 +16,7 @@ from sqlalchemy import func, or_
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, PostType, Profile
+from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, PostType
 from matchbot.settings import get_settings
 
 router = APIRouter(prefix="/community", tags=["community"])
@@ -230,6 +230,36 @@ _COMMUNITY_HTML = """
       padding: 10px 18px;
     }
     .updated { margin-top: 10px; font-size: 12px; color: var(--muted); }
+    .funnel-flow {
+      display: flex;
+      align-items: stretch;
+      margin-top: 18px;
+      flex-wrap: wrap;
+      gap: 0;
+    }
+    .funnel-step { flex: 1; min-width: 120px; }
+    .funnel-connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+      flex-shrink: 0;
+      gap: 3px;
+    }
+    .funnel-rate {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--sage);
+      white-space: nowrap;
+    }
+    .funnel-chevron { font-size: 24px; color: var(--sage); line-height: 1; }
+    .metrics-divider {
+      border: none;
+      border-top: 1px dashed rgba(34,32,33,0.15);
+      margin: 20px 0;
+    }
+    .group-desc { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
     @media (max-width: 980px) {
       .grid4 { grid-template-columns: repeat(2, 1fr); }
       .grid3 { grid-template-columns: 1fr; }
@@ -238,29 +268,31 @@ _COMMUNITY_HTML = """
     @media (max-width: 620px) {
       .grid4 { grid-template-columns: 1fr; }
       .bar-row { grid-template-columns: 100px 1fr 34px; }
+      .funnel-flow { flex-direction: column; }
+      .funnel-connector { flex-direction: row; padding: 4px 0; }
+      .funnel-chevron { transform: rotate(90deg); }
     }
   </style>
 </head>
 <body>
   <main class="wrap">
     <section class="hero">
-      <div class="eyebrow">Rising Sparks Public Dashboard</div>
+      <div class="eyebrow">Rising Sparks Connection Dashboard</div>
       <h1>Find your people. Build the city.</h1>
       <p class="sub">
-        A live, anonymized view of how signals become introductions across camps, seekers,
-        and moderators.
+        A live, anonymized view of how signals become connections across camps, art projects, and seekers looking to participate.
       </p>
-      <div class="grid4" id="summary-grid"></div>
+      <div id="summary-funnel" class="funnel-flow"></div>
     </section>
 
     <section class="panel">
-      <h2 class="section-title">Key Metrics</h2>
-      <div class="grid4" id="key-metrics"></div>
-    </section>
-
-    <section class="panel">
-      <h2 class="section-title">Match Funnel</h2>
-      <div class="grid4" id="pipeline"></div>
+      <h2 class="section-title">Who's in the Pool</h2>
+      <p class="group-desc">Active indexed posts by role — the supply and demand the bot is working with right now.</p>
+      <div class="grid2" id="pool-metrics"></div>
+      <div class="metrics-divider"></div>
+      <h2 class="section-title">How Far Connections Get</h2>
+      <p class="group-desc">Once a moderator sends an intro, what typically happens next. This fills in as the pilot matures.</p>
+      <div class="grid2" id="outcome-metrics"></div>
     </section>
 
     <section class="panel">
@@ -395,21 +427,23 @@ _COMMUNITY_HTML = """
       `;
     }
 
-    const funnelStageNotes = {
-      Seen: "Public posts ingested from configured channels.",
-      Analyzed: "Signals that moved beyond raw ingestion.",
-      Matched: "Potential seeker-camp connections created.",
-      Introduced: "Connections where an intro was sent.",
-    };
-
-    function pipelineCard(stage, count) {
-      const note = funnelStageNotes[stage] || "";
+    function funnelStep(label, value, desc) {
       return `
-        <article class="card">
-          <div class="kicker">${stage}</div>
-          <div class="metric">${fmt(count)}</div>
-          <p class="note">${note}</p>
+        <article class="card funnel-step">
+          <div class="kicker">${label}</div>
+          <div class="metric">${fmt(value)}</div>
+          <p class="note">${desc}</p>
         </article>
+      `;
+    }
+
+    function funnelConnector(from, to) {
+      const rate = (from > 0) ? `${Math.round((to / from) * 100)}%` : null;
+      return `
+        <div class="funnel-connector">
+          ${rate ? `<div class="funnel-rate">${rate}</div>` : ''}
+          <div class="funnel-chevron">›</div>
+        </div>
       `;
     }
 
@@ -577,47 +611,67 @@ _COMMUNITY_HTML = """
 
       const summary = data.summary || {};
       const weekly = data.weekly || {};
-      document.getElementById("summary-grid").innerHTML = [
-        metricCard(
-          "Conversations Seen",
-          summary.total_ingested,
-          `${fmt(weekly.ingested_7d)} in last 7 days`
+      const seen = summary.total_ingested || 0;
+      const analyzed = summary.indexed || 0;
+      const matched = summary.proposed_matches || 0;
+      const introduced = summary.intros_sent || 0;
+      document.getElementById("summary-funnel").innerHTML = [
+        funnelStep(
+          "Posts Detected",
+          seen,
+          `Raw posts ingested from Reddit, Discord & Facebook — ${fmt(weekly.ingested_7d || 0)} in the last 7 days`
         ),
-        metricCard(
-          "Signals Analyzed",
-          summary.indexed,
-          `${fmt(weekly.indexed_7d)} in last 7 days`
+        funnelConnector(seen, analyzed),
+        funnelStep(
+          "Structured & Indexed",
+          analyzed,
+          `LLM extracted role, vibes, and skills — ${fmt(weekly.indexed_7d || 0)} in the last 7 days`
         ),
-        metricCard(
-          "Likely Connections",
-          summary.proposed_matches,
-          `${fmt(weekly.matches_7d)} in last 7 days`
+        funnelConnector(analyzed, matched),
+        funnelStep(
+          "Connections Found",
+          matched,
+          `Seeker↔camp pairs the algorithm flagged as a potential fit — ${fmt(weekly.matches_7d || 0)} in the last 7 days`
         ),
-        metricCard(
-          "Handshakes Facilitated",
-          summary.intros_sent,
-          `${fmt(weekly.intros_7d)} in last 7 days`
+        funnelConnector(matched, introduced),
+        funnelStep(
+          "Intros Sent",
+          introduced,
+          `Moderator confirmed the match and notified both parties — ${fmt(weekly.intros_7d || 0)} in the last 7 days`
         ),
       ].join("");
 
       const m = data.key_metrics || {};
-      document.getElementById("key-metrics").innerHTML = [
-        metricCard("Active Camps", m.active_camps, "All-time active profiles"),
-        metricCard("Active Seekers", m.active_seekers, "All-time active profiles"),
+      const camps = m.active_camps || 0;
+      const seekers = m.active_seekers || 0;
+      const poolTotal = camps + seekers;
+      const campPct = poolTotal > 0 ? Math.round((camps / poolTotal) * 100) : 0;
+      const seekerPct = poolTotal > 0 ? Math.round((seekers / poolTotal) * 100) : 0;
+      document.getElementById("pool-metrics").innerHTML = [
         metricCard(
-          "Conversations Started",
-          m.conversation_started_total,
-          `Intro→Conversation ${pct(m.intro_to_conversation_rate)}`
+          "Camps & Art Projects",
+          camps,
+          `${campPct}% of indexed posts — groups with openings or offerings`
         ),
         metricCard(
-          "Onboarded",
-          m.onboarded_total,
-          `Conversation→Onboard ${pct(m.conversation_to_onboarding_rate)}`
+          "Seekers",
+          seekers,
+          `${seekerPct}% of indexed posts — people looking to join or contribute`
         ),
       ].join("");
 
-      document.getElementById("pipeline").innerHTML =
-        (data.pipeline || []).map((x) => pipelineCard(x.stage, x.count)).join("");
+      const convStarted = m.conversation_started_total || 0;
+      const onboarded = m.onboarded_total || 0;
+      const introToConvNote = introduced === 0
+        ? "No intros sent yet — this fills in as the pilot matures"
+        : `${pct(m.intro_to_conversation_rate)} of intros led to a conversation`;
+      const convToOnboardNote = convStarted === 0
+        ? "No conversations tracked yet"
+        : `${pct(m.conversation_to_onboarding_rate)} of conversations led to an onboard`;
+      document.getElementById("outcome-metrics").innerHTML = [
+        metricCard("Conversations Started", convStarted, introToConvNote),
+        metricCard("Onboarded", onboarded, convToOnboardNote),
+      ].join("");
 
       const feed = data.live_feed || [];
       document.getElementById("live-feed").innerHTML = feed.length
@@ -989,8 +1043,8 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
         (
             await session.exec(
                 select(func.count())
-                .select_from(Profile)
-                .where(Profile.is_active.is_(True), Profile.role == PostRole.CAMP)
+                .select_from(Post)
+                .where(Post.status == PostStatus.INDEXED, Post.role == PostRole.CAMP)
             )
         ).one()
         or 0
@@ -999,8 +1053,8 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
         (
             await session.exec(
                 select(func.count())
-                .select_from(Profile)
-                .where(Profile.is_active.is_(True), Profile.role == PostRole.SEEKER)
+                .select_from(Post)
+                .where(Post.status == PostStatus.INDEXED, Post.role == PostRole.SEEKER)
             )
         ).one()
         or 0
