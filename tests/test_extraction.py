@@ -5,8 +5,9 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from sqlmodel import select
 
-from matchbot.db.models import Platform, Post, PostRole, PostStatus
+from matchbot.db.models import Platform, Post, PostRole, PostStatus, Profile
 from matchbot.extraction import process_post
 from matchbot.extraction.schemas import ExtractedPost
 
@@ -128,7 +129,73 @@ async def test_process_post_indexes_on_high_confidence(db_session, mock_extracto
     assert result.status == PostStatus.INDEXED
     assert result.role == PostRole.SEEKER
     assert result.year == 2025
+    assert result.profile_id is not None
+
+    profile = await db_session.get(Profile, result.profile_id)
+    assert profile is not None
+    assert profile.role == PostRole.SEEKER
+    assert profile.platform == Platform.REDDIT
     mock_extractor.extract.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_process_post_reuses_existing_profile_for_same_author_and_role(
+    db_session, mock_extractor
+):
+    first = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="profile_1",
+        platform_author_id="same_author",
+        author_display_name="First Name",
+        title="Seeking camp for Burning Man 2025",
+        raw_text="I can help with build.",
+        status=PostStatus.RAW,
+    )
+    db_session.add(first)
+    await db_session.commit()
+    await db_session.refresh(first)
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        role="seeker",
+        contribution_types=["build"],
+        confidence=0.9,
+    )
+    first = await process_post(db_session, first, mock_extractor)
+
+    second = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="profile_2",
+        platform_author_id="same_author",
+        author_display_name="Updated Name",
+        title="Still seeking camp",
+        raw_text="Also happy to help with kitchen.",
+        status=PostStatus.RAW,
+    )
+    db_session.add(second)
+    await db_session.commit()
+    await db_session.refresh(second)
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        role="seeker",
+        contribution_types=["kitchen_food"],
+        confidence=0.95,
+    )
+    second = await process_post(db_session, second, mock_extractor)
+
+    profiles = (
+        await db_session.exec(
+            select(Profile).where(
+                Profile.platform == Platform.REDDIT,
+                Profile.platform_author_id == "same_author",
+                Profile.role == PostRole.SEEKER,
+            )
+        )
+    ).all()
+
+    assert len(profiles) == 1
+    assert first.profile_id == second.profile_id == profiles[0].id
+    assert profiles[0].display_name == "Updated Name"
+    assert profiles[0].contribution_types == "kitchen_food"
 
 
 @pytest.mark.asyncio

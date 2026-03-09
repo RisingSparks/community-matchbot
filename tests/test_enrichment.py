@@ -325,7 +325,7 @@ def test_intake_landing_page():
     client = TestClient(create_app())
     response = client.get("/forms/")
     assert response.status_code == 200
-    assert "Matchbot Intake" in response.text
+    assert "Rising Sparks Pool" in response.text
     assert "/forms/seeker" in response.text
     assert "/forms/camp" in response.text
 
@@ -339,7 +339,7 @@ def test_intake_seeker_form_renders():
     client = TestClient(create_app())
     response = client.get("/forms/seeker")
     assert response.status_code == 200
-    assert "Looking for a Camp" in response.text
+    assert "Find Your Community" in response.text
     assert 'name="display_name"' in response.text
 
 
@@ -352,7 +352,7 @@ def test_intake_camp_form_renders():
     client = TestClient(create_app())
     response = client.get("/forms/camp")
     assert response.status_code == 200
-    assert "My Camp Has Openings" in response.text
+    assert "Find Your Builders" in response.text
     assert 'name="camp_name"' in response.text
 
 
@@ -413,4 +413,4 @@ def test_intake_thanks_page():
     client = TestClient(create_app())
     response = client.get("/forms/thanks")
     assert response.status_code == 200
-    assert "Thank you" in response.text
+    assert "Welcome to the Pool" in response.text

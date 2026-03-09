@@ -85,7 +85,7 @@ def test_queue_list_empty(cli_env):
     with patch("matchbot.cli._db.get_session", factory):
         result = runner.invoke(app, ["queue", "list"])
     assert result.exit_code == 0
-    assert "No matches" in result.output
+    assert "No potential connections" in result.output
 
 
 def test_queue_list_shows_matches(cli_env, seeker_post_factory, camp_post_factory):
@@ -146,7 +146,7 @@ def test_queue_approve(cli_env, seeker_post_factory, camp_post_factory):
     with patch("matchbot.cli._db.get_session", factory):
         result = runner.invoke(app, ["queue", "approve", match.id])
     assert result.exit_code == 0, result.output
-    assert "approved" in result.output.lower()
+    assert "verified for intro" in result.output.lower()
 
     async def check():
         await session.refresh(match)
@@ -182,7 +182,7 @@ def test_queue_reject(cli_env, seeker_post_factory, camp_post_factory):
     with patch("matchbot.cli._db.get_session", factory):
         result = runner.invoke(app, ["queue", "reject", match.id, "--reason", "Different years"])
     assert result.exit_code == 0, result.output
-    assert "declined" in result.output.lower()
+    assert "dismissed" in result.output.lower()
 
     async def check():
         await session.refresh(match)
@@ -272,7 +272,7 @@ def test_posts_list_empty(cli_env):
     with patch("matchbot.cli._db.get_session", factory):
         result = runner.invoke(app, ["posts", "list"])
     assert result.exit_code == 0
-    assert "No posts" in result.output
+    assert "No signals found" in result.output
 
 
 def test_posts_list_shows_posts(cli_env, seeker_post_factory):

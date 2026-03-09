@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlmodel import select
 
-from matchbot.db.models import Event, Platform, Post, PostRole, PostStatus
+from matchbot.db.models import Event, Platform, Post, PostRole, PostStatus, Profile
 from matchbot.server import create_app
 
 # ---------------------------------------------------------------------------
@@ -245,6 +246,12 @@ async def test_approve_transitions_to_indexed(mod_client, db_session):
 
     await db_session.refresh(post)
     assert post.status == PostStatus.INDEXED
+    assert post.profile_id is not None
+
+    profile = await db_session.get(Profile, post.profile_id)
+    assert profile is not None
+    assert profile.platform_author_id == "u1"
+    assert profile.role == PostRole.SEEKER
 
 
 async def test_approve_409_wrong_status(mod_client, db_session):
@@ -408,6 +415,48 @@ async def test_edit_normalizes_valid_condition(mod_client, db_session):
 
     await db_session.refresh(post)
     assert post.condition == "good"
+
+
+async def test_edit_syncs_profile_for_indexed_post(mod_client, db_session):
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="edit_profile_sync",
+        platform_author_id="u_profile",
+        author_display_name="Old Name",
+        title="Edit me",
+        raw_text="text",
+        status=PostStatus.INDEXED,
+        role=PostRole.SEEKER,
+        profile_id=None,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    resp = await mod_client.post(
+        f"/api/mod/posts/{post.id}/edit",
+        json={"role": "camp", "camp_name": "Dusty Builders"},
+    )
+    assert resp.status_code == 200
+
+    await db_session.refresh(post)
+    assert post.profile_id is not None
+
+    profile = await db_session.get(Profile, post.profile_id)
+    assert profile is not None
+    assert profile.role == PostRole.CAMP
+    assert profile.camp_name == "Dusty Builders"
+
+    matching_profiles = (
+        await db_session.exec(
+            select(Profile).where(
+                Profile.platform == Platform.REDDIT,
+                Profile.platform_author_id == "u_profile",
+                Profile.role == PostRole.CAMP,
+            )
+        )
+    ).all()
+    assert len(matching_profiles) == 1
 
 
 # ---------------------------------------------------------------------------
