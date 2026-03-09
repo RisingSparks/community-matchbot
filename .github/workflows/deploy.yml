@@ -28,6 +28,7 @@ jobs:
       - name: Sync repository
         run: |
           rsync -az --delete \
+            -e "ssh -p ${{ secrets.DEPLOY_SSH_PORT }}" \
             --exclude ".git" \
             ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ vars.DEPLOY_PATH }}"
 
