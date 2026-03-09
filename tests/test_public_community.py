@@ -53,6 +53,18 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         _reset_engine()
 
 
+def test_root_page_renders_dashboard(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_root_render.db")
+    try:
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get("/")
+        assert response.status_code == 200
+        assert "Rising Sparks Public Dashboard" in response.text
+        assert "Live Activity" in response.text
+    finally:
+        _reset_engine()
+
+
 def test_community_data_zero_state(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_zero_state.db")
     try:

@@ -68,6 +68,7 @@ jobs:
             --exclude "node_modules" \
             --exclude "__pycache__" \
             --exclude ".pytest_cache" \
+            --exclude ".env" \
             ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ env.DEPLOY_PATH }}"
 
       - name: Deploy on host

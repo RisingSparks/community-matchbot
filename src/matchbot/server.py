@@ -5,13 +5,14 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from matchbot.forms.router import router as forms_router
 from matchbot.listeners.facebook import router as facebook_router
 from matchbot.log_config import configure_logging
 from matchbot.mod.router import router as mod_router
-from matchbot.public.router import router as community_router
+from matchbot.public.router import community_page, router as community_router
 
 
 @asynccontextmanager
@@ -47,10 +48,13 @@ def create_app(enable_scheduler: bool = True) -> FastAPI:
     app.include_router(mod_router)
     app.include_router(community_router)
 
-    @app.get("/")
+    @app.get("/", response_class=HTMLResponse)
+    async def root() -> str:
+        return await community_page()
+
     @app.get("/health")
     @app.get("/status")
-    async def health() -> dict:
+    async def health() -> dict[str, str]:
         return {"status": "ok", "message": "Matchbot API is running."}
 
     return app
