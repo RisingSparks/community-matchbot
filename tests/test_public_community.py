@@ -4,6 +4,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import DBAPIError
 
 from matchbot.db import engine as engine_module
 from matchbot.db.engine import create_db_and_tables, get_session
@@ -17,6 +18,7 @@ from matchbot.db.models import (
     PostType,
     Profile,
 )
+from matchbot.public import router as public_router
 from matchbot.server import create_app
 from matchbot.settings import get_settings
 
@@ -577,5 +579,50 @@ def test_community_order_book_for_skills_and_vibes(monkeypatch, tmp_path) -> Non
         assert vibes[0]["net_gap"] == 1
         assert vibes[0]["fill_ratio"] == 0.5
         assert all(row["name"] != "party" for row in vibes)
+    finally:
+        _reset_engine()
+
+
+def test_community_data_retries_on_disconnect(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_retry_disconnect.db")
+    calls = {"count": 0}
+
+    async def _flaky_payload(_session):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise DBAPIError(
+                statement="SELECT 1",
+                params={},
+                orig=Exception(
+                    "ConnectionDoesNotExistError: connection was closed in the middle of operation"
+                ),
+            )
+        return {"summary": {}, "weekly": {}, "backlog": {}, "updated_at": "ok"}
+
+    try:
+        monkeypatch.setattr(public_router, "build_public_community_payload", _flaky_payload)
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get("/community/data")
+        assert response.status_code == 200
+        assert response.json()["updated_at"] == "ok"
+        assert calls["count"] == 2
+    finally:
+        _reset_engine()
+
+
+def test_community_data_does_not_retry_non_disconnect(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_no_retry_non_disconnect.db")
+    calls = {"count": 0}
+
+    async def _boom(_session):
+        calls["count"] += 1
+        raise RuntimeError("not a disconnect")
+
+    try:
+        monkeypatch.setattr(public_router, "build_public_community_payload", _boom)
+        client = TestClient(create_app(enable_scheduler=False), raise_server_exceptions=False)
+        response = client.get("/community/data")
+        assert response.status_code == 500
+        assert calls["count"] == 1
     finally:
         _reset_engine()

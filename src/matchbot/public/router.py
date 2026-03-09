@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import re
+from collections.abc import Awaitable, Callable
 from collections import Counter
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, TypeVar
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from fastapi.responses import HTMLResponse
+from sqlalchemy import func, or_
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -16,13 +20,37 @@ from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, P
 from matchbot.settings import get_settings
 
 router = APIRouter(prefix="/community", tags=["community"])
+logger = logging.getLogger(__name__)
+T = TypeVar("T")
 
 
-async def _get_session():
-    from matchbot.db.engine import get_engine
+async def _run_with_db_retry(
+    operation_name: str,
+    callback: Callable[[AsyncSession], Awaitable[T]],
+    *,
+    max_attempts: int = 2,
+) -> T:
+    from matchbot.db.engine import dispose_engine, get_engine, is_disconnect_error
 
-    async with AsyncSession(get_engine(), expire_on_commit=False) as session:
-        yield session
+    for attempt in range(1, max_attempts + 1):
+        try:
+            async with AsyncSession(get_engine(), expire_on_commit=False) as session:
+                return await callback(session)
+        except Exception as exc:
+            if attempt >= max_attempts or not is_disconnect_error(exc):
+                raise
+            backoff_seconds = 0.2 * attempt
+            logger.warning(
+                "Transient DB disconnect in %s (attempt %d/%d). Retrying in %.1fs.",
+                operation_name,
+                attempt,
+                max_attempts,
+                backoff_seconds,
+            )
+            await dispose_engine()
+            await asyncio.sleep(backoff_seconds)
+
+    raise RuntimeError(f"Unreachable retry termination for operation {operation_name}.")
 
 
 _COMMUNITY_HTML = """
@@ -649,13 +677,13 @@ async def community_page() -> str:
 
 
 @router.get("/data")
-async def community_data(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
-    return await build_public_community_payload(session)
+async def community_data() -> dict[str, Any]:
+    return await _run_with_db_retry("community_data", build_public_community_payload)
 
 
 @router.get("/api/overview")
-async def community_api_overview(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
-    payload = await build_public_community_payload(session)
+async def community_api_overview() -> dict[str, Any]:
+    payload = await _run_with_db_retry("community_api_overview", build_public_community_payload)
     return {
         "summary": payload["summary"],
         "weekly": payload["weekly"],
@@ -665,8 +693,8 @@ async def community_api_overview(session: AsyncSession = Depends(_get_session)) 
 
 
 @router.get("/api/metrics")
-async def community_api_metrics(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
-    payload = await build_public_community_payload(session)
+async def community_api_metrics() -> dict[str, Any]:
+    payload = await _run_with_db_retry("community_api_metrics", build_public_community_payload)
     return {
         "key_metrics": payload["key_metrics"],
         "updated_at": payload["updated_at"],
@@ -674,8 +702,8 @@ async def community_api_metrics(session: AsyncSession = Depends(_get_session)) -
 
 
 @router.get("/api/pipeline")
-async def community_api_pipeline(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
-    payload = await build_public_community_payload(session)
+async def community_api_pipeline() -> dict[str, Any]:
+    payload = await _run_with_db_retry("community_api_pipeline", build_public_community_payload)
     return {
         "pipeline": payload["pipeline"],
         "updated_at": payload["updated_at"],
@@ -683,8 +711,8 @@ async def community_api_pipeline(session: AsyncSession = Depends(_get_session)) 
 
 
 @router.get("/api/platforms")
-async def community_api_platforms(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
-    payload = await build_public_community_payload(session)
+async def community_api_platforms() -> dict[str, Any]:
+    payload = await _run_with_db_retry("community_api_platforms", build_public_community_payload)
     return {
         "platform_breakdown": payload["platform_breakdown"],
         "updated_at": payload["updated_at"],
@@ -692,8 +720,8 @@ async def community_api_platforms(session: AsyncSession = Depends(_get_session))
 
 
 @router.get("/api/feed")
-async def community_api_feed(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
-    payload = await build_public_community_payload(session)
+async def community_api_feed() -> dict[str, Any]:
+    payload = await _run_with_db_retry("community_api_feed", build_public_community_payload)
     return {
         "live_feed": payload["live_feed"],
         "updated_at": payload["updated_at"],
@@ -701,8 +729,8 @@ async def community_api_feed(session: AsyncSession = Depends(_get_session)) -> d
 
 
 @router.get("/api/demand")
-async def community_api_demand(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
-    payload = await build_public_community_payload(session)
+async def community_api_demand() -> dict[str, Any]:
+    payload = await _run_with_db_retry("community_api_demand", build_public_community_payload)
     return {
         "demand": payload["demand"],
         "updated_at": payload["updated_at"],
@@ -714,32 +742,35 @@ async def community_api_matches(
     status: str = Query(default="all"),
     days: str = Query(default="30"),
     limit: int = Query(default=50, ge=1, le=200),
-    session: AsyncSession = Depends(_get_session),
 ) -> dict[str, Any]:
-    now = datetime.now(UTC).replace(tzinfo=None)
-    posts = (await session.exec(select(Post))).all()
-    matches = (await session.exec(select(Match))).all()
-    return _build_matches_payload(posts, matches, now, status=status, days=days, limit=limit)
+    return await _run_with_db_retry(
+        "community_api_matches",
+        lambda session: _build_matches_payload(
+            session,
+            status=status,
+            days=days,
+            limit=limit,
+        ),
+    )
 
 
 @router.get("/api/stories")
-async def community_api_stories(session: AsyncSession = Depends(_get_session)) -> dict[str, Any]:
-    payload = await build_public_community_payload(session)
+async def community_api_stories() -> dict[str, Any]:
+    payload = await _run_with_db_retry("community_api_stories", build_public_community_payload)
     return {
         "stories": payload["stories"],
         "updated_at": payload["updated_at"],
     }
 
 
-def _build_matches_payload(
-    posts: list[Post],
-    matches: list[Match],
-    now: datetime,
+async def _build_matches_payload(
+    session: AsyncSession,
     *,
     status: str,
     days: str,
     limit: int,
 ) -> dict[str, Any]:
+    now = datetime.now(UTC).replace(tzinfo=None)
     allowed_statuses = {
         "all",
         MatchStatus.PROPOSED,
@@ -761,26 +792,41 @@ def _build_matches_payload(
         else now - timedelta(days=window_days[days_value])
     )
 
+    where_clauses = []
+    if status_value != "all":
+        where_clauses.append(Match.status == status_value)
+    if since is not None:
+        where_clauses.append(Match.created_at >= since)
+
+    total_stmt = select(func.count()).select_from(Match)
+    by_status_stmt = select(Match.status, func.count()).group_by(Match.status)
+    matches_stmt = select(Match).order_by(Match.created_at.desc()).limit(limit)
+    if where_clauses:
+        total_stmt = total_stmt.where(*where_clauses)
+        by_status_stmt = by_status_stmt.where(*where_clauses)
+        matches_stmt = matches_stmt.where(*where_clauses)
+
+    total = int((await session.exec(total_stmt)).one() or 0)
+    by_status_rows = (await session.exec(by_status_stmt)).all()
+    by_status = {status_name: count for status_name, count in by_status_rows}
+    matches = (await session.exec(matches_stmt)).all()
+
+    post_ids = {m.seeker_post_id for m in matches}
+    post_ids.update(m.camp_post_id for m in matches)
+    posts = (
+        (await session.exec(select(Post).where(Post.id.in_(post_ids))))
+        .all()
+        if post_ids
+        else []
+    )
     post_by_id = {post.id: post for post in posts}
-    filtered_matches: list[Match] = []
+
+    rows: list[dict[str, Any]] = []
     for match in matches:
         seeker = post_by_id.get(match.seeker_post_id)
         camp = post_by_id.get(match.camp_post_id)
         if seeker is None or camp is None:
             continue
-        if status_value != "all" and match.status != status_value:
-            continue
-        if since is not None and match.created_at < since:
-            continue
-        filtered_matches.append(match)
-
-    filtered_matches.sort(key=lambda row: row.created_at, reverse=True)
-    by_status = dict(Counter(match.status for match in filtered_matches))
-
-    rows: list[dict[str, Any]] = []
-    for match in filtered_matches[:limit]:
-        seeker = post_by_id[match.seeker_post_id]
-        camp = post_by_id[match.camp_post_id]
         overlap = sorted(
             set(seeker.contribution_types_list()).intersection(camp.contribution_types_list())
         )
@@ -806,7 +852,7 @@ def _build_matches_payload(
     return {
         "matched": rows,
         "summary": {
-            "total": len(filtered_matches),
+            "total": total,
             "by_status": by_status,
         },
         "updated_at": now.replace(tzinfo=UTC).isoformat(),
@@ -817,10 +863,6 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
     now = datetime.now(UTC)
     now_naive = now.replace(tzinfo=None)
     seven_days_ago = now_naive - timedelta(days=7)
-
-    posts = (await session.exec(select(Post))).all()
-    matches = (await session.exec(select(Match))).all()
-    profiles = (await session.exec(select(Profile))).all()
 
     intro_terminal = {
         MatchStatus.INTRO_SENT,
@@ -834,45 +876,156 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
         MatchStatus.ONBOARDED,
     }
 
-    total_ingested = len(posts)
-    indexed_count = sum(1 for p in posts if p.status == PostStatus.INDEXED)
-    proposed_matches = len(matches)
-    intros_sent = sum(1 for m in matches if m.status in intro_terminal)
-
-    ingested_7d = sum(1 for p in posts if p.detected_at >= seven_days_ago)
-    indexed_7d = sum(
-        1 for p in posts if p.status == PostStatus.INDEXED and p.detected_at >= seven_days_ago
+    total_ingested = int((await session.exec(select(func.count()).select_from(Post))).one() or 0)
+    indexed_count = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Post)
+                .where(Post.status == PostStatus.INDEXED)
+            )
+        ).one()
+        or 0
     )
-    matches_7d = sum(1 for m in matches if m.created_at >= seven_days_ago)
-    intros_7d = sum(
-        1 for m in matches if m.intro_sent_at is not None and m.intro_sent_at >= seven_days_ago
+    proposed_matches = int((await session.exec(select(func.count()).select_from(Match))).one() or 0)
+    intros_sent = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Match)
+                .where(Match.status.in_(intro_terminal))
+            )
+        ).one()
+        or 0
     )
 
-    needs_review_posts = [p for p in posts if p.status == PostStatus.NEEDS_REVIEW]
+    ingested_7d = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Post)
+                .where(Post.detected_at >= seven_days_ago)
+            )
+        ).one()
+        or 0
+    )
+    indexed_7d = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Post)
+                .where(
+                    Post.status == PostStatus.INDEXED,
+                    Post.detected_at >= seven_days_ago,
+                )
+            )
+        ).one()
+        or 0
+    )
+    matches_7d = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Match)
+                .where(Match.created_at >= seven_days_ago)
+            )
+        ).one()
+        or 0
+    )
+    intros_7d = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Match)
+                .where(
+                    Match.intro_sent_at.is_not(None),
+                    Match.intro_sent_at >= seven_days_ago,
+                )
+            )
+        ).one()
+        or 0
+    )
+
+    needs_review_count = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Post)
+                .where(Post.status == PostStatus.NEEDS_REVIEW)
+            )
+        ).one()
+        or 0
+    )
+    oldest_needs_review = (
+        await session.exec(
+            select(func.min(Post.detected_at)).where(Post.status == PostStatus.NEEDS_REVIEW)
+        )
+    ).one()
     oldest_needs_review_age_hours: float | None = None
-    if needs_review_posts:
-        oldest = min(needs_review_posts, key=lambda p: p.detected_at)
+    if oldest_needs_review is not None:
         oldest_needs_review_age_hours = round(
-            (now_naive - oldest.detected_at).total_seconds() / 3600,
+            (now_naive - oldest_needs_review).total_seconds() / 3600,
             1,
         )
 
-    platform_breakdown = _platform_breakdown(posts)
-    structured_count = sum(1 for p in posts if p.status != PostStatus.RAW)
-
-    active_camps = sum(
-        1
-        for prof in profiles
-        if prof.is_active and prof.role == PostRole.CAMP
+    platform_rows = (
+        await session.exec(
+            select(Post.platform, func.count()).group_by(Post.platform)
+        )
+    ).all()
+    platform_breakdown = _platform_breakdown_from_rows(platform_rows, total_ingested)
+    structured_count = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Post)
+                .where(Post.status != PostStatus.RAW)
+            )
+        ).one()
+        or 0
     )
-    active_seekers = sum(
-        1
-        for prof in profiles
-        if prof.is_active and prof.role == PostRole.SEEKER
+
+    active_camps = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Profile)
+                .where(Profile.is_active.is_(True), Profile.role == PostRole.CAMP)
+            )
+        ).one()
+        or 0
+    )
+    active_seekers = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Profile)
+                .where(Profile.is_active.is_(True), Profile.role == PostRole.SEEKER)
+            )
+        ).one()
+        or 0
     )
 
-    conversation_started_total = sum(1 for m in matches if m.status in conversation_terminal)
-    onboarded_total = sum(1 for m in matches if m.status == MatchStatus.ONBOARDED)
+    conversation_started_total = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Match)
+                .where(Match.status.in_(conversation_terminal))
+            )
+        ).one()
+        or 0
+    )
+    onboarded_total = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Match)
+                .where(Match.status == MatchStatus.ONBOARDED)
+            )
+        ).one()
+        or 0
+    )
     intro_to_conversation_rate = (
         conversation_started_total / intros_sent if intros_sent > 0 else 0.0
     )
@@ -880,9 +1033,56 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
         onboarded_total / conversation_started_total if conversation_started_total > 0 else 0.0
     )
 
-    stories = _build_stories(posts, matches)
-    live_feed = _build_live_feed(posts, matches, seven_days_ago)
-    demand = _build_demand(posts)
+    live_feed_posts = (
+        await session.exec(
+            select(Post).where(
+                Post.status == PostStatus.NEEDS_REVIEW,
+                Post.detected_at >= seven_days_ago,
+            )
+        )
+    ).all()
+    live_feed_matches = (
+        await session.exec(
+            select(Match).where(
+                or_(
+                    Match.created_at >= seven_days_ago,
+                    Match.intro_sent_at >= seven_days_ago,
+                )
+            )
+        )
+    ).all()
+
+    demand_posts = (
+        await session.exec(
+            select(Post).where(Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}))
+        )
+    ).all()
+
+    story_matches = (
+        await session.exec(select(Match).order_by(Match.created_at.desc()).limit(200))
+    ).all()
+    story_post_ids = {m.seeker_post_id for m in story_matches}
+    story_post_ids.update(m.camp_post_id for m in story_matches)
+    story_posts: list[Post] = []
+    if story_post_ids:
+        story_posts.extend(
+            (await session.exec(select(Post).where(Post.id.in_(story_post_ids)))).all()
+        )
+    story_posts.extend(
+        (
+            await session.exec(
+                select(Post)
+                .where(Post.status == PostStatus.INDEXED)
+                .order_by(Post.detected_at.desc())
+                .limit(50)
+            )
+        ).all()
+    )
+    deduped_story_posts = {post.id: post for post in story_posts}
+
+    stories = _build_stories(list(deduped_story_posts.values()), story_matches)
+    live_feed = _build_live_feed(live_feed_posts, live_feed_matches, seven_days_ago)
+    demand = _build_demand(demand_posts)
     settings = get_settings()
 
     feedback_url = "/forms/"
@@ -909,13 +1109,13 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
             "intros_7d": intros_7d,
         },
         "backlog": {
-            "needs_review_count": len(needs_review_posts),
+            "needs_review_count": needs_review_count,
             "oldest_needs_review_age_hours": oldest_needs_review_age_hours,
         },
         "key_metrics": {
             "active_camps": active_camps,
             "active_seekers": active_seekers,
-            "match_attempts_total": len(matches),
+            "match_attempts_total": proposed_matches,
             "intro_sent_total": intros_sent,
             "conversation_started_total": conversation_started_total,
             "onboarded_total": onboarded_total,
@@ -946,6 +1146,17 @@ def _platform_breakdown(posts: list[Post]) -> list[dict[str, Any]]:
         pct = round((count / total_ingested) * 100, 1) if total_ingested else 0.0
         rows.append({"platform": platform, "count": count, "pct": pct})
     return rows
+
+
+def _platform_breakdown_from_rows(
+    rows: list[tuple[str, int]],
+    total_ingested: int,
+) -> list[dict[str, Any]]:
+    formatted: list[dict[str, Any]] = []
+    for platform, count in sorted(rows, key=lambda x: x[1], reverse=True):
+        pct = round((count / total_ingested) * 100, 1) if total_ingested else 0.0
+        formatted.append({"platform": platform, "count": count, "pct": pct})
+    return formatted
 
 
 def _build_live_feed(
