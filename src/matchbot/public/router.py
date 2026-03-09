@@ -417,6 +417,23 @@ _COMMUNITY_HTML = """
     </section>
 
     <section class="panel">
+      <h2 class="section-title">Alignment Snapshot</h2>
+      <p class="group-desc">How extracted camp and seeker signals line up across recent posts.</p>
+      <div class="grid2">
+      <div>
+        <h2 class="section-title">Skills</h2>
+        <p class="group-desc">Skills mentioned in camp posts and seeker posts.</p>
+        <div id="skills-paired"></div>
+      </div>
+      <div>
+        <h2 class="section-title">Vibes</h2>
+        <p class="group-desc">Vibes mentioned in camp posts and seeker posts.</p>
+        <div id="vibes-paired"></div>
+      </div>
+      </div>
+    </section>
+    
+    <section class="panel">
       <h2 class="section-title">Matched Drill-Down</h2>
       <div class="grid2" style="margin-bottom: 10px;">
         <label class="note">
@@ -446,24 +463,6 @@ _COMMUNITY_HTML = """
       <div class="grid4" id="matched-summary"></div>
       <div class="timeline" id="matched-list"></div>
     </section>
-
-    <section class="panel">
-      <h2 class="section-title">Alignment Snapshot</h2>
-      <p class="group-desc">How extracted camp and seeker signals line up across recent posts.</p>
-      <div class="grid2">
-      <div>
-        <h2 class="section-title">Skills</h2>
-        <p class="group-desc">Skills mentioned in camp posts and seeker posts.</p>
-        <div id="skills-paired"></div>
-      </div>
-      <div>
-        <h2 class="section-title">Vibes</h2>
-        <p class="group-desc">Vibes mentioned in camp posts and seeker posts.</p>
-        <div id="vibes-paired"></div>
-      </div>
-      </div>
-    </section>
-
     
     <section class="panel grid2">
       <div>
