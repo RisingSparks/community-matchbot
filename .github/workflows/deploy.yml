@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
+    env:
+      DEPLOY_PATH: /home/${{ secrets.DEPLOY_USER }}/burning-man-matchbot
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -29,7 +31,7 @@ jobs:
         run: |
           ssh -p "${{ secrets.DEPLOY_SSH_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" <<'EOF'
             set -euxo pipefail
-            DEPLOY_PATH="${{ vars.DEPLOY_PATH }}"
+            DEPLOY_PATH="${{ env.DEPLOY_PATH }}"
             PARENT_DIR="$(dirname "$DEPLOY_PATH")"
 
             whoami
@@ -54,13 +56,13 @@ jobs:
           rsync -az --delete \
             -e "ssh -p ${{ secrets.DEPLOY_SSH_PORT }}" \
             --exclude ".git" \
-            ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ vars.DEPLOY_PATH }}"
+            ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ env.DEPLOY_PATH }}"
 
       - name: Deploy on host
         run: |
           ssh -p "${{ secrets.DEPLOY_SSH_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" <<'EOF'
             set -euo pipefail
-            cd "${{ vars.DEPLOY_PATH }}"
+            cd "${{ env.DEPLOY_PATH }}"
             if [ -f docker-compose.yml ] || [ -f compose.yml ]; then
               docker compose pull
               docker compose up -d --remove-orphans
