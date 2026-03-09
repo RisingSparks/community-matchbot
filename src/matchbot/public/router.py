@@ -260,6 +260,13 @@ _COMMUNITY_HTML = """
       margin: 20px 0;
     }
     .group-desc { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+    .card-muted {
+      background: rgba(245, 240, 232, 0.5);
+      border-color: rgba(34, 32, 33, 0.07);
+      box-shadow: none;
+    }
+    .card-muted .kicker { color: #aaa; }
+    .card-muted .metric { font-size: 22px; color: var(--muted); font-weight: 500; }
     @media (max-width: 980px) {
       .grid4 { grid-template-columns: repeat(2, 1fr); }
       .grid3 { grid-template-columns: 1fr; }
@@ -288,7 +295,7 @@ _COMMUNITY_HTML = """
     <section class="panel">
       <h2 class="section-title">Who's in the Pool</h2>
       <p class="group-desc">Active indexed posts by role — the supply and demand the bot is working with right now.</p>
-      <div class="grid2" id="pool-metrics"></div>
+      <div class="grid3" id="pool-metrics"></div>
       <div class="metrics-divider"></div>
     </section>
 
@@ -417,6 +424,16 @@ _COMMUNITY_HTML = """
     function metricCard(label, value, note) {
       return `
         <article class="card">
+          <div class="kicker">${label}</div>
+          <div class="metric">${fmt(value)}</div>
+          <p class="note">${note}</p>
+        </article>
+      `;
+    }
+
+    function mutedCard(label, value, note) {
+      return `
+        <article class="card card-muted">
           <div class="kicker">${label}</div>
           <div class="metric">${fmt(value)}</div>
           <p class="note">${note}</p>
@@ -641,9 +658,10 @@ _COMMUNITY_HTML = """
       const m = data.key_metrics || {};
       const camps = m.active_camps || 0;
       const seekers = m.active_seekers || 0;
-      const poolTotal = camps + seekers;
-      const campPct = poolTotal > 0 ? Math.round((camps / poolTotal) * 100) : 0;
-      const seekerPct = poolTotal > 0 ? Math.round((seekers / poolTotal) * 100) : 0;
+      const unclassified = Math.max(0, analyzed - camps - seekers);
+      const campPct = analyzed > 0 ? Math.round((camps / analyzed) * 100) : 0;
+      const seekerPct = analyzed > 0 ? Math.round((seekers / analyzed) * 100) : 0;
+      const unclassifiedPct = analyzed > 0 ? Math.round((unclassified / analyzed) * 100) : 0;
       document.getElementById("pool-metrics").innerHTML = [
         metricCard(
           "Camps & Art Projects",
@@ -655,19 +673,11 @@ _COMMUNITY_HTML = """
           seekers,
           `${seekerPct}% of indexed posts — people looking to join or contribute`
         ),
-      ].join("");
-
-      const convStarted = m.conversation_started_total || 0;
-      const onboarded = m.onboarded_total || 0;
-      const introToConvNote = introduced === 0
-        ? "No intros sent yet — this fills in as the pilot matures"
-        : `${pct(m.intro_to_conversation_rate)} of intros led to a conversation`;
-      const convToOnboardNote = convStarted === 0
-        ? "No conversations tracked yet"
-        : `${pct(m.conversation_to_onboarding_rate)} of conversations led to an onboard`;
-      document.getElementById("outcome-metrics").innerHTML = [
-        metricCard("Conversations Started", convStarted, introToConvNote),
-        metricCard("Onboarded", onboarded, convToOnboardNote),
+        mutedCard(
+          "Role Unclear",
+          unclassified,
+          `${unclassifiedPct}% of indexed posts — for us to review`
+        ),
       ].join("");
 
       const feed = data.live_feed || [];
