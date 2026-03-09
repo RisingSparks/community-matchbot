@@ -12,35 +12,56 @@ vibes:
   - build_focused
   - theme_structured
   - theme_open
+  - interactive
+  - performance
+  - communal
+  - low_key
+  - late_night
+  - daytime
+  - service_oriented
+  - experimental
 
 contribution_types:
   - build
+  - fabrication
   - strike
-  - kitchen
+  - kitchen_food
   - art
-  - sound
-  - power_systems
+  - art_support
+  - sound_lighting
+  - dj
+  - power_systems_generator
   - medical
   - event_production
   - teaching
   - admin
   - logistics
-  - hosting
+  - transport
+  - software_tech
+  - wellness_support
   - infrastructure
 
 # Infrastructure / "Bitch n Swap" categories
 infrastructure_categories:
   - power          # generators, solar, distribution, batteries
+  - solar          # panels, charge controllers, solar kits
+  - battery        # battery banks, deep cycle batteries
+  - power_distribution  # distro boxes, cabling, adapters
   - shade          # shade structures, tarps, canopies, EMT
+  - shade_hardware # connectors, lag screws, ratchet straps
   - tools          # hand tools, power tools, hardware
   - kitchen        # stoves, gray water, coolers, food storage
+  - refrigeration  # fridges, freezers, ice support
   - transport      # vehicles, trailers, cargo hauling
+  - trailer        # cargo trailers, flatbeds
   - water          # tanks, pumps, filtration, gray water
+  - gray_water     # evap ponds, pumps, storage, plumbing
   - lighting       # LED strips, fixtures, dimmers, cabling
   - sound_gear     # speakers, amps, mixers, cables
   - storage        # bins, shelving, pallets
   - communication  # radios, cable runs, networking
   - safety         # first aid, fire extinguishers, safety gear
+  - fire_safety    # extinguishers, fire blankets, fuel safety
   - art_supplies   # materials, hardware, consumables for art
   - strike_support # labor for teardown only
 

@@ -65,7 +65,8 @@ class InfraRole:
 
 
 class SeekerIntent:
-    MEMBERSHIP = "membership"         # wants to join a camp as a member
+    JOIN_CAMP = "join_camp"           # wants to join a camp
+    JOIN_ART_PROJECT = "join_art_project"           # wants to join a art team
     SKILLS_LEARNING = "skills_learning"  # wants to learn a skill / find a mentor
     UNKNOWN = "unknown"               # seeker but intent unclear
 

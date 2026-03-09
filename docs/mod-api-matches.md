@@ -220,7 +220,7 @@ Embedded in match responses. Key fields:
 | `raw_text` | string \| null | Full post body |
 | `status` | string | Post status |
 | `role` | string | `seeker` or `camp` (`camp` currently means offer side, including camp/art project) |
-| `seeker_intent` | string \| null | `membership`, `skills_learning`, or `unknown` |
+| `seeker_intent` | string \| null | `join_art_project`, `join_camp`, `skills_learning`, or `unknown` |
 | `vibes` | string[] | Normalized vibe tags |
 | `contribution_types` | string[] | Normalized contribution tags |
 | `camp_name` | string \| null | Camp or project name if known |

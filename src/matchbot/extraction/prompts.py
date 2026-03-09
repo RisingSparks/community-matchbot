@@ -45,7 +45,7 @@ Output schema:
   "extraction_notes": string | null,
 
   "role": "seeker" | "camp" | "unknown",
-  "seeker_intent": "membership" | "skills_learning" | "unknown" | null,
+  "seeker_intent": "join_camp" | "join_art_project" | "skills_learning" | "unknown" | null,
   "camp_name": string | null,
   "camp_size_min": integer | null,
   "camp_size_max": integer | null,
@@ -75,7 +75,7 @@ Use *_other fields only when the post expresses a real concept that does not
 cleanly fit an allowed label.
 
 seeker_intent rules (only set when role == "seeker"):
-- "membership": person wants to join a camp as a regular member/volunteer
+- "join_team": person wants to join a camp or art team as a member/volunteer
 - "skills_learning": person wants to learn a skill, find a mentor, work on a
   specific project, or gain hands-on experience
 - "unknown": seeker intent is unclear

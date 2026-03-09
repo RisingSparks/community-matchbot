@@ -96,7 +96,7 @@ Full post detail including all extracted fields and event history.
   "contribution_types": ["sound", "art"],
   "camp_name": null,
   "year": 2025,
-  "seeker_intent": "membership",
+  "seeker_intent": "join_camp",
   "infra_role": null,
   "infra_categories": [],
   "quantity": null,
