@@ -12,7 +12,8 @@ from typing import Any
 
 from fastapi import APIRouter, Query
 from fastapi.responses import HTMLResponse
-from sqlalchemy import func, or_
+from sqlalchemy import and_, case, func, or_
+from sqlalchemy.orm import aliased
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -59,18 +60,6 @@ async def _run_with_db_retry[T](
             await asyncio.sleep(backoff_seconds)
 
     raise RuntimeError(f"Unreachable retry termination for operation {operation_name}.")
-
-
-async def _exec_in_isolated_session(
-    statement: Any,
-    *,
-    operation_name: str,
-) -> Any:
-    """Execute a read query in its own session so concurrent reads don't share one AsyncSession."""
-    return await _run_with_db_retry(
-        operation_name,
-        lambda session: session.exec(statement),
-    )
 
 
 _COMMUNITY_HTML = """
@@ -935,35 +924,29 @@ async def _build_matches_payload(
     if since is not None:
         where_clauses.append(Match.created_at >= since)
 
-    total_stmt = select(func.count()).select_from(Match)
     by_status_stmt = select(Match.status, func.count()).group_by(Match.status)
-    matches_stmt = select(Match).order_by(Match.created_at.desc()).limit(limit)
     if where_clauses:
-        total_stmt = total_stmt.where(*where_clauses)
         by_status_stmt = by_status_stmt.where(*where_clauses)
-        matches_stmt = matches_stmt.where(*where_clauses)
-
-    total = int((await session.exec(total_stmt)).one() or 0)
     by_status_rows = (await session.exec(by_status_stmt)).all()
     by_status = {status_name: count for status_name, count in by_status_rows}
-    matches = (await session.exec(matches_stmt)).all()
+    total = sum(count for _status_name, count in by_status_rows)
 
-    post_ids = {m.seeker_post_id for m in matches}
-    post_ids.update(m.camp_post_id for m in matches)
-    posts = (
-        (await session.exec(select(Post).where(Post.id.in_(post_ids))))
-        .all()
-        if post_ids
-        else []
+    seeker_post = aliased(Post)
+    camp_post = aliased(Post)
+    matches_stmt = (
+        select(Match, seeker_post, camp_post)
+        .join(seeker_post, Match.seeker_post_id == seeker_post.id)
+        .join(camp_post, Match.camp_post_id == camp_post.id)
+        .order_by(Match.created_at.desc())
+        .limit(limit)
     )
-    post_by_id = {post.id: post for post in posts}
+    if where_clauses:
+        matches_stmt = matches_stmt.where(*where_clauses)
+
+    match_rows = (await session.exec(matches_stmt)).all()
 
     rows: list[dict[str, Any]] = []
-    for match in matches:
-        seeker = post_by_id.get(match.seeker_post_id)
-        camp = post_by_id.get(match.camp_post_id)
-        if seeker is None or camp is None:
-            continue
+    for match, seeker, camp in match_rows:
         overlap = sorted(
             set(seeker.contribution_types_list()).intersection(camp.contribution_types_list())
         )
@@ -1013,136 +996,111 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
         MatchStatus.ONBOARDED,
     }
 
-    # Parallelize independent reads, but keep each query on its own session.
-    (
-        total_ingested_r,
-        indexed_count_r,
-        proposed_matches_r,
-        intros_sent_r,
-        ingested_7d_r,
-        indexed_7d_r,
-        matches_7d_r,
-        intros_7d_r,
-        needs_review_count_r,
-        oldest_needs_review_r,
-        platform_rows_r,
-        structured_count_r,
-        active_camps_r,
-        active_seekers_r,
-        soft_matches_total_r,
-        soft_matches_7d_r,
-        conversation_started_r,
-        onboarded_r,
-    ) = await asyncio.gather(
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Post),
-            operation_name="community_total_ingested",
-        ),
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Post).where(Post.status == PostStatus.INDEXED),
-            operation_name="community_indexed_count",
-        ),
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Match),
-            operation_name="community_proposed_matches",
-        ),
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Match).where(Match.status.in_(intro_terminal)),
-            operation_name="community_intros_sent",
-        ),
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Post).where(Post.detected_at >= seven_days_ago),
-            operation_name="community_ingested_7d",
-        ),
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Post).where(
-                Post.status == PostStatus.INDEXED,
-                Post.detected_at >= seven_days_ago,
-            ),
-            operation_name="community_indexed_7d",
-        ),
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Match).where(Match.created_at >= seven_days_ago),
-            operation_name="community_matches_7d",
-        ),
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Match).where(
-                Match.intro_sent_at.is_not(None),
-                Match.intro_sent_at >= seven_days_ago,
-            ),
-            operation_name="community_intros_7d",
-        ),
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Post).where(Post.status == PostStatus.NEEDS_REVIEW),
-            operation_name="community_needs_review_count",
-        ),
-        _exec_in_isolated_session(
-            select(func.min(Post.detected_at)).where(Post.status == PostStatus.NEEDS_REVIEW),
-            operation_name="community_oldest_needs_review",
-        ),
-        _exec_in_isolated_session(
-            select(Post.platform, func.count()).group_by(Post.platform),
-            operation_name="community_platform_rows",
-        ),
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Post).where(Post.status != PostStatus.RAW),
-            operation_name="community_structured_count",
-        ),
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Post).where(
-                Post.status == PostStatus.INDEXED,
-                Post.role == PostRole.CAMP,
-            ),
-            operation_name="community_active_camps",
-        ),
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Post).where(
-                Post.status == PostStatus.INDEXED,
-                Post.role == PostRole.SEEKER,
-            ),
-            operation_name="community_active_seekers",
-        ),
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Post).where(Post.extraction_method == "keyword_soft"),
-            operation_name="community_soft_matches_total",
-        ),
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Post).where(
-                Post.extraction_method == "keyword_soft",
-                Post.detected_at >= seven_days_ago,
-            ),
-            operation_name="community_soft_matches_7d",
-        ),
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Match).where(
-                Match.status.in_(conversation_terminal)
-            ),
-            operation_name="community_conversation_started",
-        ),
-        _exec_in_isolated_session(
-            select(func.count()).select_from(Match).where(Match.status == MatchStatus.ONBOARDED),
-            operation_name="community_onboarded",
-        ),
-    )
+    def _count_when(condition: Any) -> Any:
+        return func.coalesce(func.sum(case((condition, 1), else_=0)), 0)
 
-    total_ingested = int(total_ingested_r.one() or 0)
-    indexed_count = int(indexed_count_r.one() or 0)
-    proposed_matches = int(proposed_matches_r.one() or 0)
-    intros_sent = int(intros_sent_r.one() or 0)
-    ingested_7d = int(ingested_7d_r.one() or 0)
-    indexed_7d = int(indexed_7d_r.one() or 0)
-    matches_7d = int(matches_7d_r.one() or 0)
-    intros_7d = int(intros_7d_r.one() or 0)
-    needs_review_count = int(needs_review_count_r.one() or 0)
-    oldest_needs_review = oldest_needs_review_r.one()
-    platform_rows = platform_rows_r.all()
-    structured_count = int(structured_count_r.one() or 0)
-    active_camps = int(active_camps_r.one() or 0)
-    active_seekers = int(active_seekers_r.one() or 0)
-    soft_matches_total = int(soft_matches_total_r.one() or 0)
-    soft_matches_7d = int(soft_matches_7d_r.one() or 0)
-    conversation_started_total = int(conversation_started_r.one() or 0)
-    onboarded_total = int(onboarded_r.one() or 0)
+    (
+        total_ingested,
+        indexed_count,
+        ingested_7d,
+        indexed_7d,
+        needs_review_count,
+        oldest_needs_review,
+        structured_count,
+        active_camps,
+        active_seekers,
+        soft_matches_total,
+        soft_matches_7d,
+    ) = (
+        await session.exec(
+            select(
+                func.count().label("total_ingested"),
+                _count_when(Post.status == PostStatus.INDEXED).label("indexed_count"),
+                _count_when(Post.detected_at >= seven_days_ago).label("ingested_7d"),
+                _count_when(
+                    and_(
+                        Post.status == PostStatus.INDEXED,
+                        Post.detected_at >= seven_days_ago,
+                    )
+                ).label("indexed_7d"),
+                _count_when(Post.status == PostStatus.NEEDS_REVIEW).label("needs_review_count"),
+                func.min(
+                    case(
+                        (Post.status == PostStatus.NEEDS_REVIEW, Post.detected_at),
+                        else_=None,
+                    )
+                ).label("oldest_needs_review"),
+                _count_when(Post.status != PostStatus.RAW).label("structured_count"),
+                _count_when(
+                    and_(
+                        Post.status == PostStatus.INDEXED,
+                        Post.role == PostRole.CAMP,
+                    )
+                ).label("active_camps"),
+                _count_when(
+                    and_(
+                        Post.status == PostStatus.INDEXED,
+                        Post.role == PostRole.SEEKER,
+                    )
+                ).label("active_seekers"),
+                _count_when(Post.extraction_method == "keyword_soft").label("soft_matches_total"),
+                _count_when(
+                    and_(
+                        Post.extraction_method == "keyword_soft",
+                        Post.detected_at >= seven_days_ago,
+                    )
+                ).label("soft_matches_7d"),
+            )
+        )
+    ).one()
+
+    platform_rows = (
+        await session.exec(select(Post.platform, func.count()).group_by(Post.platform))
+    ).all()
+
+    (
+        proposed_matches,
+        intros_sent,
+        matches_7d,
+        intros_7d,
+        conversation_started_total,
+        onboarded_total,
+    ) = (
+        await session.exec(
+            select(
+                func.count().label("proposed_matches"),
+                _count_when(Match.status.in_(intro_terminal)).label("intros_sent"),
+                _count_when(Match.created_at >= seven_days_ago).label("matches_7d"),
+                _count_when(
+                    and_(
+                        Match.intro_sent_at.is_not(None),
+                        Match.intro_sent_at >= seven_days_ago,
+                    )
+                ).label("intros_7d"),
+                _count_when(Match.status.in_(conversation_terminal)).label(
+                    "conversation_started_total"
+                ),
+                _count_when(Match.status == MatchStatus.ONBOARDED).label("onboarded_total"),
+            )
+        )
+    ).one()
+
+    total_ingested = int(total_ingested or 0)
+    indexed_count = int(indexed_count or 0)
+    ingested_7d = int(ingested_7d or 0)
+    indexed_7d = int(indexed_7d or 0)
+    needs_review_count = int(needs_review_count or 0)
+    structured_count = int(structured_count or 0)
+    active_camps = int(active_camps or 0)
+    active_seekers = int(active_seekers or 0)
+    soft_matches_total = int(soft_matches_total or 0)
+    soft_matches_7d = int(soft_matches_7d or 0)
+    proposed_matches = int(proposed_matches or 0)
+    intros_sent = int(intros_sent or 0)
+    matches_7d = int(matches_7d or 0)
+    intros_7d = int(intros_7d or 0)
+    conversation_started_total = int(conversation_started_total or 0)
+    onboarded_total = int(onboarded_total or 0)
 
     platform_breakdown = _platform_breakdown_from_rows(platform_rows, total_ingested)
 

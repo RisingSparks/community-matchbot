@@ -9,6 +9,7 @@ from typing import Literal
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from matchbot.db.models import Event, Post, PostStatus
+from matchbot.db.profiles import sync_profile_from_post
 from matchbot.extraction.base import LLMExtractor
 from matchbot.extraction.keywords import keyword_filter
 from matchbot.log_config import log_exception
@@ -169,6 +170,9 @@ async def process_post(
         post.status = PostStatus.NEEDS_REVIEW
     else:
         post.status = PostStatus.INDEXED
+
+    if post.status == PostStatus.INDEXED:
+        await sync_profile_from_post(session, post)
 
     session.add(post)
     await _append_event(

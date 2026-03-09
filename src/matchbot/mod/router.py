@@ -16,6 +16,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from matchbot.db.models import Event, Match, MatchStatus, Post, PostStatus
+from matchbot.db.profiles import sync_profile_from_post
 from matchbot.lifecycle.status import InvalidTransitionError, transition
 from matchbot.matching.queue import get_match as _get_match
 from matchbot.matching.queue import get_queue as _get_match_queue
@@ -383,6 +384,7 @@ async def approve_post(
         raise HTTPException(409, f"Post status is {post.status!r}, expected needs_review")
     _apply_mod_overrides(post, body)
     post.status = PostStatus.INDEXED
+    await sync_profile_from_post(session, post)
     await _write_event(session, post, "post_approved", {"post_id": post_id}, note=body.note)
     await session.commit()
     await session.refresh(post)
@@ -435,6 +437,8 @@ async def edit_post(
     was_indexed = post.status == PostStatus.INDEXED
     role_before = post.role
     _apply_mod_overrides(post, body)
+    if post.status == PostStatus.INDEXED:
+        await sync_profile_from_post(session, post)
     await _write_event(
         session,
         post,
