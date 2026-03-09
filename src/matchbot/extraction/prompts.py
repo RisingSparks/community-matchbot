@@ -33,6 +33,17 @@ Rules:
 - Never invent information not in the post
 - Respond ONLY with valid JSON — no markdown, no explanation
 
+Role guidance for mentorship posts:
+- role="seeker": the author is a person looking to join a camp/art team, find a mentor,
+  learn, or contribute somewhere
+- role="camp": the author represents a camp, art project, or team recruiting people,
+  collaborators, builders, volunteers, or members
+- role="unknown": only use when the author's side is genuinely unclear
+- If a post says things like "we're looking for people", "join our camp", "we need builders",
+  or describes an existing camp/project recruiting contributors, classify as role="camp"
+- If a post says things like "I'm looking for a camp", "first burn, happy to help", or
+  "seeking a team to join", classify as role="seeker"
+
 Allowed vibes: {vibes}
 Allowed contribution_types: {contribution_types}
 Allowed infra_categories: {infra_categories}
@@ -104,6 +115,13 @@ Rules:
 - contact_method should describe how to contact, never personal contact details
 - Do not invent facts that are not in the post
 - Confidence should be below 0.5 when the post is vague or ambiguous
+
+Role guidance for mentorship posts:
+- role="seeker": the author is an individual seeking a camp, art team, mentor, or place to contribute
+- role="camp": the author represents a camp, art project, or team seeking people to join or help
+- role="unknown": only when the author's side is truly unclear
+- Posts saying "we're looking for people", "join our camp", "we need builders", or similar recruitment language should be role="camp"
+- Posts saying "I'm looking for a camp", "first burn and happy to help", or similar joiner language should be role="seeker"
 
 Allowed vibes: {vibes}
 Allowed contribution_types: {contribution_types}

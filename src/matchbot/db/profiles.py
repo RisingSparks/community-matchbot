@@ -20,6 +20,37 @@ def _supports_profile(post: Post) -> bool:
     )
 
 
+async def _refresh_author_profile_activity(
+    session: AsyncSession,
+    platform: str,
+    platform_author_id: str,
+) -> None:
+    """Mark profiles active only when they still back at least one indexed mentorship post."""
+    profiles = (
+        await session.exec(
+            select(Profile).where(
+                Profile.platform == platform,
+                Profile.platform_author_id == platform_author_id,
+            )
+        )
+    ).all()
+
+    for profile in profiles:
+        has_indexed_post = (
+            await session.exec(
+                select(Post.id)
+                .where(
+                    Post.profile_id == profile.id,
+                    Post.status == PostStatus.INDEXED,
+                    Post.post_type == PostType.MENTORSHIP,
+                )
+                .limit(1)
+            )
+        ).first() is not None
+        profile.is_active = has_indexed_post
+        session.add(profile)
+
+
 async def sync_profile_from_post(session: AsyncSession, post: Post) -> Profile | None:
     """
     Upsert the canonical profile row for an indexed mentorship post and attach it.
@@ -29,6 +60,7 @@ async def sync_profile_from_post(session: AsyncSession, post: Post) -> Profile |
     if not _supports_profile(post):
         post.profile_id = None
         session.add(post)
+        await _refresh_author_profile_activity(session, post.platform, post.platform_author_id)
         return None
 
     profile = None
@@ -80,4 +112,5 @@ async def sync_profile_from_post(session: AsyncSession, post: Post) -> Profile |
 
     post.profile_id = profile.id
     session.add(post)
+    await _refresh_author_profile_activity(session, post.platform, post.platform_author_id)
     return profile

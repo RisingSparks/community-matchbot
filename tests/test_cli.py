@@ -11,12 +11,12 @@ import asyncio
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import StaticPool
-from sqlmodel import SQLModel
+from sqlmodel import SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from typer.testing import CliRunner
 
@@ -360,6 +360,85 @@ def test_posts_show(cli_env, seeker_post_factory):
         result = runner.invoke(app, ["posts", "show", post.id])
     assert result.exit_code == 0, result.output
     assert post.title[:20] in result.output
+
+
+def test_posts_re_extract_many(cli_env):
+    session, factory, loop = cli_env
+
+    async def seed():
+        first = Post(
+            platform=Platform.REDDIT,
+            platform_post_id="batch_1",
+            platform_author_id="fearless_dp",
+            author_display_name="fearless_dp",
+            title="First recruiting post",
+            raw_text="We are building a camp and need people.",
+            status=PostStatus.INDEXED,
+            post_type=PostType.MENTORSHIP,
+            role="seeker",
+        )
+        second = Post(
+            platform=Platform.REDDIT,
+            platform_post_id="batch_2",
+            platform_author_id="fearless_dp",
+            author_display_name="fearless_dp",
+            title="Second recruiting post",
+            raw_text="Looking for more builders.",
+            status=PostStatus.INDEXED,
+            post_type=PostType.MENTORSHIP,
+            role="seeker",
+        )
+        session.add(first)
+        session.add(second)
+        await session.commit()
+
+    run_in(loop, seed())
+
+    async def fake_process_post(db_session, post, extractor):
+        post.status = PostStatus.INDEXED
+        post.role = "camp"
+        db_session.add(post)
+        await db_session.commit()
+        await db_session.refresh(post)
+        return post
+
+    extractor = MagicMock()
+    extractor.aclose = AsyncMock(return_value=None)
+
+    with (
+        patch("matchbot.cli._db.get_session", factory),
+        patch("matchbot.cli.cmd_posts._build_extractor", return_value=extractor),
+        patch("matchbot.extraction.process_post", side_effect=fake_process_post),
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "posts",
+                "re-extract-many",
+                "--author",
+                "fearless_dp",
+                "--role",
+                "seeker",
+                "--limit",
+                "10",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert "Re-analyzed 2 signal(s)." in result.output
+
+    async def check():
+        rows = (
+            await session.exec(
+                select(Post).where(Post.author_display_name == "fearless_dp").order_by(Post.platform_post_id)
+            )
+        ).all()
+        return [(row.status, row.role) for row in rows]
+
+    assert run_in(loop, check()) == [
+        (PostStatus.INDEXED, "camp"),
+        (PostStatus.INDEXED, "camp"),
+    ]
 
 
 # ---------------------------------------------------------------------------

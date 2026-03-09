@@ -86,7 +86,7 @@ _INFRA_OFFERING_PATTERNS = [
 @dataclass
 class KeywordResult:
     matched: bool
-    candidate_role: str          # PostRole value (mentorship path)
+    candidate_role: str          # PostRole value (kept for compatibility; mentorship defaults unknown)
     post_type: str = PostType.MENTORSHIP  # mentorship | infrastructure
     infra_role: str | None = None         # seeking | offering (infra path only)
     tier: str = "no_match"                # hard_match | soft_match | no_match
@@ -101,7 +101,7 @@ def keyword_filter(title: str, body: str) -> KeywordResult:
     Returns KeywordResult with:
     - matched=False if no patterns match (post should be SKIPPED)
     - post_type: mentorship | infrastructure
-    - For mentorship: candidate_role seeker | camp | unknown
+    - For mentorship: candidate_role is always unknown; the LLM owns seeker/camp classification
     - For infrastructure: infra_role seeking | offering
     """
     text = f"{title}\n{body}".lower()
@@ -144,7 +144,7 @@ def keyword_filter(title: str, body: str) -> KeywordResult:
     if seeker_match:
         return KeywordResult(
             matched=True,
-            candidate_role=PostRole.SEEKER,
+            candidate_role=PostRole.UNKNOWN,
             tier="hard_match",
             score=100,
             reasons=("seeker_regex",),
@@ -153,17 +153,17 @@ def keyword_filter(title: str, body: str) -> KeywordResult:
     if camp_match:
         return KeywordResult(
             matched=True,
-            candidate_role=PostRole.CAMP,
+            candidate_role=PostRole.UNKNOWN,
             tier="hard_match",
             score=100,
             reasons=("camp_regex",),
         )
 
-    score, role, reasons = _score_mentorship_signals(text)
+    score, reasons = _score_mentorship_signals(text)
     if score >= 5:
         return KeywordResult(
             matched=True,
-            candidate_role=role,
+            candidate_role=PostRole.UNKNOWN,
             tier="hard_match",
             score=score,
             reasons=tuple(reasons),
@@ -171,7 +171,7 @@ def keyword_filter(title: str, body: str) -> KeywordResult:
     if score >= 3:
         return KeywordResult(
             matched=False,
-            candidate_role=role,
+            candidate_role=PostRole.UNKNOWN,
             tier="soft_match",
             score=score,
             reasons=tuple(reasons),
@@ -264,7 +264,7 @@ _TARGET_OBJECT_PATTERNS: dict[str, list[str]] = {
 }
 
 
-def _score_mentorship_signals(text: str) -> tuple[int, str, list[str]]:
+def _score_mentorship_signals(text: str) -> tuple[int, list[str]]:
     score = 0
     reasons: list[str] = []
 
@@ -320,19 +320,7 @@ def _score_mentorship_signals(text: str) -> tuple[int, str, list[str]]:
         score -= 2
         reasons.append("negative_context")
 
-    role = PostRole.UNKNOWN
-    if "object_supply_proximity" in reasons:
-        role = PostRole.CAMP
-    elif any(reason in reasons for reason in (
-        "object_join_proximity",
-        "object_contribution_proximity",
-        "object_experience",
-        "object_preference",
-        "experience_contribution",
-    )):
-        role = PostRole.SEEKER
-
-    return max(score, 0), role, reasons
+    return max(score, 0), reasons
 
 
 def _has_proximity(

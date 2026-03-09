@@ -8,7 +8,7 @@ from typing import Literal
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from matchbot.db.models import Event, Post, PostStatus
+from matchbot.db.models import Event, Post, PostStatus, PostType
 from matchbot.db.profiles import sync_profile_from_post
 from matchbot.extraction.base import LLMExtractor
 from matchbot.extraction.keywords import keyword_filter
@@ -62,36 +62,34 @@ async def process_post(
         return post
 
     if kw_result.tier == "soft_match":
-        post.status = PostStatus.NEEDS_REVIEW
-        post.post_type = kw_result.post_type
-        if kw_result.infra_role is not None:
-            post.infra_role = kw_result.infra_role
-        post.role = kw_result.candidate_role
-        post.extraction_method = "keyword_soft"
-        session.add(post)
-        await _append_event(
-            session,
-            post,
-            "post_soft_matched",
-            {
-                "score": kw_result.score,
-                "reasons": list(kw_result.reasons),
-                "post_type": post.post_type,
-                "role": post.role,
-                "infra_role": post.infra_role,
-            },
-        )
-        await session.commit()
-        await session.refresh(post)
-        return post
+        if kw_result.post_type != PostType.MENTORSHIP:
+            post.status = PostStatus.NEEDS_REVIEW
+            post.post_type = kw_result.post_type
+            if kw_result.infra_role is not None:
+                post.infra_role = kw_result.infra_role
+            post.role = kw_result.candidate_role
+            post.extraction_method = "keyword_soft"
+            session.add(post)
+            await _append_event(
+                session,
+                post,
+                "post_soft_matched",
+                {
+                    "score": kw_result.score,
+                    "reasons": list(kw_result.reasons),
+                    "post_type": post.post_type,
+                    "role": post.role,
+                    "infra_role": post.infra_role,
+                },
+            )
+            await session.commit()
+            await session.refresh(post)
+            return post
 
     # Seed post_type and infra_role from keyword filter hints
     post.post_type = kw_result.post_type
     if kw_result.infra_role is not None:
         post.infra_role = kw_result.infra_role
-
-    # Use keyword role hint if LLM later can't determine
-    keyword_role_hint = kw_result.candidate_role
 
     # --- 3. LLM extraction ---
     try:
@@ -132,11 +130,7 @@ async def process_post(
     post.post_type = extracted.post_type
 
     # Mentorship fields
-    post.role = (
-        keyword_role_hint or extracted.role
-        if extracted.role == "unknown"
-        else extracted.role
-    )
+    post.role = extracted.role
     post.seeker_intent = extracted.seeker_intent
     post.vibes = _join_pipe(valid_vibes)
     post.vibes_other = _join_pipe(vibe_other)

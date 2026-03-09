@@ -20,6 +20,15 @@ app = typer.Typer(help="Browse and manage community signals")
 console = Console()
 
 
+def _build_extractor():
+    from matchbot.extraction.anthropic_extractor import AnthropicExtractor
+    from matchbot.extraction.openai_extractor import OpenAIExtractor
+    from matchbot.settings import get_settings
+
+    settings = get_settings()
+    return AnthropicExtractor() if settings.llm_provider == "anthropic" else OpenAIExtractor()
+
+
 @app.command("list")
 def posts_list(
     role: Annotated[str | None, typer.Option("--role", help="seeker|camp")] = None,
@@ -124,16 +133,8 @@ def posts_re_extract(post_id: str) -> None:
             raise typer.Exit(1)
 
         from matchbot.extraction import process_post
-        from matchbot.extraction.anthropic_extractor import AnthropicExtractor
-        from matchbot.extraction.openai_extractor import OpenAIExtractor
-        from matchbot.settings import get_settings
 
-        settings = get_settings()
-        extractor = (
-            AnthropicExtractor()
-            if settings.llm_provider == "anthropic"
-            else OpenAIExtractor()
-        )
+        extractor = _build_extractor()
 
         post.status = PostStatus.RAW  # reset to re-process
         session.add(post)
@@ -144,6 +145,63 @@ def posts_re_extract(post_id: str) -> None:
         finally:
             await extractor.aclose()
         rprint(f"[green]Re-analyzed signal {post_id[:8]}: status={updated.status}[/green]")
+
+    with_session(_run)
+
+
+@app.command("re-extract-many")
+def posts_re_extract_many(
+    role: Annotated[str | None, typer.Option("--role", help="Filter by current role")] = None,
+    platform: Annotated[str | None, typer.Option("--platform")] = None,
+    status: Annotated[str, typer.Option("--status")] = PostStatus.INDEXED,
+    post_type: Annotated[str, typer.Option("--type", help="mentorship|infrastructure")] = PostType.MENTORSHIP,
+    author: Annotated[str | None, typer.Option("--author", help="Filter by author_display_name")] = None,
+    limit: Annotated[int, typer.Option("--limit")] = 50,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show matching posts without re-extracting")] = False,
+) -> None:
+    """Re-analyze a filtered batch of signals."""
+
+    async def _run(session):
+        q = (
+            select(Post)
+            .where(Post.status == status, Post.post_type == post_type)
+            .order_by(Post.detected_at.desc())
+            .limit(limit)
+        )
+        if role:
+            q = q.where(Post.role == role)
+        if platform:
+            q = q.where(Post.platform == platform)
+        if author:
+            q = q.where(Post.author_display_name == author)
+
+        posts = (await session.exec(q)).all()
+        if not posts:
+            rprint("[yellow]No signals matched the re-extract filter.[/yellow]")
+            return
+
+        if dry_run:
+            rprint(f"[cyan]Would re-extract {len(posts)} signal(s):[/cyan]")
+            for post in posts:
+                rprint(f"  {post.id[:8]}  {post.platform}  {post.role or '?'}  {post.title[:80]}")
+            return
+
+        from matchbot.extraction import process_post
+
+        extractor = _build_extractor()
+        updated = 0
+        try:
+            for post in posts:
+                post.status = PostStatus.RAW
+                session.add(post)
+                await session.commit()
+                await session.refresh(post)
+                await process_post(session, post, extractor)
+                updated += 1
+        finally:
+            await extractor.aclose()
+
+        rprint(f"[green]Re-analyzed {updated} signal(s).[/green]")
 
     with_session(_run)
 

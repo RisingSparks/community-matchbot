@@ -83,7 +83,7 @@ async def test_process_post_keyword_no_match_skips(db_session, mock_extractor):
 
 
 @pytest.mark.asyncio
-async def test_process_post_soft_match_goes_to_needs_review_without_llm(db_session, mock_extractor):
+async def test_process_post_soft_match_mentorship_continues_to_llm(db_session, mock_extractor):
     post = Post(
         platform=Platform.REDDIT,
         platform_post_id="soft001",
@@ -95,12 +95,57 @@ async def test_process_post_soft_match_goes_to_needs_review_without_llm(db_sessi
     await db_session.commit()
     await db_session.refresh(post)
 
+    mock_extractor.extract.return_value = ExtractedPost(
+        role="seeker",
+        contribution_types=["build"],
+        confidence=0.9,
+    )
+
     result = await process_post(db_session, post, mock_extractor)
 
-    assert result.status == PostStatus.NEEDS_REVIEW
+    assert result.status == PostStatus.INDEXED
     assert result.role == PostRole.SEEKER
-    assert result.extraction_method == "keyword_soft"
-    mock_extractor.extract.assert_not_called()
+    assert result.extraction_method == "llm_anthropic"
+    mock_extractor.extract.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_process_post_uses_llm_role_for_camp_recruiting_post(db_session, mock_extractor):
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="camp001",
+        platform_author_id="fearless_dp",
+        author_display_name="fearless_dp",
+        title="Looking for people to wear lab coats and make strangers fill out fake paperwork in the desert",
+        raw_text=(
+            "Something is being built in garages around the Bay Area. "
+            "The Cognitive Research Institute is a new interactive camp coming to Black Rock City "
+            "in 2026, and we're looking for a few more people who want to build it with us."
+        ),
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        role="camp",
+        camp_name="Cognitive Research Institute",
+        vibes=["interactive", "build_focused"],
+        contribution_types=["build"],
+        year=2026,
+        contact_method="Website contact",
+        confidence=1.0,
+    )
+
+    result = await process_post(db_session, post, mock_extractor)
+
+    assert result.role == PostRole.CAMP
+    assert result.status in {PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}
+    if result.profile_id is not None:
+        profile = await db_session.get(Profile, result.profile_id)
+        assert profile is not None
+        assert profile.role == PostRole.CAMP
 
 
 @pytest.mark.asyncio
@@ -196,6 +241,53 @@ async def test_process_post_reuses_existing_profile_for_same_author_and_role(
     assert first.profile_id == second.profile_id == profiles[0].id
     assert profiles[0].display_name == "Updated Name"
     assert profiles[0].contribution_types == "kitchen_food"
+
+
+@pytest.mark.asyncio
+async def test_process_post_deactivates_orphaned_profile_on_role_change(db_session, mock_extractor):
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="role_flip",
+        platform_author_id="same_author",
+        author_display_name="Updated Name",
+        title="Seeking camp for Burning Man 2025",
+        raw_text="I can help with build.",
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        role="seeker",
+        contribution_types=["build"],
+        confidence=0.95,
+    )
+    post = await process_post(db_session, post, mock_extractor)
+    seeker_profile_id = post.profile_id
+
+    post.status = PostStatus.RAW
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        role="camp",
+        camp_name="Cognitive Research Institute",
+        contribution_types=["build"],
+        confidence=0.95,
+    )
+    post = await process_post(db_session, post, mock_extractor)
+    camp_profile_id = post.profile_id
+
+    seeker_profile = await db_session.get(Profile, seeker_profile_id)
+    camp_profile = await db_session.get(Profile, camp_profile_id)
+
+    assert seeker_profile is not None
+    assert camp_profile is not None
+    assert seeker_profile.id != camp_profile.id
+    assert seeker_profile.is_active is False
+    assert camp_profile.is_active is True
 
 
 @pytest.mark.asyncio
@@ -327,7 +419,7 @@ async def test_process_post_preserves_unmapped_terms_and_routes_to_review(
 
 
 @pytest.mark.asyncio
-async def test_process_post_uses_keyword_role_when_llm_returns_unknown(db_session, mock_extractor):
+async def test_process_post_preserves_unknown_role_when_llm_returns_unknown(db_session, mock_extractor):
     post = Post(
         platform=Platform.REDDIT,
         platform_post_id="role001",
@@ -347,7 +439,7 @@ async def test_process_post_uses_keyword_role_when_llm_returns_unknown(db_sessio
 
     result = await process_post(db_session, post, mock_extractor)
 
-    assert result.role == PostRole.SEEKER
+    assert result.role == PostRole.UNKNOWN
 
 
 @pytest.mark.asyncio
