@@ -361,7 +361,10 @@ _COMMUNITY_HTML = """
       <div class="timeline" id="matched-list"></div>
     </section>
 
-    <section class="panel grid2">
+    <section class="panel">
+      <h2 class="section-title">Alignment Snapshot</h2>
+      <p class="group-desc">How camp needs line up with what seekers hope to contribute.</p>
+      <div class="grid2">
       <div>
         <h2 class="section-title">Skills</h2>
         <p class="group-desc">What camps need vs. what seekers offer.</p>
@@ -371,6 +374,7 @@ _COMMUNITY_HTML = """
         <h2 class="section-title">Vibes</h2>
         <p class="group-desc">What camps need and what seekers hope to contribute.</p>
         <div id="vibes-paired"></div>
+      </div>
       </div>
     </section>
 
