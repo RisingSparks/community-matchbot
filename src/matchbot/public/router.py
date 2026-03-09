@@ -290,9 +290,6 @@ _COMMUNITY_HTML = """
       <p class="group-desc">Active indexed posts by role — the supply and demand the bot is working with right now.</p>
       <div class="grid2" id="pool-metrics"></div>
       <div class="metrics-divider"></div>
-      <h2 class="section-title">How Far Connections Get</h2>
-      <p class="group-desc">Once a moderator sends an intro, what typically happens next. This fills in as the pilot matures.</p>
-      <div class="grid2" id="outcome-metrics"></div>
     </section>
 
     <section class="panel">
