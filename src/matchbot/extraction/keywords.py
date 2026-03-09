@@ -15,7 +15,7 @@ _SEEKER_PATTERNS = [
     r"\bseeking\s+(?:a\s+)?camp\b",
     r"\blooking\s+for\s+(?:a\s+)?camp\b",
     r"\bneed(?:ing)?\s+(?:a\s+)?camp\b",
-    r"\bwant(?:ing)?\s+(?:to\s+)?(?:join|find)\s+(?:a\s+)?camp\b",
+    r"\bwant(?:ing)?\s+(?:to\s+)?(?:join|find)\s+(?:\w+\s+)?camp\b",
     r"\bbirgin\b",
     r"\bfirst[\s.\-]?time[r]?\b",
     r"\bfirst\s+burn\b",
