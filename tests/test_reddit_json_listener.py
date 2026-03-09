@@ -4,6 +4,7 @@ import asyncio
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
 from sqlalchemy.exc import ProgrammingError
 from sqlmodel import select
@@ -273,17 +274,75 @@ async def test_poll_reddit_json_once_retries_old_reddit_after_403(
 
     client = AsyncMock()
     client.get = AsyncMock(side_effect=[blocked_response, ok_response])
+    sleep = AsyncMock()
+    monkeypatch.setattr(reddit_json.asyncio, "sleep", sleep)
 
     counts = await reddit_json.poll_reddit_json_once(client=client)
 
     assert counts["fetched"] == 0
     assert client.get.await_count == 2
+    sleep.assert_awaited_once_with(reddit_json._REDDIT_BLOCK_RETRY_DELAY_SECONDS)
     first_call = client.get.await_args_list[0]
     second_call = client.get.await_args_list[1]
     assert first_call.args[0] == "https://www.reddit.com/r/BurningMan/new.json"
     assert second_call.args[0] == "https://old.reddit.com/r/BurningMan/new.json"
 
     engine_module._engine = None
+
+
+@pytest.mark.asyncio
+async def test_fetch_reddit_json_page_retries_old_reddit_after_429_with_retry_after(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    blocked_response = MagicMock()
+    blocked_response.status_code = 429
+    blocked_response.headers = {"Retry-After": "12.5"}
+
+    ok_response = MagicMock()
+    ok_response.status_code = 200
+    ok_response.headers = {}
+    ok_response.raise_for_status.return_value = None
+    ok_response.json.return_value = {"data": {"children": []}}
+
+    client = AsyncMock()
+    client.get = AsyncMock(side_effect=[blocked_response, ok_response])
+    sleep = AsyncMock()
+    monkeypatch.setattr(reddit_json.asyncio, "sleep", sleep)
+
+    payload = await reddit_json._fetch_reddit_json_page(client, limit=25)
+
+    assert payload == {"data": {"children": []}}
+    sleep.assert_awaited_once_with(12.5)
+    assert client.get.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_fetch_reddit_json_page_raises_when_primary_and_fallback_are_blocked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    blocked_primary = MagicMock()
+    blocked_primary.status_code = 403
+    blocked_primary.headers = {}
+
+    blocked_fallback = MagicMock()
+    blocked_fallback.status_code = 429
+    blocked_fallback.headers = {"Retry-After": "45"}
+    blocked_fallback.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "blocked",
+        request=MagicMock(),
+        response=blocked_fallback,
+    )
+
+    client = AsyncMock()
+    client.get = AsyncMock(side_effect=[blocked_primary, blocked_fallback])
+    sleep = AsyncMock()
+    monkeypatch.setattr(reddit_json.asyncio, "sleep", sleep)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        await reddit_json._fetch_reddit_json_page(client, limit=25)
+
+    sleep.assert_awaited_once_with(reddit_json._REDDIT_BLOCK_RETRY_DELAY_SECONDS)
+    assert client.get.await_count == 2
 
 
 @pytest.mark.asyncio

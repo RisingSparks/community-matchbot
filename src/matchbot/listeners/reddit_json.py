@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 _REDDIT_NEW_URL = "https://www.reddit.com/r/BurningMan/new.json"
 _REDDIT_NEW_URL_FALLBACK = "https://old.reddit.com/r/BurningMan/new.json"
 _REDDIT_COMMUNITY = "BurningMan"
+_REDDIT_BLOCK_RETRY_DELAY_SECONDS = 30.0
 _IngestOutcome = Literal[
     "ignored",
     "deduped",
@@ -115,6 +116,20 @@ def _new_counts() -> dict[str, int]:
     }
 
 
+def _is_block_status(status_code: int) -> bool:
+    return status_code in {403, 429}
+
+
+def _retry_delay_seconds(response: httpx.Response) -> float:
+    retry_after = response.headers.get("Retry-After")
+    if isinstance(retry_after, (str, int, float)) and retry_after != "":
+        try:
+            return max(0.0, float(retry_after))
+        except ValueError:
+            pass
+    return _REDDIT_BLOCK_RETRY_DELAY_SECONDS
+
+
 async def _fetch_reddit_json_page(
     client: httpx.AsyncClient,
     *,
@@ -126,17 +141,33 @@ async def _fetch_reddit_json_page(
         params["after"] = after
 
     response = await client.get(_REDDIT_NEW_URL, params=params)
-    if response.status_code == 403:
+    if _is_block_status(response.status_code):
+        delay = _retry_delay_seconds(response)
         logger.warning(
             (
-                "Reddit JSON endpoint blocked request from %s; "
-                "retrying via fallback endpoint. "
+                "Reddit JSON endpoint returned %s from %s; "
+                "sleeping %.1fs before retrying via fallback endpoint. "
                 "Set REDDIT_JSON_USER_AGENT to a descriptive value "
                 "(e.g. 'matchbot/0.1 by u/<username>')."
             ),
+            response.status_code,
             _REDDIT_NEW_URL,
+            delay,
         )
+        await asyncio.sleep(delay)
         response = await client.get(_REDDIT_NEW_URL_FALLBACK, params=params)
+        if _is_block_status(response.status_code):
+            delay = _retry_delay_seconds(response)
+            logger.warning(
+                (
+                    "Reddit fallback JSON endpoint returned %s from %s; "
+                    "treating this poll as blocked so outer backoff can engage. "
+                    "Suggested retry delay: %.1fs."
+                ),
+                response.status_code,
+                _REDDIT_NEW_URL_FALLBACK,
+                delay,
+            )
 
     response.raise_for_status()
     return response.json()
