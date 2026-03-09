@@ -25,6 +25,30 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -p "${{ secrets.DEPLOY_SSH_PORT }}" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
+      - name: Verify remote deploy path access
+        run: |
+          ssh -p "${{ secrets.DEPLOY_SSH_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" <<'EOF'
+            set -euxo pipefail
+            DEPLOY_PATH="${{ vars.DEPLOY_PATH }}"
+            PARENT_DIR="$(dirname "$DEPLOY_PATH")"
+
+            whoami
+            id
+            pwd
+            echo "DEPLOY_PATH=$DEPLOY_PATH"
+            echo "PARENT_DIR=$PARENT_DIR"
+
+            ls -ld "$PARENT_DIR"
+            if [ -e "$DEPLOY_PATH" ]; then
+              ls -ld "$DEPLOY_PATH"
+            else
+              echo "Deploy path does not exist yet."
+            fi
+
+            mkdir -p "$DEPLOY_PATH"
+            test -w "$DEPLOY_PATH"
+          EOF
+
       - name: Sync repository
         run: |
           rsync -az --delete \
