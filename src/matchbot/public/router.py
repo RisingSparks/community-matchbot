@@ -676,7 +676,7 @@ _COMMUNITY_HTML = """
         mutedCard(
           "Role Unclear",
           unclassified,
-          `${unclassifiedPct}% of indexed posts — for us to review`
+          `${unclassifiedPct}% of indexed posts - LLM tried but failed to categorize — for us to review`
         ),
       ].join("");
 
