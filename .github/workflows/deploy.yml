@@ -63,9 +63,12 @@ jobs:
           ssh -p "${{ secrets.DEPLOY_SSH_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" <<'EOF'
             set -euo pipefail
             cd "${{ env.DEPLOY_PATH }}"
+            if [ ! -f .env ]; then
+              echo "Missing ${PWD}/.env on remote host."
+              exit 1
+            fi
             if [ -f docker-compose.yml ] || [ -f compose.yml ]; then
-              docker compose pull
-              docker compose up -d --remove-orphans
+              docker compose up -d --build --remove-orphans
             else
               echo "No docker compose file found; provide project-specific deploy command."
               exit 1
