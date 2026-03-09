@@ -13,6 +13,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from matchbot.db.models import Platform, Post, PostRole, PostStatus, PostType
 from matchbot.extraction.schemas import ExtractedPost
+from matchbot.public.router import clear_community_cache
 from matchbot.settings import get_settings
 
 # ---------------------------------------------------------------------------
@@ -27,8 +28,10 @@ def reset_settings(monkeypatch: pytest.MonkeyPatch):
     environment or monkeypatched values across tests."""
     monkeypatch.setenv("VERBOSE", "false")
     get_settings.cache_clear()
+    clear_community_cache()
     yield
     get_settings.cache_clear()
+    clear_community_cache()
 
 
 # ---------------------------------------------------------------------------

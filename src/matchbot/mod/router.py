@@ -11,6 +11,7 @@ from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, field_validator
+from sqlalchemy import func
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -485,34 +486,56 @@ async def get_stats(
     now = datetime.now(UTC)
     today_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
 
-    # Count NEEDS_REVIEW posts
-    nr_posts = (
-        await session.exec(select(Post).where(Post.status == PostStatus.NEEDS_REVIEW))
-    ).all()
-    needs_review_count = len(nr_posts)
+    # Count NEEDS_REVIEW posts and find oldest — SQL aggregates, no row fetching
+    needs_review_count = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Post)
+                .where(Post.status == PostStatus.NEEDS_REVIEW)
+            )
+        ).one()
+        or 0
+    )
+    oldest_detected = (
+        await session.exec(
+            select(func.min(Post.detected_at)).where(Post.status == PostStatus.NEEDS_REVIEW)
+        )
+    ).one()
 
-    # Age of the oldest NEEDS_REVIEW post
     oldest_age_hours = None
-    if nr_posts:
-        oldest = min(nr_posts, key=lambda p: p.detected_at)
-        detected = oldest.detected_at
+    if oldest_detected is not None:
+        detected = oldest_detected
         if detected.tzinfo is None:
             detected = detected.replace(tzinfo=UTC)
         oldest_age_hours = round((now - detected).total_seconds() / 3600, 1)
 
-    # Daily approved / dismissed event counts
-    all_events = (await session.exec(select(Event))).all()
-    approved_today = sum(
-        1
-        for e in all_events
-        if e.event_type == "post_approved"
-        and e.occurred_at.replace(tzinfo=None) >= today_midnight
+    # Daily approved / dismissed event counts — filtered in SQL, not Python
+    approved_today = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Event)
+                .where(
+                    Event.event_type == "post_approved",
+                    Event.occurred_at >= today_midnight,
+                )
+            )
+        ).one()
+        or 0
     )
-    dismissed_today = sum(
-        1
-        for e in all_events
-        if e.event_type == "post_dismissed"
-        and e.occurred_at.replace(tzinfo=None) >= today_midnight
+    dismissed_today = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Event)
+                .where(
+                    Event.event_type == "post_dismissed",
+                    Event.occurred_at >= today_midnight,
+                )
+            )
+        ).one()
+        or 0
     )
 
     return {

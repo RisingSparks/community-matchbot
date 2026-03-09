@@ -45,9 +45,8 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert response.status_code == 200
         assert "Rising Sparks" in response.text
         assert "Live Activity" in response.text
-        assert "Most Requested Skills" in response.text
-        assert "Most Sought Skills" in response.text
-        assert "Most Sought Vibes" in response.text
+        assert "Skills" in response.text
+        assert "Vibes" in response.text
         assert "Matched Drill-Down" in response.text
     finally:
         _reset_engine()

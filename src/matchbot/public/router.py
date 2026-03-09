@@ -23,6 +23,14 @@ router = APIRouter(prefix="/community", tags=["community"])
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
+_community_cache: dict = {}
+_CACHE_TTL = 30.0  # seconds
+
+
+def clear_community_cache() -> None:
+    """Evict the in-process community payload cache (used in tests)."""
+    _community_cache.clear()
+
 
 async def _run_with_db_retry(
     operation_name: str,
@@ -260,6 +268,18 @@ _COMMUNITY_HTML = """
       margin: 20px 0;
     }
     .group-desc { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+    .paired-row { margin-bottom: 16px; }
+    .paired-label { font-size: 13px; font-weight: 600; margin-bottom: 5px; text-transform: capitalize; }
+    .paired-bar-group {
+      display: grid;
+      grid-template-columns: 88px 1fr 28px;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .paired-bar-label { font-size: 11px; color: var(--muted); }
+    .bar-demand { background: linear-gradient(90deg, #2d5b4f, #4a8677); }
+    .bar-supply { background: linear-gradient(90deg, #c5681b, #e8a04a); }
     .card-muted {
       background: rgba(245, 240, 232, 0.5);
       border-color: rgba(34, 32, 33, 0.07);
@@ -332,23 +352,14 @@ _COMMUNITY_HTML = """
 
     <section class="panel grid2">
       <div>
-        <h2 class="section-title">Most Requested Skills</h2>
-        <div class="bars" id="demand-contrib"></div>
+        <h2 class="section-title">Skills</h2>
+        <p class="group-desc">What camps need vs. what seekers offer.</p>
+        <div id="skills-paired"></div>
       </div>
       <div>
-        <h2 class="section-title">Most Requested Vibes</h2>
-        <div class="bars" id="demand-vibes"></div>
-      </div>
-    </section>
-
-    <section class="panel grid2">
-      <div>
-        <h2 class="section-title">Most Sought Skills</h2>
-        <div class="bars" id="demand-sought-skills"></div>
-      </div>
-      <div>
-        <h2 class="section-title">Most Sought Vibes</h2>
-        <div class="bars" id="demand-sought-vibes"></div>
+        <h2 class="section-title">Vibes</h2>
+        <p class="group-desc">What camps are looking for vs. what seekers bring.</p>
+        <div id="vibes-paired"></div>
       </div>
     </section>
 
@@ -592,31 +603,36 @@ _COMMUNITY_HTML = """
       el.innerHTML = rows.map((r) => barRow(r.name || r.platform, r.count, max)).join("");
     }
 
-    function orderBookRow(item, maxDemand) {
+    function pairedRow(item, maxVal) {
       const demand = item.demand_count || 0;
       const supply = item.supply_count || 0;
-      const gap = item.net_gap || 0;
-      const fill = item.fill_ratio == null ? 0 : item.fill_ratio;
-      const w = maxDemand > 0 ? Math.max(4, Math.round((demand / maxDemand) * 100)) : 0;
+      const dw = maxVal > 0 ? Math.max(demand > 0 ? 4 : 0, Math.round((demand / maxVal) * 100)) : 0;
+      const sw = maxVal > 0 ? Math.max(supply > 0 ? 4 : 0, Math.round((supply / maxVal) * 100)) : 0;
       return `
-        <div class="bar-row">
-          <div class="bar-label">${item.name || "unknown"}</div>
-          <div class="bar-track">
-            <div class="bar-fill" style="width:${w}%"></div>
+        <div class="paired-row">
+          <div class="paired-label">${(item.name || "unknown").replace(/_/g, " ")}</div>
+          <div class="paired-bar-group">
+            <div class="paired-bar-label">Camps need</div>
+            <div class="bar-track"><div class="bar-fill bar-demand" style="width:${dw}%"></div></div>
+            <div class="bar-value">${fmt(demand)}</div>
           </div>
-          <div class="bar-value">D${fmt(demand)} S${fmt(supply)} G${fmt(gap)} (${pct(fill)})</div>
+          <div class="paired-bar-group">
+            <div class="paired-bar-label">Seekers offer</div>
+            <div class="bar-track"><div class="bar-fill bar-supply" style="width:${sw}%"></div></div>
+            <div class="bar-value">${fmt(supply)}</div>
+          </div>
         </div>
       `;
     }
 
-    function renderOrderBook(elId, rows) {
+    function renderPaired(elId, rows) {
       const el = document.getElementById(elId);
       if (!rows || !rows.length) {
         el.innerHTML = `<p class="note">No data yet.</p>`;
         return;
       }
-      const maxDemand = Math.max(...rows.map((r) => r.demand_count || 0));
-      el.innerHTML = rows.map((r) => orderBookRow(r, maxDemand)).join("");
+      const maxVal = Math.max(...rows.map((r) => Math.max(r.demand_count || 0, r.supply_count || 0)));
+      el.innerHTML = rows.map((r) => pairedRow(r, maxVal)).join("");
     }
 
     async function load() {
@@ -689,16 +705,8 @@ _COMMUNITY_HTML = """
         : `<tr><td colspan="6" class="note">No recent activity in the last 7 days.</td></tr>`;
 
       renderBars("platform-breakdown", data.platform_breakdown || []);
-      renderBars("demand-contrib", (data.demand && data.demand.top_contribution_types) || []);
-      renderBars("demand-vibes", (data.demand && data.demand.top_vibes) || []);
-      renderOrderBook(
-        "demand-sought-skills",
-        (data.demand && data.demand.most_sought_skills) || []
-      );
-      renderOrderBook(
-        "demand-sought-vibes",
-        (data.demand && data.demand.most_sought_vibes) || []
-      );
+      renderPaired("skills-paired", (data.demand && data.demand.most_sought_skills) || []);
+      renderPaired("vibes-paired", (data.demand && data.demand.most_sought_vibes) || []);
 
       if (data.cta && data.cta.feedback_url) {
         document.getElementById("feedback-link").href = data.cta.feedback_url;
@@ -737,14 +745,27 @@ async def community_page() -> str:
     return _COMMUNITY_HTML
 
 
+async def _get_cached_community_payload() -> dict[str, Any]:
+    """Return community payload, rebuilding at most once per _CACHE_TTL seconds."""
+    import time
+
+    now = time.monotonic()
+    if _community_cache and now - _community_cache["ts"] < _CACHE_TTL:
+        return _community_cache["data"]
+    result = await _run_with_db_retry("community_data", build_public_community_payload)
+    _community_cache["ts"] = now
+    _community_cache["data"] = result
+    return result
+
+
 @router.get("/data")
 async def community_data() -> dict[str, Any]:
-    return await _run_with_db_retry("community_data", build_public_community_payload)
+    return await _get_cached_community_payload()
 
 
 @router.get("/api/overview")
 async def community_api_overview() -> dict[str, Any]:
-    payload = await _run_with_db_retry("community_api_overview", build_public_community_payload)
+    payload = await _get_cached_community_payload()
     return {
         "summary": payload["summary"],
         "weekly": payload["weekly"],
@@ -755,7 +776,7 @@ async def community_api_overview() -> dict[str, Any]:
 
 @router.get("/api/metrics")
 async def community_api_metrics() -> dict[str, Any]:
-    payload = await _run_with_db_retry("community_api_metrics", build_public_community_payload)
+    payload = await _get_cached_community_payload()
     return {
         "key_metrics": payload["key_metrics"],
         "updated_at": payload["updated_at"],
@@ -764,7 +785,7 @@ async def community_api_metrics() -> dict[str, Any]:
 
 @router.get("/api/pipeline")
 async def community_api_pipeline() -> dict[str, Any]:
-    payload = await _run_with_db_retry("community_api_pipeline", build_public_community_payload)
+    payload = await _get_cached_community_payload()
     return {
         "pipeline": payload["pipeline"],
         "updated_at": payload["updated_at"],
@@ -773,7 +794,7 @@ async def community_api_pipeline() -> dict[str, Any]:
 
 @router.get("/api/platforms")
 async def community_api_platforms() -> dict[str, Any]:
-    payload = await _run_with_db_retry("community_api_platforms", build_public_community_payload)
+    payload = await _get_cached_community_payload()
     return {
         "platform_breakdown": payload["platform_breakdown"],
         "updated_at": payload["updated_at"],
@@ -782,7 +803,7 @@ async def community_api_platforms() -> dict[str, Any]:
 
 @router.get("/api/feed")
 async def community_api_feed() -> dict[str, Any]:
-    payload = await _run_with_db_retry("community_api_feed", build_public_community_payload)
+    payload = await _get_cached_community_payload()
     return {
         "live_feed": payload["live_feed"],
         "updated_at": payload["updated_at"],
@@ -791,7 +812,7 @@ async def community_api_feed() -> dict[str, Any]:
 
 @router.get("/api/demand")
 async def community_api_demand() -> dict[str, Any]:
-    payload = await _run_with_db_retry("community_api_demand", build_public_community_payload)
+    payload = await _get_cached_community_payload()
     return {
         "demand": payload["demand"],
         "updated_at": payload["updated_at"],
@@ -937,91 +958,62 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
         MatchStatus.ONBOARDED,
     }
 
-    total_ingested = int((await session.exec(select(func.count()).select_from(Post))).one() or 0)
-    indexed_count = int(
-        (
-            await session.exec(
-                select(func.count())
-                .select_from(Post)
-                .where(Post.status == PostStatus.INDEXED)
-            )
-        ).one()
-        or 0
-    )
-    proposed_matches = int((await session.exec(select(func.count()).select_from(Match))).one() or 0)
-    intros_sent = int(
-        (
-            await session.exec(
-                select(func.count())
-                .select_from(Match)
-                .where(Match.status.in_(intro_terminal))
-            )
-        ).one()
-        or 0
-    )
-
-    ingested_7d = int(
-        (
-            await session.exec(
-                select(func.count())
-                .select_from(Post)
-                .where(Post.detected_at >= seven_days_ago)
-            )
-        ).one()
-        or 0
-    )
-    indexed_7d = int(
-        (
-            await session.exec(
-                select(func.count())
-                .select_from(Post)
-                .where(
-                    Post.status == PostStatus.INDEXED,
-                    Post.detected_at >= seven_days_ago,
-                )
-            )
-        ).one()
-        or 0
-    )
-    matches_7d = int(
-        (
-            await session.exec(
-                select(func.count())
-                .select_from(Match)
-                .where(Match.created_at >= seven_days_ago)
-            )
-        ).one()
-        or 0
-    )
-    intros_7d = int(
-        (
-            await session.exec(
-                select(func.count())
-                .select_from(Match)
-                .where(
-                    Match.intro_sent_at.is_not(None),
-                    Match.intro_sent_at >= seven_days_ago,
-                )
-            )
-        ).one()
-        or 0
+    # Run all independent scalar COUNT queries in parallel.
+    (
+        total_ingested_r,
+        indexed_count_r,
+        proposed_matches_r,
+        intros_sent_r,
+        ingested_7d_r,
+        indexed_7d_r,
+        matches_7d_r,
+        intros_7d_r,
+        needs_review_count_r,
+        oldest_needs_review_r,
+        platform_rows_r,
+        structured_count_r,
+        active_camps_r,
+        active_seekers_r,
+        conversation_started_r,
+        onboarded_r,
+    ) = await asyncio.gather(
+        session.exec(select(func.count()).select_from(Post)),
+        session.exec(select(func.count()).select_from(Post).where(Post.status == PostStatus.INDEXED)),
+        session.exec(select(func.count()).select_from(Match)),
+        session.exec(select(func.count()).select_from(Match).where(Match.status.in_(intro_terminal))),
+        session.exec(select(func.count()).select_from(Post).where(Post.detected_at >= seven_days_ago)),
+        session.exec(select(func.count()).select_from(Post).where(Post.status == PostStatus.INDEXED, Post.detected_at >= seven_days_ago)),
+        session.exec(select(func.count()).select_from(Match).where(Match.created_at >= seven_days_ago)),
+        session.exec(select(func.count()).select_from(Match).where(Match.intro_sent_at.is_not(None), Match.intro_sent_at >= seven_days_ago)),
+        session.exec(select(func.count()).select_from(Post).where(Post.status == PostStatus.NEEDS_REVIEW)),
+        session.exec(select(func.min(Post.detected_at)).where(Post.status == PostStatus.NEEDS_REVIEW)),
+        session.exec(select(Post.platform, func.count()).group_by(Post.platform)),
+        session.exec(select(func.count()).select_from(Post).where(Post.status != PostStatus.RAW)),
+        session.exec(select(func.count()).select_from(Post).where(Post.status == PostStatus.INDEXED, Post.role == PostRole.CAMP)),
+        session.exec(select(func.count()).select_from(Post).where(Post.status == PostStatus.INDEXED, Post.role == PostRole.SEEKER)),
+        session.exec(select(func.count()).select_from(Match).where(Match.status.in_(conversation_terminal))),
+        session.exec(select(func.count()).select_from(Match).where(Match.status == MatchStatus.ONBOARDED)),
     )
 
-    needs_review_count = int(
-        (
-            await session.exec(
-                select(func.count())
-                .select_from(Post)
-                .where(Post.status == PostStatus.NEEDS_REVIEW)
-            )
-        ).one()
-        or 0
-    )
-    oldest_needs_review = (
-        await session.exec(
-            select(func.min(Post.detected_at)).where(Post.status == PostStatus.NEEDS_REVIEW)
-        )
-    ).one()
+    total_ingested = int(total_ingested_r.one() or 0)
+    indexed_count = int(indexed_count_r.one() or 0)
+    proposed_matches = int(proposed_matches_r.one() or 0)
+    intros_sent = int(intros_sent_r.one() or 0)
+    ingested_7d = int(ingested_7d_r.one() or 0)
+    indexed_7d = int(indexed_7d_r.one() or 0)
+    matches_7d = int(matches_7d_r.one() or 0)
+    intros_7d = int(intros_7d_r.one() or 0)
+    needs_review_count = int(needs_review_count_r.one() or 0)
+    oldest_needs_review = oldest_needs_review_r.one()
+    platform_rows = platform_rows_r.all()
+    structured_count = int(structured_count_r.one() or 0)
+    active_camps = int(active_camps_r.one() or 0)
+    active_seekers = int(active_seekers_r.one() or 0)
+    conversation_started_total = int(conversation_started_r.one() or 0)
+    onboarded_total = int(onboarded_r.one() or 0)
+
+    platform_breakdown = _platform_breakdown_from_rows(platform_rows, total_ingested)
+
     oldest_needs_review_age_hours: float | None = None
     if oldest_needs_review is not None:
         oldest_needs_review_age_hours = round(
@@ -1029,64 +1021,6 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
             1,
         )
 
-    platform_rows = (
-        await session.exec(
-            select(Post.platform, func.count()).group_by(Post.platform)
-        )
-    ).all()
-    platform_breakdown = _platform_breakdown_from_rows(platform_rows, total_ingested)
-    structured_count = int(
-        (
-            await session.exec(
-                select(func.count())
-                .select_from(Post)
-                .where(Post.status != PostStatus.RAW)
-            )
-        ).one()
-        or 0
-    )
-
-    active_camps = int(
-        (
-            await session.exec(
-                select(func.count())
-                .select_from(Post)
-                .where(Post.status == PostStatus.INDEXED, Post.role == PostRole.CAMP)
-            )
-        ).one()
-        or 0
-    )
-    active_seekers = int(
-        (
-            await session.exec(
-                select(func.count())
-                .select_from(Post)
-                .where(Post.status == PostStatus.INDEXED, Post.role == PostRole.SEEKER)
-            )
-        ).one()
-        or 0
-    )
-
-    conversation_started_total = int(
-        (
-            await session.exec(
-                select(func.count())
-                .select_from(Match)
-                .where(Match.status.in_(conversation_terminal))
-            )
-        ).one()
-        or 0
-    )
-    onboarded_total = int(
-        (
-            await session.exec(
-                select(func.count())
-                .select_from(Match)
-                .where(Match.status == MatchStatus.ONBOARDED)
-            )
-        ).one()
-        or 0
-    )
     intro_to_conversation_rate = (
         conversation_started_total / intros_sent if intros_sent > 0 else 0.0
     )
