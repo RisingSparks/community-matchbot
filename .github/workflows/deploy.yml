@@ -6,6 +6,13 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.repository }}-${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -103,6 +110,7 @@ jobs:
           write_env() {
             local key="$1"
             local value="$2"
+            [ -z "$value" ] && return
             local escaped
             escaped=$(printf '%s' "$value" | sed "s/'/'\\\\''/g")
             printf "%s='%s'\n" "$key" "$escaped" >> .env
@@ -156,6 +164,11 @@ jobs:
           rsync -az --delete \
             -e "ssh -p ${{ secrets.DEPLOY_SSH_PORT }}" \
             --exclude ".git" \
+            --exclude ".github" \
+            --exclude ".venv" \
+            --exclude "node_modules" \
+            --exclude "__pycache__" \
+            --exclude ".pytest_cache" \
             ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ env.DEPLOY_PATH }}"
 
       - name: Deploy on host
@@ -170,3 +183,8 @@ jobs:
               exit 1
             fi
           EOF
+
+      - name: Smoke test
+        if: ${{ vars.DEPLOY_HEALTHCHECK_URL != '' }}
+        run: |
+          curl --fail --silent --show-error --location "${{ vars.DEPLOY_HEALTHCHECK_URL }}"
