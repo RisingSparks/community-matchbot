@@ -7,7 +7,14 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from matchbot.db.models import Platform, Post, PostRole, PostStatus
-from matchbot.matching.scorer import WEIGHTS, WEIGHTS_SKILLS, _jaccard, _recency_score, _year_score, score_match
+from matchbot.matching.scorer import (
+    WEIGHTS,
+    WEIGHTS_SKILLS,
+    _jaccard,
+    _recency_score,
+    _year_score,
+    score_match,
+)
 
 
 class TestJaccard:
@@ -87,7 +94,8 @@ class TestScoreMatch:
         seeker = _make_indexed_post(PostRole.SEEKER, ["art", "build_focused"], ["build", "art"])
         camp = _make_indexed_post(PostRole.CAMP, ["art", "build_focused"], ["build", "art"])
         score, breakdown = score_match(seeker, camp)
-        # vibe_overlap=1.0 * 0.35 + contribution_overlap=1.0 * 0.40 + recency≈1.0 * 0.15 + year=1.0 * 0.10
+        # vibe_overlap=1.0 * 0.35 + contribution_overlap=1.0 * 0.40 +
+        # recency≈1.0 * 0.15 + year=1.0 * 0.10
         assert score >= 0.95
 
     def test_no_vibe_overlap(self):
@@ -100,7 +108,7 @@ class TestScoreMatch:
 
     def test_score_below_threshold_for_bad_match(self):
         seeker = _make_indexed_post(PostRole.SEEKER, ["sober"], ["medical"])
-        camp = _make_indexed_post(PostRole.CAMP, ["party"], ["sound"])
+        camp = _make_indexed_post(PostRole.CAMP, ["party"], ["sound_lighting"])
         score, breakdown = score_match(seeker, camp)
         assert breakdown["vibe_overlap"] == pytest.approx(0.0)
         assert breakdown["contribution_overlap"] == pytest.approx(0.0)
@@ -129,7 +137,12 @@ class TestScoreMatch:
         seeker = _make_indexed_post(PostRole.SEEKER, ["art"], ["build"])
         camp = _make_indexed_post(PostRole.CAMP, ["art"], ["build"])
         _, breakdown = score_match(seeker, camp)
-        assert set(breakdown.keys()) == {"vibe_overlap", "contribution_overlap", "recency", "year_match"}
+        assert set(breakdown.keys()) == {
+            "vibe_overlap",
+            "contribution_overlap",
+            "recency",
+            "year_match",
+        }
 
     def test_empty_vibes_both_gets_no_credit(self):
         seeker = _make_indexed_post(PostRole.SEEKER, [], ["build"])
@@ -144,22 +157,27 @@ class TestScoreMatchSkills:
         camp = _make_indexed_post(PostRole.CAMP, ["art"], ["build"])
         _, breakdown = score_match(seeker, camp, seeker_intent="skills_learning")
         # Verify breakdown keys are unchanged
-        assert set(breakdown.keys()) == {"vibe_overlap", "contribution_overlap", "recency", "year_match"}
+        assert set(breakdown.keys()) == {
+            "vibe_overlap",
+            "contribution_overlap",
+            "recency",
+            "year_match",
+        }
 
     def test_skills_weights_differ_from_default(self):
         assert WEIGHTS_SKILLS["vibe_overlap"] < WEIGHTS["vibe_overlap"]
         assert WEIGHTS_SKILLS["contribution_overlap"] > WEIGHTS["contribution_overlap"]
 
-    def test_skills_seeker_high_contrib_low_vibe_scores_higher_than_membership(self):
+    def test_skills_seeker_high_contrib_low_vibe_scores_higher_than_join_camp(self):
         # High contribution overlap but zero vibe overlap
         seeker = _make_indexed_post(PostRole.SEEKER, ["sober"], ["build", "art"])
         camp = _make_indexed_post(PostRole.CAMP, ["party"], ["build", "art"])
 
-        score_membership, _ = score_match(seeker, camp, seeker_intent="membership")
+        score_join_camp, _ = score_match(seeker, camp, seeker_intent="join_camp")
         score_skills, _ = score_match(seeker, camp, seeker_intent="skills_learning")
 
         # Skills weights favour contribution overlap more, so score should be higher
-        assert score_skills > score_membership
+        assert score_skills > score_join_camp
 
     def test_none_intent_uses_default_weights(self):
         seeker = _make_indexed_post(PostRole.SEEKER, ["art"], ["build"])
@@ -168,12 +186,12 @@ class TestScoreMatchSkills:
         score_default, _ = score_match(seeker, camp)
         assert score_none == pytest.approx(score_default)
 
-    def test_membership_intent_uses_default_weights(self):
+    def test_join_camp_intent_uses_default_weights(self):
         seeker = _make_indexed_post(PostRole.SEEKER, ["art"], ["build"])
         camp = _make_indexed_post(PostRole.CAMP, ["art"], ["build"])
-        score_membership, _ = score_match(seeker, camp, seeker_intent="membership")
+        score_join_camp, _ = score_match(seeker, camp, seeker_intent="join_camp")
         score_default, _ = score_match(seeker, camp)
-        assert score_membership == pytest.approx(score_default)
+        assert score_join_camp == pytest.approx(score_default)
 
 
 @pytest.mark.asyncio
@@ -181,7 +199,10 @@ async def test_propose_matches_creates_match(db_session, seeker_post_factory, ca
     from matchbot.matching.queue import propose_matches
 
     seeker = seeker_post_factory(vibes=["art", "build_focused"], contribution_types=["build"])
-    camp = camp_post_factory(vibes=["art", "build_focused"], contribution_types=["build", "kitchen"])
+    camp = camp_post_factory(
+        vibes=["art", "build_focused"],
+        contribution_types=["build", "kitchen_food"],
+    )
 
     db_session.add(seeker)
     db_session.add(camp)
@@ -222,7 +243,7 @@ async def test_propose_matches_skips_low_score(db_session, seeker_post_factory, 
 
     seeker = seeker_post_factory(vibes=["sober"], contribution_types=["medical"])
     seeker.detected_at = datetime.now(UTC) - timedelta(days=61)  # stale
-    camp = camp_post_factory(vibes=["party"], contribution_types=["sound"])
+    camp = camp_post_factory(vibes=["party"], contribution_types=["sound_lighting"])
     camp.detected_at = datetime.now(UTC) - timedelta(days=61)  # stale
 
     db_session.add(seeker)

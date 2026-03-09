@@ -118,7 +118,7 @@ async def test_process_post_indexes_on_high_confidence(db_session, mock_extracto
     mock_extractor.extract.return_value = ExtractedPost(
         role="seeker",
         vibes=["art", "build_focused"],
-        contribution_types=["build", "kitchen"],
+        contribution_types=["build", "kitchen_food"],
         year=2025,
         confidence=0.9,
     )
@@ -255,8 +255,8 @@ async def test_process_post_preserves_unmapped_terms_and_routes_to_review(
     assert result.status == PostStatus.NEEDS_REVIEW
     assert result.vibes_list() == ["art"]
     assert result.vibes_other_list() == ["maker"]
-    assert result.contribution_types_list() == ["build"]
-    assert result.contribution_types_other_list() == ["fabrication"]
+    assert result.contribution_types_list() == ["build", "fabrication"]
+    assert result.contribution_types_other_list() == []
 
 
 @pytest.mark.asyncio
@@ -365,7 +365,7 @@ async def test_openai_extractor_parses_response():
         camp_size_max=30,
         year=2025,
         vibes=["art", "party"],
-        contribution_types=["build", "kitchen"],
+        contribution_types=["build", "kitchen_food"],
         location_preference=None,
         availability_notes="Need builders for early arrival",
         contact_method="Post in comments",

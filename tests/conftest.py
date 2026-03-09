@@ -145,7 +145,7 @@ def camp_post_factory():
     def factory(**kwargs):
         kwargs.setdefault("role", PostRole.CAMP)
         kwargs.setdefault("vibes", ["art", "build_focused"])
-        kwargs.setdefault("contribution_types", ["build", "kitchen"])
+        kwargs.setdefault("contribution_types", ["build", "kitchen_food"])
         kwargs.setdefault("title", "Our camp has openings!")
         kwargs.setdefault("raw_text", "We are recruiting members. Join our art camp!")
         return _make_post(**kwargs)

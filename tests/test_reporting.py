@@ -18,11 +18,11 @@ async def _seed_scenario(session):
     )
     seeker2 = Post(
         platform=Platform.DISCORD, platform_post_id="s2", role=PostRole.SEEKER,
-        status=PostStatus.INDEXED, vibes="music", contribution_types="sound",
+        status=PostStatus.INDEXED, vibes="music", contribution_types="sound_lighting",
     )
     camp1 = Post(
         platform=Platform.REDDIT, platform_post_id="c1", role=PostRole.CAMP,
-        status=PostStatus.INDEXED, vibes="art", contribution_types="build|kitchen",
+        status=PostStatus.INDEXED, vibes="art", contribution_types="build|kitchen_food",
     )
     session.add_all([seeker1, seeker2, camp1])
     await session.commit()

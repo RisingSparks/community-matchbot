@@ -208,7 +208,7 @@ def test_community_matches_api_filters_and_sanitizes(monkeypatch, tmp_path) -> N
                 raw_text="@CampRecent needs build team",
                 role=PostRole.CAMP,
                 status=PostStatus.INDEXED,
-                contribution_types="build|kitchen",
+                contribution_types="build|kitchen_food",
                 detected_at=now - timedelta(days=3),
             )
             seeker_old = Post(
@@ -232,7 +232,7 @@ def test_community_matches_api_filters_and_sanitizes(monkeypatch, tmp_path) -> N
                 raw_text="Old camp text",
                 role=PostRole.CAMP,
                 status=PostStatus.INDEXED,
-                contribution_types="sound",
+                contribution_types="sound_lighting",
                 detected_at=now - timedelta(days=50),
             )
 
@@ -335,7 +335,7 @@ def test_community_data_redacts_story_and_feed_identifiers(monkeypatch, tmp_path
                 role=PostRole.CAMP,
                 status=PostStatus.INDEXED,
                 detected_at=now - timedelta(hours=1),
-                contribution_types="build|kitchen",
+                contribution_types="build|kitchen_food",
                 vibes="inclusive",
             )
             needs_review = Post(
@@ -450,7 +450,7 @@ def test_community_data_redacts_story_and_feed_identifiers(monkeypatch, tmp_path
         demand = payload["demand"]
         assert demand["top_contribution_types"][0]["name"] == "art"
         assert demand["top_contribution_types"][0]["count"] == 2
-        assert demand["most_sought_skills"][0]["name"] == "kitchen"
+        assert demand["most_sought_skills"][0]["name"] == "kitchen_food"
         assert demand["most_sought_skills"][0]["demand_count"] == 1
         assert demand["most_sought_skills"][0]["supply_count"] == 0
         assert demand["most_sought_vibes"][0]["name"] == "inclusive"
@@ -565,12 +565,12 @@ def test_community_order_book_for_skills_and_vibes(monkeypatch, tmp_path) -> Non
                         platform=Platform.REDDIT,
                         platform_post_id="camp_1",
                         platform_author_id="camp_1",
-                        title="Camp needs kitchen and build",
-                        raw_text="Seeking kitchen and build folks",
+                        title="Camp needs kitchen_food and build",
+                        raw_text="Seeking kitchen_food and build folks",
                         role=PostRole.CAMP,
                         post_type=PostType.MENTORSHIP,
                         status=PostStatus.INDEXED,
-                        contribution_types="kitchen|build",
+                        contribution_types="kitchen_food|build",
                         vibes="inclusive|art",
                         detected_at=now - timedelta(days=1),
                     ),
@@ -578,12 +578,12 @@ def test_community_order_book_for_skills_and_vibes(monkeypatch, tmp_path) -> Non
                         platform=Platform.DISCORD,
                         platform_post_id="camp_2",
                         platform_author_id="camp_2",
-                        title="Camp needs kitchen and art",
-                        raw_text="Seeking kitchen and art folks",
+                        title="Camp needs kitchen_food and art",
+                        raw_text="Seeking kitchen_food and art folks",
                         role=PostRole.CAMP,
                         post_type=PostType.MENTORSHIP,
                         status=PostStatus.INDEXED,
-                        contribution_types="kitchen|art",
+                        contribution_types="kitchen_food|art",
                         vibes="inclusive|music",
                         detected_at=now - timedelta(days=1),
                     ),
@@ -640,7 +640,7 @@ def test_community_order_book_for_skills_and_vibes(monkeypatch, tmp_path) -> Non
         demand = response.json()["demand"]
 
         skills = demand["most_sought_skills"]
-        assert [row["name"] for row in skills[:3]] == ["kitchen", "art", "build"]
+        assert [row["name"] for row in skills[:3]] == ["kitchen_food", "art", "build"]
         assert skills[0]["demand_count"] == 2
         assert skills[0]["supply_count"] == 0
         assert skills[0]["net_gap"] == 2

@@ -6,9 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from matchbot.db.models import Platform, Post, PostRole, PostStatus, SeekerIntent
+from matchbot.db.models import Platform, Post, PostRole, PostStatus
 from matchbot.extraction.schemas import ExtractedPost
-
 
 # ---------------------------------------------------------------------------
 # ExtractedPost validator tests
@@ -16,9 +15,13 @@ from matchbot.extraction.schemas import ExtractedPost
 
 
 class TestExtractedPostSeekerIntent:
-    def test_accepts_membership(self):
-        ep = ExtractedPost(role="seeker", seeker_intent="membership")
-        assert ep.seeker_intent == "membership"
+    def test_accepts_join_camp(self):
+        ep = ExtractedPost(role="seeker", seeker_intent="join_camp")
+        assert ep.seeker_intent == "join_camp"
+
+    def test_accepts_join_art_project(self):
+        ep = ExtractedPost(role="seeker", seeker_intent="join_art_project")
+        assert ep.seeker_intent == "join_art_project"
 
     def test_accepts_skills_learning(self):
         ep = ExtractedPost(role="seeker", seeker_intent="skills_learning")
@@ -78,15 +81,16 @@ class TestSeekerIntentScoring:
 
         score, breakdown = score_match(seeker, camp, seeker_intent=seeker.seeker_intent)
         # contribution_overlap=1.0, vibe_overlap=0.0
-        # expected composite ≈ WEIGHTS_SKILLS["contribution_overlap"] * 1.0 + WEIGHTS_SKILLS["recency"] * ~1.0 + WEIGHTS_SKILLS["year_match"] * 1.0
+        # expected composite ≈ contribution overlap weight + recency weight
+        # + year match weight
         expected_floor = WEIGHTS_SKILLS["contribution_overlap"] * 1.0
         assert score >= expected_floor - 0.01
 
-    def test_membership_uses_default_weights(self):
+    def test_join_camp_uses_default_weights(self):
         from matchbot.matching.scorer import WEIGHTS, score_match
 
         seeker = _make_post_with_intent(
-            PostRole.SEEKER, ["sober"], ["build"], seeker_intent="membership"
+            PostRole.SEEKER, ["sober"], ["build"], seeker_intent="join_camp"
         )
         camp = _make_post_with_intent(PostRole.CAMP, ["party"], ["build"])
 
@@ -173,7 +177,11 @@ class TestRenderIntroDispatch:
             rendered_templates.append(name)
             return original_get_template(name)
 
-        with patch.object(renderer_mod._jinja_env, "get_template", side_effect=capturing_get_template):
+        with patch.object(
+            renderer_mod._jinja_env,
+            "get_template",
+            side_effect=capturing_get_template,
+        ):
             renderer_mod.render_intro(seeker, camp, "reddit")
 
         assert rendered_templates[0] == "intro_skills_reddit.md.j2"
@@ -191,15 +199,19 @@ class TestRenderIntroDispatch:
             rendered_templates.append(name)
             return original_get_template(name)
 
-        with patch.object(renderer_mod._jinja_env, "get_template", side_effect=capturing_get_template):
+        with patch.object(
+            renderer_mod._jinja_env,
+            "get_template",
+            side_effect=capturing_get_template,
+        ):
             renderer_mod.render_intro(seeker, camp, "reddit", for_camp=True)
 
         assert rendered_templates[0] == "intro_skills_camp_reddit.md.j2"
 
-    def test_membership_seeker_uses_standard_template(self):
+    def test_join_camp_seeker_uses_standard_template(self):
         from matchbot.messaging import renderer as renderer_mod
 
-        seeker = self._make_rendered_post(PostRole.SEEKER, seeker_intent="membership")
+        seeker = self._make_rendered_post(PostRole.SEEKER, seeker_intent="join_camp")
         camp = self._make_rendered_post(PostRole.CAMP, camp_name="Dusty Makers")
 
         rendered_templates: list[str] = []
@@ -209,7 +221,11 @@ class TestRenderIntroDispatch:
             rendered_templates.append(name)
             return original_get_template(name)
 
-        with patch.object(renderer_mod._jinja_env, "get_template", side_effect=capturing_get_template):
+        with patch.object(
+            renderer_mod._jinja_env,
+            "get_template",
+            side_effect=capturing_get_template,
+        ):
             renderer_mod.render_intro(seeker, camp, "reddit")
 
         assert rendered_templates[0] == "intro_reddit.md.j2"
@@ -221,8 +237,12 @@ class TestRenderIntroDispatch:
         camp = self._make_rendered_post(PostRole.CAMP, camp_name="Dusty Makers")
 
         output = render_intro(seeker, camp, "reddit")
-        # Skills template should mention learning/hands-on, not generic membership copy
-        assert "learn" in output.lower() or "skill" in output.lower() or "hands-on" in output.lower()
+        # Skills template should mention learning/hands-on, not generic join-camp copy
+        assert (
+            "learn" in output.lower()
+            or "skill" in output.lower()
+            or "hands-on" in output.lower()
+        )
 
     def test_skills_camp_intro_contains_skills_copy(self):
         from matchbot.messaging.renderer import render_intro

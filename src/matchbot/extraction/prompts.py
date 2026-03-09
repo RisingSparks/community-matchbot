@@ -75,7 +75,8 @@ Use *_other fields only when the post expresses a real concept that does not
 cleanly fit an allowed label.
 
 seeker_intent rules (only set when role == "seeker"):
-- "join_team": person wants to join a camp or art team as a member/volunteer
+- "join_camp": person wants to join a camp as a member/volunteer
+- "join_art_project": person wants to join an art project or art team
 - "skills_learning": person wants to learn a skill, find a mentor, work on a
   specific project, or gain hands-on experience
 - "unknown": seeker intent is unclear

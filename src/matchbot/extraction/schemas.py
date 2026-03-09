@@ -10,7 +10,7 @@ class ExtractedPost(BaseModel):
     confidence: float = 0.5        # 0.0–1.0
     extraction_notes: str | None = None
 
-    seeker_intent: str | None = None  # join_team | skills_learning | unknown | None
+    seeker_intent: str | None = None  # join_camp | join_art_project | skills_learning | unknown | None
 
     # --- mentorship fields ---
     camp_name: str | None = None
