@@ -129,8 +129,19 @@ class TestKeywordFilterInfra:
             "First time burner looking for a friendly camp to join. Willing to build.",
         )
         assert result.matched is True
+        assert result.tier == "hard_match"
         assert result.post_type == "mentorship"
         assert result.infra_role is None
+
+    def test_soft_match_fuzzy_seeker_language(self):
+        result = keyword_filter(
+            "Regional Burn intro",
+            "Any camp recs for someone into fire spinning?",
+        )
+        assert result.matched is False
+        assert result.tier == "soft_match"
+        assert result.candidate_role == "seeker"
+        assert result.score >= 3
 
     def test_unrelated_post_not_matched(self):
         result = keyword_filter(
@@ -138,6 +149,7 @@ class TestKeywordFilterInfra:
             "Tips for staying cool on the playa.",
         )
         assert result.matched is False
+        assert result.tier == "no_match"
 
 
 # ---------------------------------------------------------------------------

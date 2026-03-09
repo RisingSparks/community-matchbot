@@ -363,16 +363,16 @@ _COMMUNITY_HTML = """
 
     <section class="panel">
       <h2 class="section-title">Alignment Snapshot</h2>
-      <p class="group-desc">How camp needs line up with what seekers hope to contribute.</p>
+      <p class="group-desc">How extracted camp and seeker signals line up across recent posts.</p>
       <div class="grid2">
       <div>
         <h2 class="section-title">Skills</h2>
-        <p class="group-desc">What camps need vs. what seekers offer.</p>
+        <p class="group-desc">Skills mentioned in camp posts and seeker posts.</p>
         <div id="skills-paired"></div>
       </div>
       <div>
         <h2 class="section-title">Vibes</h2>
-        <p class="group-desc">What camps need and what seekers hope to contribute.</p>
+        <p class="group-desc">Vibes mentioned in camp posts and seeker posts.</p>
         <div id="vibes-paired"></div>
       </div>
       </div>
@@ -627,12 +627,12 @@ _COMMUNITY_HTML = """
         <div class="paired-row">
           <div class="paired-label">${(item.name || "unknown").replace(/_/g, " ")}</div>
           <div class="paired-bar-group">
-            <div class="paired-bar-label">Camps need</div>
+            <div class="paired-bar-label">Camp posts</div>
             <div class="bar-track"><div class="bar-fill bar-demand" style="width:${dw}%"></div></div>
             <div class="bar-value">${fmt(demand)}</div>
           </div>
           <div class="paired-bar-group">
-            <div class="paired-bar-label">Seekers offer</div>
+            <div class="paired-bar-label">Seeker posts</div>
             <div class="bar-track"><div class="bar-fill bar-supply" style="width:${sw}%"></div></div>
             <div class="bar-value">${fmt(supply)}</div>
           </div>

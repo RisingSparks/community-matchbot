@@ -172,7 +172,7 @@ async def _ingest_reddit_json_item(
     body = (data.get("selftext") or "")[:2000]
     kw_result = keyword_filter(title, body)
     if dry_run:
-        return ("dryrun_matched" if kw_result.matched else "dryrun_skipped"), extractor
+        return ("dryrun_matched" if kw_result.tier != "no_match" else "dryrun_skipped"), extractor
 
     author_id = data.get("author_fullname") or data.get("author") or "unknown"
     author_display = data.get("author") or author_id
@@ -184,7 +184,7 @@ async def _ingest_reddit_json_item(
     )
 
     async with get_session() as session:
-        if not kw_result.matched:
+        if kw_result.tier == "no_match":
             post = Post(
                 platform=Platform.REDDIT,
                 platform_post_id=post_id,
@@ -193,7 +193,7 @@ async def _ingest_reddit_json_item(
                 source_url=source_url,
                 source_community=_REDDIT_COMMUNITY,
                 title=title,
-                raw_text="",
+                raw_text=body,
                 source_created_at=_source_created_at_from_json(data),
                 status=PostStatus.SKIPPED,
                 extraction_method="keyword",

@@ -82,6 +82,27 @@ async def test_process_post_keyword_no_match_skips(db_session, mock_extractor):
 
 
 @pytest.mark.asyncio
+async def test_process_post_soft_match_goes_to_needs_review_without_llm(db_session, mock_extractor):
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="soft001",
+        title="Regional Burn intro",
+        raw_text="Any camp recs for someone into fire spinning?",
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    result = await process_post(db_session, post, mock_extractor)
+
+    assert result.status == PostStatus.NEEDS_REVIEW
+    assert result.role == PostRole.SEEKER
+    assert result.extraction_method == "keyword_soft"
+    mock_extractor.extract.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_process_post_indexes_on_high_confidence(db_session, mock_extractor):
     post = Post(
         platform=Platform.REDDIT,

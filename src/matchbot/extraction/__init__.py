@@ -44,13 +44,37 @@ async def process_post(
     # --- 1. Keyword filter ---
     kw_result = keyword_filter(post.title, post.raw_text)
 
-    if not kw_result.matched:
+    if kw_result.tier == "no_match":
         post.status = PostStatus.SKIPPED
         # SKIPPED means we intentionally did not classify the post.
         post.post_type = None
         post.extraction_method = "keyword"
         session.add(post)
         await _append_event(session, post, "post_skipped", {"reason": "keyword_filter_no_match"})
+        await session.commit()
+        await session.refresh(post)
+        return post
+
+    if kw_result.tier == "soft_match":
+        post.status = PostStatus.NEEDS_REVIEW
+        post.post_type = kw_result.post_type
+        if kw_result.infra_role is not None:
+            post.infra_role = kw_result.infra_role
+        post.role = kw_result.candidate_role
+        post.extraction_method = "keyword_soft"
+        session.add(post)
+        await _append_event(
+            session,
+            post,
+            "post_soft_matched",
+            {
+                "score": kw_result.score,
+                "reasons": list(kw_result.reasons),
+                "post_type": post.post_type,
+                "role": post.role,
+                "infra_role": post.infra_role,
+            },
+        )
         await session.commit()
         await session.refresh(post)
         return post

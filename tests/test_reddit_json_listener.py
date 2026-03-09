@@ -33,7 +33,7 @@ def test_is_missing_table_error_ignores_other_programming_errors() -> None:
 
 
 @pytest.mark.asyncio
-async def test_poll_reddit_json_once_uses_checkpoint_and_persists_skipped_minimal(
+async def test_poll_reddit_json_once_uses_checkpoint_and_persists_skipped_with_body(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
     mock_extractor,
@@ -144,7 +144,7 @@ async def test_poll_reddit_json_once_uses_checkpoint_and_persists_skipped_minima
     skipped = next(p for p in rows if p.platform_post_id == "new_skip")
     assert skipped.status == PostStatus.SKIPPED
     assert skipped.post_type is None
-    assert skipped.raw_text == ""
+    assert skipped.raw_text == "No ask or offer, just weather and traffic chatter."
     assert skipped.source_url.endswith("/new_skip/post/")
     assert skipped.source_created_at == datetime.fromtimestamp(1735905600, UTC).replace(tzinfo=None)
 
@@ -158,6 +158,61 @@ async def test_poll_reddit_json_once_uses_checkpoint_and_persists_skipped_minima
     assert skipped.platform_author_id == "t2_new_skip_author"
     assert skipped.author_display_name == "new_skip_author"
     assert skipped.source_url == "https://reddit.com/r/BurningMan/comments/new_skip/post/"
+
+    engine_module._engine = None
+
+
+@pytest.mark.asyncio
+async def test_poll_reddit_json_once_persists_soft_match_without_llm(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    mock_extractor,
+):
+    db_path = tmp_path / "reddit_json_listener_soft.db"
+    monkeypatch.setenv("DATABASE_BACKEND", "sqlite")
+    monkeypatch.setenv("DB_PATH", str(db_path))
+    monkeypatch.setenv("REDDIT_JSON_FETCH_LIMIT", "100")
+    get_settings.cache_clear()
+    engine_module._engine = None
+
+    await create_db_and_tables()
+
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {
+        "data": {
+            "children": [
+                {
+                    "data": {
+                        "id": "soft_match",
+                        "title": "Regional Burn intro",
+                        "selftext": "Any camp recs for someone into fire spinning?",
+                        "author": "soft_author",
+                        "author_fullname": "t2_soft_author",
+                        "permalink": "/r/BurningMan/comments/soft_match/post/",
+                        "created_utc": 1735905600,
+                    }
+                }
+            ]
+        }
+    }
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=response)
+
+    counts = await reddit_json.poll_reddit_json_once(client=client)
+
+    assert counts["matched"] == 1
+    assert counts["skipped"] == 0
+
+    async with get_session() as session:
+        row = (
+            await session.exec(select(Post).where(Post.platform_post_id == "soft_match"))
+        ).one()
+
+    assert row.status == PostStatus.NEEDS_REVIEW
+    assert row.extraction_method == "keyword_soft"
+    assert row.raw_text.startswith("Any camp recs")
+    mock_extractor.extract.assert_not_called()
 
     engine_module._engine = None
 
