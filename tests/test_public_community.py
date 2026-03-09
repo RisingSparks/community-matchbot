@@ -494,6 +494,51 @@ def test_community_data_redacts_story_and_feed_identifiers(monkeypatch, tmp_path
         _reset_engine()
 
 
+def test_community_platform_breakdown_labels_intake_form_as_submission_form(
+    monkeypatch, tmp_path
+) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_submission_form_platforms.db")
+
+    async def _seed() -> None:
+        async with get_session() as session:
+            session.add(
+                Post(
+                    platform=Platform.MANUAL,
+                    platform_post_id="intake_1",
+                    platform_author_id="form_user",
+                    source_community="intake_form",
+                    title="Form submission",
+                    raw_text="Submitted through the intake form",
+                    status=PostStatus.RAW,
+                )
+            )
+            session.add(
+                Post(
+                    platform=Platform.REDDIT,
+                    platform_post_id="reddit_1",
+                    platform_author_id="reddit_user",
+                    source_community="BurningMan",
+                    title="Reddit post",
+                    raw_text="Scraped from reddit",
+                    status=PostStatus.RAW,
+                )
+            )
+            await session.commit()
+
+    try:
+        asyncio.run(_seed())
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get("/community/api/platforms")
+        assert response.status_code == 200
+
+        rows = response.json()["platform_breakdown"]
+        assert {"platform": "submission form", "count": 1, "pct": 50.0} in rows
+        assert {"platform": "reddit", "count": 1, "pct": 50.0} in rows
+        assert all(row["platform"] != "manual" for row in rows)
+    finally:
+        _reset_engine()
+
+
 def test_live_feed_excludes_post_indexed_events(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_no_post_indexed_feed_events.db")
 
