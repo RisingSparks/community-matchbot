@@ -51,7 +51,7 @@ REDDIT_PASSWORD=your-reddit-password
 
 ### 3. Configure subreddits
 
-`src/matchbot/config/sources.yaml` is already set with `BurningMan`, `BurnerCommunity`, and `thecampout`. Swap in a subreddit you control for initial testing.
+`src/matchbot/config/sources.yaml` is already set with `BurningMan`. Swap in a subreddit you control for initial testing.
 
 ### 4. Test the connection
 

@@ -378,11 +378,13 @@ async def edit_post(
     post = await session.get(Post, post_id)
     if not post:
         raise HTTPException(404, "Post not found")
-    if post.status != PostStatus.NEEDS_REVIEW:
-        raise HTTPException(409, f"Post status is {post.status!r}, expected needs_review")
+    if post.status not in {PostStatus.NEEDS_REVIEW, PostStatus.INDEXED}:
+        raise HTTPException(409, f"Post status is {post.status!r}, cannot edit")
     fields = body.model_dump(exclude_none=True)
     if not fields:
         raise HTTPException(422, "At least one field must be provided")
+    was_indexed = post.status == PostStatus.INDEXED
+    role_before = post.role
     _apply_mod_overrides(post, body)
     await _write_event(
         session,
@@ -392,7 +394,41 @@ async def edit_post(
         note=body.note,
     )
     await session.commit()
+    await session.refresh(post)
+    # If we just gave a role to a previously unclassified indexed post, run matching now.
+    if was_indexed and body.role and role_before in {None, "unknown"} and post.role in {"seeker", "camp"}:
+        from matchbot.matching.queue import propose_matches
+        await propose_matches(session, post)
     return {"ok": True, "post_id": post.id}
+
+
+@router.get("/unclear")
+async def list_unclear_posts(
+    limit: int = 50,
+    _: None = Depends(_require_mod),
+    session: AsyncSession = Depends(_get_session),
+) -> list[dict]:
+    """Indexed posts where the LLM couldn't determine a role — for manual classification."""
+    from sqlalchemy import or_
+    q = (
+        select(Post)
+        .where(
+            Post.status == PostStatus.INDEXED,
+            or_(Post.role == "unknown", Post.role.is_(None)),
+        )
+        .order_by(Post.detected_at.asc())
+        .limit(limit)
+    )
+    posts = (await session.exec(q)).all()
+    now = datetime.now(UTC)
+    result = []
+    for post in posts:
+        detected = post.detected_at
+        if detected.tzinfo is None:
+            detected = detected.replace(tzinfo=UTC)
+        age_hours = round((now - detected).total_seconds() / 3600, 1)
+        result.append(_post_to_dict(post, age_hours=age_hours))
+    return result
 
 
 @router.post("/posts/{post_id}/re-extract")

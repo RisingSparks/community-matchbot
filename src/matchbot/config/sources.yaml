@@ -1,8 +1,6 @@
 reddit:
   subreddits:
     - BurningMan
-    - BurnerCommunity
-    - thecampout
 
 discord:
   guilds:

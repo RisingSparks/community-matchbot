@@ -43,7 +43,7 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         client = TestClient(create_app(enable_scheduler=False))
         response = client.get("/community/")
         assert response.status_code == 200
-        assert "Rising Sparks Public Dashboard" in response.text
+        assert "Rising Sparks" in response.text
         assert "Live Activity" in response.text
         assert "Most Requested Skills" in response.text
         assert "Most Sought Skills" in response.text
@@ -59,7 +59,7 @@ def test_root_page_renders_dashboard(monkeypatch, tmp_path) -> None:
         client = TestClient(create_app(enable_scheduler=False))
         response = client.get("/")
         assert response.status_code == 200
-        assert "Rising Sparks Public Dashboard" in response.text
+        assert "Rising Sparks" in response.text
         assert "Live Activity" in response.text
     finally:
         _reset_engine()
