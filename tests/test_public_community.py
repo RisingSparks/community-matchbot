@@ -49,6 +49,11 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert "Vibes" in response.text
         assert "Infrastructure Exchange Snapshot" in response.text
         assert "Matched Drill-Down" in response.text
+        assert "Metrics Summary" in response.text
+        assert "Submit Your Signal" in response.text
+        assert "Looking for a camp, collaborators, or infrastructure help?" in response.text
+        assert "Camp Connections" in response.text
+        assert "Matching Queue" in response.text
     finally:
         _reset_engine()
 
@@ -61,6 +66,11 @@ def test_root_page_renders_dashboard(monkeypatch, tmp_path) -> None:
         assert response.status_code == 200
         assert "Rising Sparks" in response.text
         assert "Live Activity" in response.text
+        assert "Metrics Summary" in response.text
+        assert "Submit Your Signal" in response.text
+        assert "Looking for a camp, collaborators, or infrastructure help?" in response.text
+        assert "Camp Connections" in response.text
+        assert "Matching Queue" in response.text
     finally:
         _reset_engine()
 

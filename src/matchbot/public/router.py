@@ -107,7 +107,33 @@ _COMMUNITY_HTML = """
       color: var(--sage);
     }
     h1 { margin: 8px 0 10px; font-size: clamp(28px, 5vw, 46px); line-height: 1.05; }
-    .sub { margin: 0; font-size: clamp(16px, 2.2vw, 20px); max-width: 54ch; color: #3f3c3d; }
+    .hero-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+    .hero-actions a {
+      text-decoration: none;
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 10px 18px;
+    }
+    .hero-actions .hero-primary {
+      background: var(--sun);
+      color: #2a1706;
+    }
+    .hero-actions .hero-secondary {
+      background: rgba(45, 91, 79, 0.12);
+      color: var(--sage);
+      border: 1px solid rgba(45, 91, 79, 0.18);
+    }
+    .hero-cta-note {
+      margin: 10px 0 0;
+      font-size: 14px;
+      color: var(--muted);
+      max-width: 52ch;
+    }
     .section-title { margin: 8px 0 12px; font-size: 22px; }
     .grid4, .grid2, .grid3 { display: grid; gap: 10px; }
     .grid4 { grid-template-columns: repeat(4, 1fr); }
@@ -238,6 +264,11 @@ _COMMUNITY_HTML = """
       border-radius: 999px;
       padding: 10px 18px;
     }
+    .cta-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
     .updated { margin-top: 10px; font-size: 12px; color: var(--muted); }
     .funnel-flow {
       display: flex;
@@ -293,10 +324,49 @@ _COMMUNITY_HTML = """
     }
     .card-muted .kicker { color: #aaa; }
     .card-muted .metric { font-size: 22px; color: var(--muted); font-weight: 500; }
+    .pool-groups {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .pool-group {
+      background: rgba(255, 253, 248, 0.72);
+      border: 1px solid rgba(34, 32, 33, 0.1);
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: 0 8px 18px rgba(34, 32, 33, 0.05);
+    }
+    .pool-group-title {
+      margin: 0;
+      font-size: 16px;
+      color: var(--sage);
+    }
+    .pool-group-copy {
+      margin: 6px 0 12px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .pool-group-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .pool-metric {
+      background: var(--card);
+      border-radius: 14px;
+      border: 1px solid rgba(34, 32, 33, 0.08);
+      padding: 12px;
+    }
+    .pool-metric-muted {
+      background: rgba(245, 240, 232, 0.7);
+      border-color: rgba(34, 32, 33, 0.07);
+    }
     @media (max-width: 980px) {
       .grid4 { grid-template-columns: repeat(2, 1fr); }
       .grid3 { grid-template-columns: 1fr; }
       .grid2 { grid-template-columns: 1fr; }
+      .pool-groups { grid-template-columns: 1fr; }
     }
     @media (max-width: 620px) {
       .grid4 { grid-template-columns: 1fr; }
@@ -312,7 +382,17 @@ _COMMUNITY_HTML = """
     <section class="hero">
       <div class="eyebrow">Rising Sparks Connection Dashboard</div>
       <h1>Find your people. Build the city.</h1>
-      <p class="sub">
+      <div class="hero-actions">
+        <a id="intake-link" class="hero-primary" href="/forms/">Submit Your Signal</a>
+      </div>
+      <p class="hero-cta-note">
+        Looking for a camp, collaborators, or infrastructure help? Share what you need or what you can offer.
+      </p>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">Metrics Summary</h2>
+      <p class="group-desc">
         A live, anonymized view of how signals become connections across camps,
         art projects, and seekers looking to participate.
       </p>
@@ -325,7 +405,7 @@ _COMMUNITY_HTML = """
         Active indexed posts by role — the supply and demand the bot is working
         with right now.
       </p>
-      <div class="grid3" id="pool-metrics"></div>
+      <div class="pool-groups" id="pool-metrics"></div>
       <div class="metrics-divider"></div>
       <div class="grid2">
         <div>
@@ -440,7 +520,9 @@ _COMMUNITY_HTML = """
         <strong>Help us build this?</strong><br>
         Tell us what feels useful, what’s missing, or what feels too automated.
       </div>
-      <a id="feedback-link" href="/forms/">Send Feedback to Organizers</a>
+      <div class="cta-actions">
+        <a id="feedback-link" href="/forms/">Send Feedback to Organizers</a>
+      </div>
     </section>
     <div class="updated">
       Rising Sparks is a volunteer-led community experiment. While we
@@ -471,6 +553,28 @@ _COMMUNITY_HTML = """
           <div class="metric">${fmt(value)}</div>
           <p class="note">${note}</p>
         </article>
+      `;
+    }
+
+    function poolMetric(label, value, note, muted = false) {
+      return `
+        <article class="pool-metric ${muted ? "pool-metric-muted" : ""}">
+          <div class="kicker">${label}</div>
+          <div class="metric">${fmt(value)}</div>
+          <p class="note">${note}</p>
+        </article>
+      `;
+    }
+
+    function poolGroup(title, copy, metrics) {
+      return `
+        <section class="pool-group">
+          <h3 class="pool-group-title">${title}</h3>
+          <p class="pool-group-copy">${copy}</p>
+          <div class="pool-group-grid">
+            ${metrics.join("")}
+          </div>
+        </section>
       `;
     }
 
@@ -719,37 +823,55 @@ _COMMUNITY_HTML = """
       const seekerPct = analyzed > 0 ? Math.round((seekers / analyzed) * 100) : 0;
       const unclassifiedPct = analyzed > 0 ? Math.round((unclassified / analyzed) * 100) : 0;
       document.getElementById("pool-metrics").innerHTML = [
-        metricCard(
-          "Camps & Art Projects",
-          camps,
-          `${campPct}% of indexed posts — groups with openings or offerings`
+        poolGroup(
+          "Camp Connections",
+          "Who has openings, and who is trying to find a place to contribute.",
+          [
+            poolMetric(
+              "Camps & Art Projects",
+              camps,
+              `${campPct}% of indexed posts — groups with openings or offerings`
+            ),
+            poolMetric(
+              "Seekers",
+              seekers,
+              `${seekerPct}% of indexed posts — people looking to join or contribute`
+            ),
+          ]
         ),
-        metricCard(
-          "Seekers",
-          seekers,
-          `${seekerPct}% of indexed posts — people looking to join or contribute`
+        poolGroup(
+          "Infrastructure Exchange",
+          "Gear, logistics, and support signals that are active in the pool.",
+          [
+            poolMetric(
+              "Infra Needs",
+              infraSeeking,
+              "Indexed or reviewable posts seeking gear, logistics, or support"
+            ),
+            poolMetric(
+              "Infra Offers",
+              infraOffering,
+              "Indexed or reviewable posts offering gear, logistics, or support"
+            ),
+          ]
         ),
-        metricCard(
-          "Infra Needs",
-          infraSeeking,
-          "Indexed or reviewable posts seeking gear, logistics, or support"
-        ),
-        metricCard(
-          "Infra Offers",
-          infraOffering,
-          "Indexed or reviewable posts offering gear, logistics, or support"
-        ),
-        mutedCard(
-          "Soft Matches",
-          softMatches,
-          `${fmt(softMatches7d)} in the last 7 days — keyword-only candidates
-          waiting for human review`
-        ),
-        mutedCard(
-          "Role Unclear",
-          unclassified,
-          `${unclassifiedPct}% of indexed posts - LLM tried but failed to
-          categorize — for us to review`
+        poolGroup(
+          "Matching Queue",
+          "Signals that still need a stronger classification or a human pass.",
+          [
+            poolMetric(
+              "Soft Matches",
+              softMatches,
+              `${fmt(softMatches7d)} in the last 7 days — keyword-only candidates waiting for human review`,
+              true
+            ),
+            poolMetric(
+              "Role Unclear",
+              unclassified,
+              `${unclassifiedPct}% of indexed posts — LLM tried but could not categorize them cleanly`,
+              true
+            ),
+          ]
         ),
       ].join("");
 
