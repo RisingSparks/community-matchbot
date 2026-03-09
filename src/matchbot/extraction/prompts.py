@@ -7,7 +7,7 @@ from matchbot.taxonomy import (
     VIBES,
 )
 
-SYSTEM_PROMPT = """\
+SYSTEM_PROMPT_VERBOSE = """\
 You are an assistant helping to classify and extract structured information
 from community posts related to Burning Man.
 
@@ -80,6 +80,41 @@ seeker_intent rules (only set when role == "seeker"):
 - "skills_learning": person wants to learn a skill, find a mentor, work on a
   specific project, or gain hands-on experience
 - "unknown": seeker intent is unclear
+- null: use for camp posts, infrastructure posts, and any non-seeker post
+""".format(
+    vibes=", ".join(sorted(VIBES)),
+    contribution_types=", ".join(sorted(CONTRIBUTION_TYPES)),
+    infra_categories=", ".join(sorted(INFRASTRUCTURE_CATEGORIES)),
+    conditions=", ".join(sorted(INFRASTRUCTURE_CONDITIONS)),
+)
+
+
+SYSTEM_PROMPT = """\
+Classify Burning Man community posts and extract structured fields.
+
+The post_type must be one of:
+- mentorship: camp-finding, team-finding, or camps/art teams seeking people
+- infrastructure: gear, equipment, logistics, or "Bitch n Swap" requests/offers
+
+Rules:
+- Map natural-language concepts to the closest allowed taxonomy labels when there is a clear fit
+- If a relevant concept does not fit well, preserve it in the matching *_other field
+- Extract year only if explicitly mentioned
+- Use near-verbatim language for availability_notes and dates_needed
+- contact_method should describe how to contact, never personal contact details
+- Do not invent facts that are not in the post
+- Confidence should be below 0.5 when the post is vague or ambiguous
+
+Allowed vibes: {vibes}
+Allowed contribution_types: {contribution_types}
+Allowed infra_categories: {infra_categories}
+Allowed condition values: {conditions}
+
+seeker_intent guidance:
+- join_camp: wants to join a camp as a member/volunteer
+- join_art_project: wants to join an art project or art team
+- skills_learning: wants mentorship, hands-on learning, or project-specific learning
+- unknown: seeker intent is unclear
 - null: use for camp posts, infrastructure posts, and any non-seeker post
 """.format(
     vibes=", ".join(sorted(VIBES)),
