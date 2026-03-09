@@ -31,15 +31,15 @@ class TestExtractedPostSchema:
         ep = ExtractedPost(role="wizard")
         assert ep.role == "unknown"
 
-    def test_unknown_vibes_dropped(self):
+    def test_unknown_vibes_preserved_in_schema(self):
         ep = ExtractedPost(vibes=["art", "invalid_vibe_xyz"])
         assert "art" in ep.vibes
-        assert "invalid_vibe_xyz" not in ep.vibes
+        assert "invalid_vibe_xyz" in ep.vibes
 
-    def test_unknown_contribution_types_dropped(self):
+    def test_unknown_contribution_types_preserved_in_schema(self):
         ep = ExtractedPost(contribution_types=["build", "interpretive_dance"])
         assert "build" in ep.contribution_types
-        assert "interpretive_dance" not in ep.contribution_types
+        assert "interpretive_dance" in ep.contribution_types
 
     def test_confidence_clamped_high(self):
         ep = ExtractedPost(confidence=1.5)
@@ -224,6 +224,63 @@ async def test_process_post_normalizes_vibes(db_session, mock_extractor):
     # Only valid vibes should be stored
     assert "art" in result.vibes_list()
     assert "INVALID_VIBE" not in result.vibes_list()
+
+
+@pytest.mark.asyncio
+async def test_process_post_preserves_unmapped_terms_and_routes_to_review(
+    db_session, mock_extractor
+):
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="other001",
+        title="Seeking camp for makers",
+        raw_text="Looking for a camp with a maker vibe and hands-on fabrication.",
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        role="seeker",
+        vibes=["art"],
+        vibes_other=["maker"],
+        contribution_types=["build"],
+        contribution_types_other=["fabrication"],
+        confidence=0.92,
+    )
+
+    result = await process_post(db_session, post, mock_extractor)
+
+    assert result.status == PostStatus.NEEDS_REVIEW
+    assert result.vibes_list() == ["art"]
+    assert result.vibes_other_list() == ["maker"]
+    assert result.contribution_types_list() == ["build"]
+    assert result.contribution_types_other_list() == ["fabrication"]
+
+
+@pytest.mark.asyncio
+async def test_process_post_uses_keyword_role_when_llm_returns_unknown(db_session, mock_extractor):
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="role001",
+        title="Seeking camp for Burning Man 2025",
+        raw_text="First time burner looking for a camp. Happy to build.",
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        role="unknown",
+        contribution_types=["build"],
+        confidence=0.9,
+    )
+
+    result = await process_post(db_session, post, mock_extractor)
+
+    assert result.role == PostRole.SEEKER
 
 
 @pytest.mark.asyncio

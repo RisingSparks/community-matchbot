@@ -130,7 +130,9 @@ class Post(SQLModel, table=True):
     role: str | None = Field(default=None)
     seeker_intent: str | None = Field(default=None)  # SeekerIntent | None
     vibes: str = Field(default="")  # pipe-delimited
+    vibes_other: str = Field(default="")  # pipe-delimited unmapped vibe labels
     contribution_types: str = Field(default="")  # pipe-delimited
+    contribution_types_other: str = Field(default="")  # pipe-delimited unmapped contribution labels
     camp_name: str | None = Field(default=None)
     camp_size_min: int | None = Field(default=None)
     camp_size_max: int | None = Field(default=None)
@@ -147,8 +149,10 @@ class Post(SQLModel, table=True):
     # Infrastructure-specific fields (post_type == infrastructure)
     infra_role: str | None = Field(default=None)          # seeking | offering
     infra_categories: str = Field(default="")             # pipe-delimited infra category list
+    infra_categories_other: str = Field(default="")       # pipe-delimited unmapped infra labels
     quantity: str | None = Field(default=None)            # e.g. "2 units", "approx 50ft"
     condition: str | None = Field(default=None)           # new | good | fair | worn | needs_repair
+    condition_other: str | None = Field(default=None)     # raw unmapped condition term
     dates_needed: str | None = Field(default=None)        # near-verbatim from post
 
     # FK
@@ -164,8 +168,25 @@ class Post(SQLModel, table=True):
             else []
         )
 
+    def vibes_other_list(self) -> list[str]:
+        return [v for v in self.vibes_other.split("|") if v] if self.vibes_other else []
+
+    def contribution_types_other_list(self) -> list[str]:
+        return (
+            [v for v in self.contribution_types_other.split("|") if v]
+            if self.contribution_types_other
+            else []
+        )
+
     def infra_categories_list(self) -> list[str]:
         return [v for v in self.infra_categories.split("|") if v] if self.infra_categories else []
+
+    def infra_categories_other_list(self) -> list[str]:
+        return (
+            [v for v in self.infra_categories_other.split("|") if v]
+            if self.infra_categories_other
+            else []
+        )
 
 
 class Match(SQLModel, table=True):

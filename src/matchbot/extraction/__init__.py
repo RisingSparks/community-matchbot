@@ -14,12 +14,17 @@ from matchbot.extraction.keywords import keyword_filter
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
 from matchbot.taxonomy import (
-    normalize_contribution_types,
-    normalize_infra_categories,
-    normalize_vibes,
+    normalize_condition,
+    split_contribution_types,
+    split_infra_categories,
+    split_vibes,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _join_pipe(values: list[str]) -> str:
+    return "|".join(values)
 
 
 async def process_post(
@@ -110,18 +115,32 @@ async def process_post(
         return post
 
     # --- 4. Normalize against taxonomy ---
-    valid_vibes = normalize_vibes(extracted.vibes)
-    valid_contributions = normalize_contribution_types(extracted.contribution_types)
-    valid_infra_categories = normalize_infra_categories(extracted.infra_categories)
+    valid_vibes, vibe_other = split_vibes(extracted.vibes + extracted.vibes_other)
+    valid_contributions, contribution_other = split_contribution_types(
+        extracted.contribution_types + extracted.contribution_types_other
+    )
+    valid_infra_categories, infra_categories_other = split_infra_categories(
+        extracted.infra_categories + extracted.infra_categories_other
+    )
+    valid_condition = normalize_condition(extracted.condition)
+    condition_other = extracted.condition_other.strip() if extracted.condition_other else None
+    if extracted.condition and valid_condition is None:
+        condition_other = extracted.condition.strip().lower()
 
     # --- 5. Update Post fields ---
     post.post_type = extracted.post_type
 
     # Mentorship fields
-    post.role = extracted.role if extracted.role else keyword_role_hint
+    post.role = (
+        keyword_role_hint or extracted.role
+        if extracted.role == "unknown"
+        else extracted.role
+    )
     post.seeker_intent = extracted.seeker_intent
-    post.vibes = "|".join(valid_vibes)
-    post.contribution_types = "|".join(valid_contributions)
+    post.vibes = _join_pipe(valid_vibes)
+    post.vibes_other = _join_pipe(vibe_other)
+    post.contribution_types = _join_pipe(valid_contributions)
+    post.contribution_types_other = _join_pipe(contribution_other)
     post.camp_name = extracted.camp_name
     post.camp_size_min = extracted.camp_size_min
     post.camp_size_max = extracted.camp_size_max
@@ -132,15 +151,21 @@ async def process_post(
 
     # Infrastructure fields
     post.infra_role = extracted.infra_role
-    post.infra_categories = "|".join(valid_infra_categories)
+    post.infra_categories = _join_pipe(valid_infra_categories)
+    post.infra_categories_other = _join_pipe(infra_categories_other)
     post.quantity = extracted.quantity
-    post.condition = extracted.condition
+    post.condition = valid_condition
+    post.condition_other = condition_other
     post.dates_needed = extracted.dates_needed
 
     post.extraction_confidence = extracted.confidence
     post.extraction_method = f"llm_{extractor.provider_name()}"
 
-    if extracted.confidence < settings.llm_extraction_confidence_threshold:
+    has_unmapped_taxonomy = bool(
+        vibe_other or contribution_other or infra_categories_other or condition_other
+    )
+
+    if extracted.confidence < settings.llm_extraction_confidence_threshold or has_unmapped_taxonomy:
         post.status = PostStatus.NEEDS_REVIEW
     else:
         post.status = PostStatus.INDEXED
@@ -157,6 +182,10 @@ async def process_post(
             "role": post.role,
             "seeker_intent": post.seeker_intent,
             "infra_role": post.infra_role,
+            "vibes_other": vibe_other,
+            "contribution_types_other": contribution_other,
+            "infra_categories_other": infra_categories_other,
+            "condition_other": condition_other,
             "status": post.status,
         },
     )

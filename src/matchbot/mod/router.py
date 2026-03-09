@@ -25,8 +25,11 @@ from matchbot.taxonomy import (
     INFRASTRUCTURE_CATEGORIES,
     INFRASTRUCTURE_CONDITIONS,
     VIBES,
+    normalize_condition,
     normalize_contribution_types,
     normalize_infra_categories,
+    normalize_infra_role,
+    normalize_role,
     normalize_vibes,
 )
 
@@ -66,7 +69,11 @@ def _require_mod(request: Request) -> None:
     now_ms = int(time.time() * 1000)
     if now_ms - ts_ms > 7 * 24 * 3600 * 1000:
         raise HTTPException(401, "Session expired")
-    expected = hmac.new(settings.mod_secret_key.encode(), ts_str.encode(), hashlib.sha256).hexdigest()
+    expected = hmac.new(
+        settings.mod_secret_key.encode(),
+        ts_str.encode(),
+        hashlib.sha256,
+    ).hexdigest()
     if not hmac.compare_digest(expected, sig):
         raise HTTPException(401, "Invalid session")
 
@@ -91,6 +98,36 @@ class OverrideFields(BaseModel):
     infra_categories: list[str] | None = None
     quantity: str | None = None
     condition: str | None = None
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        normalized = normalize_role(v)
+        if normalized is None:
+            raise ValueError("must be one of ['camp', 'seeker', 'unknown']")
+        return normalized
+
+    @field_validator("infra_role")
+    @classmethod
+    def validate_infra_role(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        normalized = normalize_infra_role(v)
+        if normalized is None:
+            raise ValueError("must be one of ['offering', 'seeking']")
+        return normalized
+
+    @field_validator("condition")
+    @classmethod
+    def validate_condition(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        normalized = normalize_condition(v)
+        if normalized is None:
+            raise ValueError(f"must be one of {sorted(INFRASTRUCTURE_CONDITIONS)}")
+        return normalized
 
 
 DISMISS_REASONS = {"spam", "off-topic", "duplicate", "not-real", "other"}
@@ -180,7 +217,9 @@ def _post_to_dict(post: Post, age_hours: float | None = None) -> dict[str, Any]:
         "role": post.role,
         "seeker_intent": post.seeker_intent,
         "vibes": post.vibes_list(),
+        "vibes_other": post.vibes_other_list(),
         "contribution_types": post.contribution_types_list(),
+        "contribution_types_other": post.contribution_types_other_list(),
         "camp_name": post.camp_name,
         "camp_size_min": post.camp_size_min,
         "camp_size_max": post.camp_size_max,
@@ -192,8 +231,10 @@ def _post_to_dict(post: Post, age_hours: float | None = None) -> dict[str, Any]:
         "post_type": post.post_type,
         "infra_role": post.infra_role,
         "infra_categories": post.infra_categories_list(),
+        "infra_categories_other": post.infra_categories_other_list(),
         "quantity": post.quantity,
         "condition": post.condition,
+        "condition_other": post.condition_other,
     }
     if age_hours is not None:
         d["age_hours"] = age_hours
@@ -251,7 +292,11 @@ async def login(body: LoginRequest, response: Response) -> dict:
         raise HTTPException(401, "Invalid password")
     ts_str = str(int(time.time() * 1000))
     if settings.mod_secret_key:
-        sig = hmac.new(settings.mod_secret_key.encode(), ts_str.encode(), hashlib.sha256).hexdigest()
+        sig = hmac.new(
+            settings.mod_secret_key.encode(),
+            ts_str.encode(),
+            hashlib.sha256,
+        ).hexdigest()
     else:
         sig = "dev"
     response.set_cookie(
@@ -284,6 +329,7 @@ async def logout(response: Response, _: None = Depends(_require_mod)) -> dict:
 async def get_queue(
     post_type: str | None = None,
     platform: str | None = None,
+    extraction_method: str | None = None,
     limit: int = 50,
     _: None = Depends(_require_mod),
     session: AsyncSession = Depends(_get_session),
@@ -293,6 +339,8 @@ async def get_queue(
         q = q.where(Post.post_type == post_type)
     if platform:
         q = q.where(Post.platform == platform)
+    if extraction_method:
+        q = q.where(Post.extraction_method == extraction_method)
     q = q.order_by(Post.detected_at.asc()).limit(limit)  # type: ignore[arg-type]
     posts = (await session.exec(q)).all()
     now = datetime.now(UTC)
@@ -397,7 +445,12 @@ async def edit_post(
     await session.commit()
     await session.refresh(post)
     # If we just gave a role to a previously unclassified indexed post, run matching now.
-    if was_indexed and body.role and role_before in {None, "unknown"} and post.role in {"seeker", "camp"}:
+    if (
+        was_indexed
+        and body.role
+        and role_before in {None, "unknown"}
+        and post.role in {"seeker", "camp"}
+    ):
         from matchbot.matching.queue import propose_matches
         await propose_matches(session, post)
     return {"ok": True, "post_id": post.id}
@@ -497,6 +550,19 @@ async def get_stats(
         ).one()
         or 0
     )
+    soft_matches_count = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Post)
+                .where(
+                    Post.status == PostStatus.NEEDS_REVIEW,
+                    Post.extraction_method == "keyword_soft",
+                )
+            )
+        ).one()
+        or 0
+    )
     oldest_detected = (
         await session.exec(
             select(func.min(Post.detected_at)).where(Post.status == PostStatus.NEEDS_REVIEW)
@@ -540,6 +606,7 @@ async def get_stats(
 
     return {
         "needs_review_count": needs_review_count,
+        "soft_matches_count": soft_matches_count,
         "oldest_needs_review_age_hours": oldest_age_hours,
         "approved_today": approved_today,
         "dismissed_today": dismissed_today,

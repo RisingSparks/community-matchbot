@@ -1,12 +1,6 @@
 from pydantic import BaseModel, field_validator
 
 from matchbot.db.models import PostType
-from matchbot.taxonomy import (
-    CONTRIBUTION_TYPES,
-    INFRASTRUCTURE_CATEGORIES,
-    INFRASTRUCTURE_CONDITIONS,
-    VIBES,
-)
 
 
 class ExtractedPost(BaseModel):
@@ -24,7 +18,9 @@ class ExtractedPost(BaseModel):
     camp_size_max: int | None = None
     year: int | None = None
     vibes: list[str] = []
+    vibes_other: list[str] = []
     contribution_types: list[str] = []
+    contribution_types_other: list[str] = []
     location_preference: str | None = None
     availability_notes: str | None = None
     contact_method: str | None = None
@@ -32,8 +28,10 @@ class ExtractedPost(BaseModel):
     # --- infrastructure / "Bitch n Swap" fields ---
     infra_role: str | None = None          # seeking | offering
     infra_categories: list[str] = []       # from INFRASTRUCTURE_CATEGORIES
+    infra_categories_other: list[str] = []
     quantity: str | None = None            # "2 units", "~50 ft"
     condition: str | None = None           # from INFRASTRUCTURE_CONDITIONS
+    condition_other: str | None = None
     dates_needed: str | None = None        # near-verbatim from post
 
     # -----------------------------------------------------------------------
@@ -70,26 +68,54 @@ class ExtractedPost(BaseModel):
     @field_validator("vibes")
     @classmethod
     def validate_vibes(cls, v: list[str]) -> list[str]:
-        return [x.lower() for x in v if x.lower() in VIBES]
+        return _normalize_string_list(v)
 
     @field_validator("contribution_types")
     @classmethod
     def validate_contribution_types(cls, v: list[str]) -> list[str]:
-        return [x.lower() for x in v if x.lower() in CONTRIBUTION_TYPES]
+        return _normalize_string_list(v)
 
     @field_validator("infra_categories")
     @classmethod
     def validate_infra_categories(cls, v: list[str]) -> list[str]:
-        return [x.lower() for x in v if x.lower() in INFRASTRUCTURE_CATEGORIES]
+        return _normalize_string_list(v)
 
     @field_validator("condition")
     @classmethod
     def validate_condition(cls, v: str | None) -> str | None:
         if v is None:
             return None
-        return v.lower() if v.lower() in INFRASTRUCTURE_CONDITIONS else None
+        cleaned = v.strip().lower()
+        return cleaned or None
 
     @field_validator("confidence")
     @classmethod
     def clamp_confidence(cls, v: float) -> float:
         return max(0.0, min(1.0, v))
+
+    @field_validator(
+        "vibes",
+        "vibes_other",
+        "contribution_types",
+        "contribution_types_other",
+        "infra_categories",
+        "infra_categories_other",
+        mode="before",
+    )
+    @classmethod
+    def default_list_fields(cls, v: list[str] | None) -> list[str]:
+        return v or []
+
+
+def _normalize_string_list(values: list[str]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+
+    for value in values:
+        cleaned = value.strip().lower()
+        if not cleaned or cleaned in seen:
+            continue
+        normalized.append(cleaned)
+        seen.add(cleaned)
+
+    return normalized

@@ -40,7 +40,7 @@ async def test_main_async_creates_tables_without_reset(monkeypatch: pytest.Monke
     monkeypatch.setattr(backfill_script, "dispose_engine", fake_dispose_engine)
 
     await backfill_script._main_async(
-        since_date="2025-01-01",
+        since_date="2026-01-01",
         reset_db=False,
         yes=False,
         fetch_limit=25,
@@ -84,7 +84,7 @@ async def test_main_async_resets_tables_when_requested(monkeypatch: pytest.Monke
     monkeypatch.setattr(backfill_script, "dispose_engine", fake_dispose_engine)
 
     await backfill_script._main_async(
-        since_date="2025-01-01",
+        since_date="2026-01-01",
         reset_db=True,
         yes=True,
         fetch_limit=25,
@@ -120,7 +120,7 @@ async def test_main_async_aborts_when_reset_not_confirmed(
 
     with pytest.raises(typer.Abort):
         await backfill_script._main_async(
-            since_date="2025-01-01",
+            since_date="2026-01-01",
             reset_db=True,
             yes=False,
             fetch_limit=25,

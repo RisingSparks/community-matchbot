@@ -37,11 +37,11 @@ class TestExtractedPostInfraSchema:
     def test_unknown_infra_categories_dropped(self):
         ep = ExtractedPost(infra_categories=["power", "jetpack_fuel"])
         assert "power" in ep.infra_categories
-        assert "jetpack_fuel" not in ep.infra_categories
+        assert "jetpack_fuel" in ep.infra_categories
 
-    def test_invalid_condition_becomes_none(self):
+    def test_invalid_condition_preserved(self):
         ep = ExtractedPost(condition="perfect")
-        assert ep.condition is None
+        assert ep.condition == "perfect"
 
     def test_valid_conditions_accepted(self):
         for cond in INFRASTRUCTURE_CONDITIONS:
@@ -282,7 +282,7 @@ async def test_process_post_infra_seeds_post_type_from_keyword_filter(db_session
 
 @pytest.mark.asyncio
 async def test_process_post_infra_unknown_categories_dropped(db_session, mock_extractor):
-    """Invalid infra categories from LLM are dropped during normalization."""
+    """Unmapped infra categories are preserved and force review."""
     post = Post(
         platform=Platform.REDDIT,
         platform_post_id="infra005",
@@ -304,8 +304,39 @@ async def test_process_post_infra_unknown_categories_dropped(db_session, mock_ex
     result = await process_post(db_session, post, mock_extractor)
 
     cats = result.infra_categories_list()
+    other = result.infra_categories_other_list()
     assert "power" in cats
     assert "flux_capacitor" not in cats
+    assert "flux_capacitor" in other
+    assert result.status == PostStatus.NEEDS_REVIEW
+
+
+@pytest.mark.asyncio
+async def test_process_post_infra_unmapped_condition_preserved(db_session, mock_extractor):
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="infra007",
+        title="Have spare canopy available",
+        raw_text="Can lend a canopy in excellent condition.",
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        post_type="infrastructure",
+        infra_role="offering",
+        infra_categories=["shade"],
+        condition="excellent",
+        confidence=0.95,
+    )
+
+    result = await process_post(db_session, post, mock_extractor)
+
+    assert result.condition is None
+    assert result.condition_other == "excellent"
+    assert result.status == PostStatus.NEEDS_REVIEW
 
 
 @pytest.mark.asyncio

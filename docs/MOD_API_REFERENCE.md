@@ -53,6 +53,7 @@ Returns NEEDS_REVIEW posts, oldest first.
 |-------|------|---------|-------------|
 | `post_type` | `string` | — | Filter: `mentorship` or `infrastructure` |
 | `platform` | `string` | — | Filter: `reddit`, `discord`, or `facebook` |
+| `extraction_method` | `string` | — | Filter by review lane, e.g. `keyword_soft` or `llm_openai` |
 | `limit` | `integer` | `50` | Max posts to return |
 
 **Response `200` — `list[QueueItem]`**
@@ -259,7 +260,8 @@ Current queue health snapshot.
 ```json
 {
   "needs_review_count": 7,
-  "oldest_post_age_hours": 31.2,
+  "soft_matches_count": 3,
+  "oldest_needs_review_age_hours": 31.2,
   "approved_today": 4,
   "dismissed_today": 1
 }

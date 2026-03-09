@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from matchbot.db.models import Event, Platform, Post, PostRole, PostStatus
 from matchbot.server import create_app
-
 
 # ---------------------------------------------------------------------------
 # Fixture: authenticated mod client wired to the in-memory DB
@@ -140,6 +138,40 @@ async def test_queue_filter_by_platform(mod_client, db_session):
     assert data[0]["platform"] == Platform.REDDIT
 
 
+async def test_queue_filter_by_extraction_method(mod_client, db_session):
+    soft_post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="q_soft_1",
+        platform_author_id="u1",
+        title="Soft post",
+        raw_text="text",
+        status=PostStatus.NEEDS_REVIEW,
+        extraction_method="keyword_soft",
+    )
+    llm_post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="q_llm_1",
+        platform_author_id="u2",
+        title="LLM post",
+        raw_text="text",
+        status=PostStatus.NEEDS_REVIEW,
+        extraction_method="llm_openai",
+    )
+    db_session.add(soft_post)
+    db_session.add(llm_post)
+    await db_session.commit()
+
+    resp = await mod_client.get(
+        "/api/mod/queue",
+        params={"extraction_method": "keyword_soft"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["platform_post_id"] == "q_soft_1"
+    assert data[0]["extraction_method"] == "keyword_soft"
+
+
 # ---------------------------------------------------------------------------
 # Post detail tests
 # ---------------------------------------------------------------------------
@@ -177,7 +209,11 @@ async def test_post_detail_returns_events(mod_client, db_session):
     data = resp.json()
     assert data["id"] == post.id
     assert data["vibes"] == []
+    assert data["vibes_other"] == []
     assert data["contribution_types"] == []
+    assert data["contribution_types_other"] == []
+    assert data["infra_categories_other"] == []
+    assert data["condition_other"] is None
     assert len(data["events"]) == 1
     assert data["events"][0]["event_type"] == "test_event"
 
@@ -331,6 +367,49 @@ async def test_edit_requires_at_least_one_field(mod_client, db_session):
     assert resp.status_code == 422
 
 
+async def test_edit_rejects_invalid_condition(mod_client, db_session):
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="edit_condition",
+        platform_author_id="u1",
+        title="Edit me",
+        raw_text="text",
+        status=PostStatus.NEEDS_REVIEW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    resp = await mod_client.post(
+        f"/api/mod/posts/{post.id}/edit",
+        json={"condition": "excellent"},
+    )
+    assert resp.status_code == 422
+
+
+async def test_edit_normalizes_valid_condition(mod_client, db_session):
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="edit_condition_ok",
+        platform_author_id="u1",
+        title="Edit me",
+        raw_text="text",
+        status=PostStatus.NEEDS_REVIEW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    resp = await mod_client.post(
+        f"/api/mod/posts/{post.id}/edit",
+        json={"condition": "GOOD"},
+    )
+    assert resp.status_code == 200
+
+    await db_session.refresh(post)
+    assert post.condition == "good"
+
+
 # ---------------------------------------------------------------------------
 # Taxonomy test
 # ---------------------------------------------------------------------------
@@ -363,6 +442,7 @@ async def test_stats_counts(mod_client, db_session):
         title="Stats post",
         raw_text="text",
         status=PostStatus.NEEDS_REVIEW,
+        extraction_method="keyword_soft",
     )
     db_session.add(post)
     await db_session.commit()
@@ -371,6 +451,7 @@ async def test_stats_counts(mod_client, db_session):
     assert resp.status_code == 200
     data = resp.json()
     assert data["needs_review_count"] == 1
+    assert data["soft_matches_count"] == 1
     assert data["oldest_needs_review_age_hours"] is not None
     assert data["approved_today"] == 0
     assert data["dismissed_today"] == 0
