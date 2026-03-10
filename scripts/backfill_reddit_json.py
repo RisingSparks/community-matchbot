@@ -13,7 +13,7 @@ import typer
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from matchbot.db.engine import create_db_and_tables, dispose_engine, reset_db_and_tables
-from matchbot.listeners.reddit_json import backfill_reddit_json
+from matchbot.listeners.reddit_json import _build_reddit_json_headers, backfill_reddit_json
 from matchbot.log_config import configure_logging
 from matchbot.settings import get_settings
 
@@ -64,6 +64,12 @@ def main(
     settings = get_settings()
     configure_logging(verbose=verbose or settings.verbose)
     logger.info("Loaded REDDIT_JSON_USER_AGENT=%r", settings.reddit_json_user_agent)
+    logger.info(
+        "Loaded REDDIT_JSON_EMULATE_BROWSER=%s REDDIT_JSON_COOKIE_PRESENT=%s",
+        settings.reddit_json_emulate_browser,
+        bool(settings.reddit_json_cookie),
+    )
+    logger.info("Effective Reddit JSON headers=%r", _build_reddit_json_headers())
     asyncio.run(
         _main_async(
             since_date=since_date,
