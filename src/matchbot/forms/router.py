@@ -322,6 +322,58 @@ select {
 }
 .return-link:hover { text-decoration: underline; }
 
+/* How it works steps */
+.steps-heading {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+.steps {
+  border-top: 1px solid var(--border-light);
+  margin-bottom: 44px;
+}
+.step {
+  display: flex;
+  gap: 20px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.step-num {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 1.25rem;
+  color: var(--ember);
+  font-weight: 300;
+  min-width: 22px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+.step-body { flex: 1; }
+.step-title {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--text);
+  margin-bottom: 1px;
+  line-height: 1.4;
+}
+.step-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Process note near submit */
+.process-note {
+  margin-top: 16px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.55;
+  max-width: 420px;
+}
+
 /* Fade-up entrance */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(14px); }
@@ -385,32 +437,32 @@ _LANDING_HTML = f"""<!DOCTYPE html>
     <a class="logo" href="/forms/">Rising Sparks</a>
   </header>
 
-  <h1>Find your <em>people.</em><br>Build the city.</h1>
+  <h1>Find your <em>community.</em><br>Build the city.</h1>
   <p class="lede">
-    We help self-motivated people find aligned communities
+    Matchbot connects self-motivated people with the camps and art projects
     where they can contribute, learn, and make something real.
-    Tell us about yourself or your project to get started.
+    Fill out a short form and our volunteer moderators will look for the right fit.
   </p>
 
   <div class="choices">
     <a class="choice-card" href="/forms/seeker">
       <div class="choice-body">
-        <span class="choice-label">I want to contribute &amp; learn</span>
-        <span class="choice-sub">Seeking a camp or art project to join as a builder, crew member, or apprentice</span>
+        <span class="choice-label">I&#8217;m looking for a camp or art project</span>
+        <span class="choice-sub">Find an aligned community where you can contribute, build, or learn</span>
       </div>
       <span class="choice-arrow">&#8594;</span>
     </a>
     <a class="choice-card" href="/forms/camp">
       <div class="choice-body">
-        <span class="choice-label">We&#8217;re looking for builders &amp; collaborators</span>
-        <span class="choice-sub">A camp or art project with openings for motivated contributors</span>
+        <span class="choice-label">We have openings for contributors</span>
+        <span class="choice-sub">A camp or art project looking for motivated builders and crew</span>
       </div>
       <span class="choice-arrow">&#8594;</span>
     </a>
     <a class="choice-card" href="/forms/infra">
       <div class="choice-body">
-        <span class="choice-label">We need or can offer infrastructure</span>
-        <span class="choice-sub">Gear, tools, shade, power, transport — seeking or lending</span>
+        <span class="choice-label">I need gear — or have gear to offer</span>
+        <span class="choice-sub">Shade, power, tools, transport, kitchen — seeking or lending</span>
       </div>
       <span class="choice-arrow">&#8594;</span>
     </a>
@@ -438,10 +490,10 @@ _SEEKER_FORM_HTML = f"""<!DOCTYPE html>
   </header>
 
   <a class="back-link" href="/forms/">&#8592; Back</a>
-  <h1>I want to<br><em>contribute &amp; learn</em></h1>
+  <h1>Find a Camp or<br><em>Art Project</em></h1>
   <p class="lede">
-    Tell us who you are and what you&#8217;re drawn to.
-    Our moderators will look for aligned projects and make a human introduction.
+    Tell us who you are, what you can contribute, and what you&#8217;re looking for.
+    Our moderators will review your submission and reach out if they find a good fit.
   </p>
 
   <form method="post" action="/forms/seeker">
@@ -493,6 +545,10 @@ _SEEKER_FORM_HTML = f"""<!DOCTYPE html>
     </div>
 
     <button class="btn-submit" type="submit">Join the pool &#8594;</button>
+    <p class="process-note">
+      Our volunteer moderators review submissions manually.
+      If we find a good match, we&#8217;ll reach out to make a direct introduction — no automated spam.
+    </p>
   </form>
 
   {_DISCLAIMER_HTML}
@@ -517,10 +573,10 @@ _CAMP_FORM_HTML = f"""<!DOCTYPE html>
   </header>
 
   <a class="back-link" href="/forms/">&#8592; Back</a>
-  <h1>We&#8217;re looking for<br><em>builders &amp; collaborators</em></h1>
+  <h1>Find Builders and<br><em>Collaborators</em></h1>
   <p class="lede">
-    Describe your project and what you&#8217;re looking for.
-    Our moderators will surface motivated, aligned contributors and make introductions.
+    Tell us about your camp or art project and what you need.
+    Our moderators will look for motivated, aligned contributors and make introductions.
   </p>
 
   <form method="post" action="/forms/camp">
@@ -582,6 +638,10 @@ _CAMP_FORM_HTML = f"""<!DOCTYPE html>
     </div>
 
     <button class="btn-submit" type="submit">List your openings &#8594;</button>
+    <p class="process-note">
+      Our volunteer moderators review submissions manually.
+      If we find a good match, we&#8217;ll reach out to both parties with a direct introduction.
+    </p>
   </form>
 
   {_DISCLAIMER_HTML}

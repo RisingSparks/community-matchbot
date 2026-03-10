@@ -2,6 +2,31 @@
 
 Volunteer-run tooling that helps people discover aligned camps, art projects, and infrastructure opportunities.
 
+## What This Project Is
+
+This project is a lightweight matchmaking and community-sensing pilot for the Burning Man ecosystem.
+
+It is testing a few adjacent use cases at once to learn what the community finds useful:
+
+1. Infrastructure offers, asks, and swaps between camps and projects
+2. Camp and art project connections for people offering help or looking for help
+3. A broader "alignment snapshot" of what people across the community seem to need, offer, or care about
+
+The common thread is supply and demand. The system looks at already-public posts and tries to surface where people, camps, and projects may be aligned on skills, assets, infrastructure, labor, or intent.
+
+## Project Goals
+
+The immediate goal is not to automate recruiting or force a new workflow. It is to reduce friction, observe real community behavior, and make collective needs more visible.
+
+More concretely, the project aims to:
+
+1. Make public "looking for camp/project/help" and "offering help/infra" posts easier to discover
+2. Highlight patterns across the community so people can see where skills, assets, and needs are clustering
+3. Support moderator-reviewed introductions when that is useful
+4. Stay as passive as possible by learning from existing Reddit, Facebook, and Discord activity instead of requiring people to fill out yet another form
+
+At this stage, the dashboard is primarily observational. It helps spark discussion about what kinds of matching, visibility, and coordination the community actually wants before the system takes a more active role.
+
 ## What It Does
 
 The bot ingests public posts from Reddit, Discord, and Facebook, extracts
@@ -10,6 +35,8 @@ connections, and supports moderator-reviewed introductions.
 
 The workflow is community-led: camps and project teams remain in control of
 fit, vetting, and intake decisions.
+
+Where matching is enabled, the intent is to point people back to the original source posts so humans can decide whether to connect directly. The system is meant to surface relevant connections, not replace human judgment or consent.
 
 Core flow:
 
