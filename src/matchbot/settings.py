@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     reddit_json_fetch_limit: int = Field(default=100)
     reddit_json_max_concurrent_extractions: int = Field(default=4)
     reddit_json_user_agent: str = Field(default="matchbot/0.1 by u/me (json-poller)")
+    reddit_json_emulate_browser: bool = Field(default=False)
+    reddit_json_cookie: str = Field(default="")
 
     # Discord
     discord_enabled: bool = Field(default=True)

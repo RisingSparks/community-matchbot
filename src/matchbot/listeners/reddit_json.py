@@ -116,6 +116,40 @@ def _new_counts() -> dict[str, int]:
     }
 
 
+def _build_reddit_json_headers() -> dict[str, str]:
+    settings = get_settings()
+    user_agent = settings.reddit_json_user_agent or settings.reddit_user_agent
+
+    if not settings.reddit_json_emulate_browser:
+        return {
+            "User-Agent": user_agent,
+            "Accept": "application/json",
+        }
+
+    headers = {
+        "User-Agent": user_agent,
+        "Accept": (
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,"
+            "image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+        ),
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+        "Priority": "u=0, i",
+        "Sec-CH-UA": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+        "Sec-CH-UA-Mobile": "?0",
+        "Sec-CH-UA-Platform": '"macOS"',
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+    }
+    if settings.reddit_json_cookie:
+        headers["Cookie"] = settings.reddit_json_cookie
+    return headers
+
+
 def _is_block_status(status_code: int) -> bool:
     return status_code in {403, 429}
 
@@ -320,10 +354,7 @@ async def poll_reddit_json_once(client: httpx.AsyncClient | None = None) -> dict
     if owns_client:
         client = httpx.AsyncClient(
             timeout=30,
-            headers={
-                "User-Agent": settings.reddit_json_user_agent or settings.reddit_user_agent,
-                "Accept": "application/json",
-            },
+            headers=_build_reddit_json_headers(),
         )
 
     counts = _new_counts()
@@ -385,10 +416,7 @@ async def backfill_reddit_json(
     if owns_client:
         client = httpx.AsyncClient(
             timeout=30,
-            headers={
-                "User-Agent": settings.reddit_json_user_agent or settings.reddit_user_agent,
-                "Accept": "application/json",
-            },
+            headers=_build_reddit_json_headers(),
         )
 
     counts = _new_counts()

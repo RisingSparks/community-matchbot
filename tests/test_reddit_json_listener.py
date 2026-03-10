@@ -35,6 +35,35 @@ def test_is_missing_table_error_ignores_other_programming_errors() -> None:
     assert not reddit_json._is_missing_table_error(err)
 
 
+def test_build_reddit_json_headers_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("REDDIT_JSON_USER_AGENT", "json-agent")
+    monkeypatch.setenv("REDDIT_USER_AGENT", "fallback-agent")
+    monkeypatch.setenv("REDDIT_JSON_EMULATE_BROWSER", "false")
+    monkeypatch.delenv("REDDIT_JSON_COOKIE", raising=False)
+    get_settings.cache_clear()
+
+    headers = reddit_json._build_reddit_json_headers()
+
+    assert headers == {
+        "User-Agent": "json-agent",
+        "Accept": "application/json",
+    }
+
+
+def test_build_reddit_json_headers_browser_emulation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("REDDIT_JSON_USER_AGENT", "browser-agent")
+    monkeypatch.setenv("REDDIT_JSON_EMULATE_BROWSER", "true")
+    monkeypatch.setenv("REDDIT_JSON_COOKIE", "session=abc123")
+    get_settings.cache_clear()
+
+    headers = reddit_json._build_reddit_json_headers()
+
+    assert headers["User-Agent"] == "browser-agent"
+    assert headers["Accept"].startswith("text/html")
+    assert headers["Sec-Fetch-Mode"] == "navigate"
+    assert headers["Cookie"] == "session=abc123"
+
+
 @pytest.mark.asyncio
 async def test_poll_reddit_json_once_uses_checkpoint_and_persists_skipped_with_body(
     monkeypatch: pytest.MonkeyPatch,
