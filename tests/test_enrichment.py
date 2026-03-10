@@ -281,7 +281,13 @@ async def test_enrich_camp_posts_skips_already_set_fields(db_session):
     await db_session.commit()
 
     guide_camps = [
-        GuideCamp(uid="gc4", name="Solar Circus", camp_size=60, location_string="New location", year=2026)
+        GuideCamp(
+            uid="gc4",
+            name="Solar Circus",
+            camp_size=60,
+            location_string="New location",
+            year=2026,
+        )
     ]
 
     result = await enrich_camp_posts(db_session, guide_camps)
@@ -326,6 +332,8 @@ def test_intake_landing_page():
     response = client.get("/forms/")
     assert response.status_code == 200
     assert "Rising Sparks Pool" in response.text
+    assert 'rel="icon"' in response.text
+    assert "/favicon.svg" in response.text
     assert "/forms/seeker" in response.text
     assert "/forms/camp" in response.text
     assert "/forms/infra" in response.text
@@ -341,6 +349,7 @@ def test_intake_seeker_form_renders():
     response = client.get("/forms/seeker")
     assert response.status_code == 200
     assert "Find Your Community" in response.text
+    assert "/favicon.svg" in response.text
     assert 'name="display_name"' in response.text
 
 
@@ -354,6 +363,7 @@ def test_intake_camp_form_renders():
     response = client.get("/forms/camp")
     assert response.status_code == 200
     assert "Find Your Builders" in response.text
+    assert "/favicon.svg" in response.text
     assert 'name="camp_name"' in response.text
 
 
@@ -367,6 +377,7 @@ def test_intake_infra_form_renders():
     response = client.get("/forms/infra")
     assert response.status_code == 200
     assert "Share Infra Signals" in response.text
+    assert "/favicon.svg" in response.text
     assert 'name="infra_role"' in response.text
     assert 'name="infra_categories"' in response.text
 
@@ -453,3 +464,4 @@ def test_intake_thanks_page():
     response = client.get("/forms/thanks")
     assert response.status_code == 200
     assert "Welcome to the Pool" in response.text
+    assert "/favicon.svg" in response.text

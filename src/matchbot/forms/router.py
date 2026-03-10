@@ -22,6 +22,7 @@ from fastapi import APIRouter, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from matchbot.branding import FAVICON_LINK_TAGS
 from matchbot.db.models import Platform, Post, PostRole, PostStatus, PostType
 
 
@@ -41,13 +42,21 @@ _BASE_CSS = """
 body { font-family: system-ui, sans-serif; max-width: 680px; margin: 40px auto; padding: 0 20px; }
 h1 { color: #c0392b; }
 label { display: block; margin: 12px 0 4px; font-weight: bold; }
-input, textarea, select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-button { margin-top: 20px; padding: 10px 24px; background: #c0392b; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+input, textarea, select {
+  width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;
+}
+button {
+  margin-top: 20px; padding: 10px 24px; background: #c0392b; color: white; border: none;
+  border-radius: 4px; cursor: pointer; font-size: 16px;
+}
 .hint { font-size: 12px; color: #666; margin-top: 2px; }
 .nav { margin-bottom: 24px; }
 .nav a { margin-right: 16px; color: #c0392b; }
 .nav-links a { display: block; margin: 0 0 12px; }
-.disclaimer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #888; line-height: 1.4; }
+.disclaimer {
+  margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px;
+  color: #888; line-height: 1.4;
+}
 """
 
 _DISCLAIMER_HTML = """
@@ -59,6 +68,7 @@ _DISCLAIMER_HTML = """
 
 _LANDING_HTML = f"""
 <!DOCTYPE html><html><head><title>Rising Sparks Pool</title>
+{FAVICON_LINK_TAGS}
 <style>{_BASE_CSS}</style></head><body>
 <h1>Join the Rising Sparks Pool</h1>
 <p>We help self-motivated people find aligned communities where they can contribute and learn. 
@@ -74,6 +84,7 @@ Tell us about yourself or your project to get started.</p>
 
 _SEEKER_FORM_HTML = f"""
 <!DOCTYPE html><html><head><title>Find Your Community – Rising Sparks</title>
+{FAVICON_LINK_TAGS}
 <style>{_BASE_CSS}</style></head><body>
 <div class="nav"><a href="/forms/">← Back</a></div>
 <h1>I want to contribute & learn</h1>
@@ -81,7 +92,10 @@ _SEEKER_FORM_HTML = f"""
   <label>How should we call you? *</label>
   <input name="display_name" required maxlength="80">
 
-  <label>What are you building? (Tell us about your skills, your experience, and what draws you to the dust.)</label>
+  <label>
+    What are you building?
+    (Tell us about your skills, your experience, and what draws you to the dust.)
+  </label>
   <textarea name="bio" rows="5" maxlength="2000"></textarea>
   <div class="hint">This helps our moderators understand your contribution style.</div>
 
@@ -109,6 +123,7 @@ _SEEKER_FORM_HTML = f"""
 
 _CAMP_FORM_HTML = f"""
 <!DOCTYPE html><html><head><title>Find Your Builders – Rising Sparks</title>
+{FAVICON_LINK_TAGS}
 <style>{_BASE_CSS}</style></head><body>
 <div class="nav"><a href="/forms/">← Back</a></div>
 <h1>We’re looking for builders & collaborators</h1>
@@ -119,7 +134,10 @@ _CAMP_FORM_HTML = f"""
   <label>Your name / handle (project contact) *</label>
   <input name="display_name" required maxlength="80">
 
-  <label>Tell us about your project (Describe your vibe, what you build, and what you expect from collaborators.)</label>
+  <label>
+    Tell us about your project
+    (Describe your vibe, what you build, and what you expect from collaborators.)
+  </label>
   <textarea name="bio" rows="5" maxlength="2000"></textarea>
   <div class="hint">This helps self-motivated seekers find your project.</div>
 
@@ -149,6 +167,7 @@ _CAMP_FORM_HTML = f"""
 
 _INFRA_FORM_HTML = f"""
 <!DOCTYPE html><html><head><title>Share Infra Signals – Rising Sparks</title>
+{FAVICON_LINK_TAGS}
 <style>{_BASE_CSS}</style></head><body>
 <div class="nav"><a href="/forms/">← Back</a></div>
 <h1>We need or can offer infrastructure</h1>
@@ -184,7 +203,9 @@ _INFRA_FORM_HTML = f"""
 
   <label>Details</label>
   <textarea name="bio" rows="5" maxlength="2000"></textarea>
-  <div class="hint">Describe the gear, constraints, pickup/dropoff, or anything moderators should know.</div>
+  <div class="hint">
+    Describe the gear, constraints, pickup/dropoff, or anything moderators should know.
+  </div>
 
   <label>How should people contact you?</label>
   <input name="contact_method" placeholder="DM on Reddit, email, etc.">
@@ -197,9 +218,13 @@ _INFRA_FORM_HTML = f"""
 
 _THANKS_HTML = f"""
 <!DOCTYPE html><html><head><title>Welcome to the Pool – Rising Sparks</title>
+{FAVICON_LINK_TAGS}
 <style>{_BASE_CSS}</style></head><body>
 <h1>Welcome to the pool.</h1>
-<p>We’ve received your signals. Our volunteer moderators will review them to find potential connections.</p>
+<p>
+  We’ve received your signals.
+  Our volunteer moderators will review them to find potential connections.
+</p>
 <p>If we find a likely match, we’ll reach out to make a human introduction.</p>
 <div class="nav"><a href="/forms/">Submit another signal →</a></div>
 {_DISCLAIMER_HTML}

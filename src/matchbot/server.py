@@ -6,8 +6,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
+from matchbot.branding import FAVICON_PATH, FAVICON_SVG
 from matchbot.forms.router import router as forms_router
 from matchbot.listeners.facebook import router as facebook_router
 from matchbot.log_config import configure_logging
@@ -59,6 +60,10 @@ def create_app(enable_scheduler: bool = True, run_migrations_on_startup: bool = 
     @app.get("/", response_class=HTMLResponse)
     async def root() -> str:
         return await community_page()
+
+    @app.get(FAVICON_PATH, include_in_schema=False)
+    async def favicon() -> Response:
+        return Response(content=FAVICON_SVG, media_type="image/svg+xml")
 
     @app.get("/health")
     @app.get("/status")

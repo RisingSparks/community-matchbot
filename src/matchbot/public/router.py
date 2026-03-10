@@ -17,6 +17,7 @@ from sqlalchemy.orm import aliased
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from matchbot.branding import FAVICON_LINK_TAGS
 from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, PostType
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
@@ -69,6 +70,7 @@ _COMMUNITY_HTML = """
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Rising Sparks Community Dashboard</title>
+  """ + FAVICON_LINK_TAGS + """
   <style>
     :root {
       --sand: #f4e6cf;
@@ -386,7 +388,8 @@ _COMMUNITY_HTML = """
         <a id="intake-link" class="hero-primary" href="/forms/">Submit Your Signal</a>
       </div>
       <p class="hero-cta-note">
-        Looking for a camp, collaborators, or infrastructure help? Share what you need or what you can offer.
+        Looking for a camp, collaborators, or infrastructure help?
+        Share what you need or what you can offer.
       </p>
     </section>
 
@@ -410,7 +413,9 @@ _COMMUNITY_HTML = """
       <div class="grid2">
         <div>
           <h2 class="section-title">Infrastructure Exchange Snapshot</h2>
-          <p class="group-desc">Active infrastructure needs and offers across indexed and reviewable posts.</p>
+          <p class="group-desc">
+            Active infrastructure needs and offers across indexed and reviewable posts.
+          </p>
           <div id="infra-paired"></div>
         </div>
       </div>
@@ -861,13 +866,15 @@ _COMMUNITY_HTML = """
             poolMetric(
               "Soft Matches",
               softMatches,
-              `${fmt(softMatches7d)} in the last 7 days — keyword-only candidates waiting for human review`,
+              `${fmt(softMatches7d)} in the last 7 days ` +
+              `— keyword-only candidates waiting for human review`,
               true
             ),
             poolMetric(
               "Role Unclear",
               unclassified,
-              `${unclassifiedPct}% of indexed posts — LLM tried but could not categorize them cleanly`,
+              `${unclassifiedPct}% of indexed posts ` +
+              `— LLM tried but could not categorize them cleanly`,
               true
             ),
           ]

@@ -51,6 +51,8 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert "Matched Drill-Down" in response.text
         assert "Metrics Summary" in response.text
         assert "Submit Your Signal" in response.text
+        assert 'rel="icon"' in response.text
+        assert "/favicon.svg" in response.text
         assert "Looking for a camp, collaborators, or infrastructure help?" in response.text
         assert "Camp Connections" in response.text
         assert "Matching Queue" in response.text
@@ -68,6 +70,8 @@ def test_root_page_renders_dashboard(monkeypatch, tmp_path) -> None:
         assert "Live Activity" in response.text
         assert "Metrics Summary" in response.text
         assert "Submit Your Signal" in response.text
+        assert 'rel="icon"' in response.text
+        assert "/favicon.svg" in response.text
         assert "Looking for a camp, collaborators, or infrastructure help?" in response.text
         assert "Camp Connections" in response.text
         assert "Matching Queue" in response.text
@@ -105,6 +109,18 @@ def test_community_data_zero_state(monkeypatch, tmp_path) -> None:
         assert payload["demand"]["most_sought_skills"] == []
         assert payload["demand"]["most_sought_vibes"] == []
         assert payload["demand"]["infra_exchange"] == []
+    finally:
+        _reset_engine()
+
+
+def test_favicon_route_serves_svg(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_favicon.db")
+    try:
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get("/favicon.svg")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("image/svg+xml")
+        assert "<svg" in response.text
     finally:
         _reset_engine()
 
