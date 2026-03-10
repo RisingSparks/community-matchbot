@@ -46,6 +46,7 @@ button { margin-top: 20px; padding: 10px 24px; background: #c0392b; color: white
 .hint { font-size: 12px; color: #666; margin-top: 2px; }
 .nav { margin-bottom: 24px; }
 .nav a { margin-right: 16px; color: #c0392b; }
+.nav-links a { display: block; margin: 0 0 12px; }
 .disclaimer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #888; line-height: 1.4; }
 """
 
@@ -62,7 +63,7 @@ _LANDING_HTML = f"""
 <h1>Join the Rising Sparks Pool</h1>
 <p>We help self-motivated people find aligned communities where they can contribute and learn. 
 Tell us about yourself or your project to get started.</p>
-<div class="nav">
+<div class="nav nav-links">
   <a href="/forms/seeker">I want to contribute & learn →</a>
   <a href="/forms/camp">We’re looking for builders & collaborators →</a>
   <a href="/forms/infra">We need or can offer infrastructure →</a>
