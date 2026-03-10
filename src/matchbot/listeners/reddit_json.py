@@ -124,7 +124,9 @@ def _retry_delay_seconds(response: httpx.Response) -> float:
     retry_after = response.headers.get("Retry-After")
     if isinstance(retry_after, (str, int, float)) and retry_after != "":
         try:
-            return max(0.0, float(retry_after))
+            parsed = float(retry_after)
+            if parsed > 0:
+                return parsed
         except ValueError:
             pass
     return _REDDIT_BLOCK_RETRY_DELAY_SECONDS
@@ -394,13 +396,38 @@ async def backfill_reddit_json(
 
     after: str | None = None
     reached_cutoff = False
+    fetch_backoff = _REDDIT_BLOCK_RETRY_DELAY_SECONDS
     try:
         for _ in range(max_pages):
-            payload = await _fetch_reddit_json_page(
-                client,
-                limit=limit,
-                after=after,
-            )
+            while True:
+                try:
+                    payload = await _fetch_reddit_json_page(
+                        client,
+                        limit=limit,
+                        after=after,
+                    )
+                    fetch_backoff = _REDDIT_BLOCK_RETRY_DELAY_SECONDS
+                    break
+                except httpx.HTTPStatusError as exc:
+                    status_code = exc.response.status_code if exc.response is not None else None
+                    if status_code is None or not _is_block_status(status_code):
+                        raise
+                    suggested_delay = (
+                        _retry_delay_seconds(exc.response)
+                        if exc.response is not None
+                        else _REDDIT_BLOCK_RETRY_DELAY_SECONDS
+                    )
+                    delay = max(fetch_backoff, suggested_delay)
+                    logger.warning(
+                        (
+                            "Reddit JSON backfill fetch blocked with %s; "
+                            "sleeping %.1fs before retrying the same page."
+                        ),
+                        status_code,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                    fetch_backoff = min(delay * 2, 600.0)
             counts["pages"] += 1
 
             children = payload.get("data", {}).get("children", [])

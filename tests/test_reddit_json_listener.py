@@ -345,6 +345,23 @@ async def test_fetch_reddit_json_page_raises_when_primary_and_fallback_are_block
     assert client.get.await_count == 2
 
 
+def test_retry_delay_seconds_uses_default_for_zero_or_invalid_retry_after() -> None:
+    zero_response = MagicMock()
+    zero_response.headers = {"Retry-After": "0"}
+
+    invalid_response = MagicMock()
+    invalid_response.headers = {"Retry-After": "not-a-number"}
+
+    assert (
+        reddit_json._retry_delay_seconds(zero_response)
+        == reddit_json._REDDIT_BLOCK_RETRY_DELAY_SECONDS
+    )
+    assert (
+        reddit_json._retry_delay_seconds(invalid_response)
+        == reddit_json._REDDIT_BLOCK_RETRY_DELAY_SECONDS
+    )
+
+
 @pytest.mark.asyncio
 async def test_backfill_reddit_json_pages_with_after_and_stops_at_cutoff(
     monkeypatch: pytest.MonkeyPatch,
@@ -408,6 +425,70 @@ async def test_backfill_reddit_json_pages_with_after_and_stops_at_cutoff(
         "raw_json": 1,
         "after": "t3_page1",
     }
+
+
+@pytest.mark.asyncio
+async def test_backfill_reddit_json_retries_blocked_fetch_and_continues(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("REDDIT_JSON_MAX_CONCURRENT_EXTRACTIONS", "1")
+    get_settings.cache_clear()
+
+    blocked_primary = MagicMock()
+    blocked_primary.status_code = 403
+    blocked_primary.headers = {"Retry-After": "0"}
+
+    blocked_fallback = MagicMock()
+    blocked_fallback.status_code = 403
+    blocked_fallback.headers = {"Retry-After": "0"}
+    blocked_fallback.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "blocked",
+        request=MagicMock(),
+        response=blocked_fallback,
+    )
+
+    ok_response = MagicMock()
+    ok_response.status_code = 200
+    ok_response.headers = {}
+    ok_response.raise_for_status.return_value = None
+    ok_response.json.return_value = {
+        "data": {
+            "after": None,
+            "children": [
+                {"data": {"id": "newest", "created_utc": 220}},
+            ],
+        }
+    }
+
+    client = AsyncMock()
+    client.get = AsyncMock(side_effect=[blocked_primary, blocked_fallback, ok_response])
+    sleep = AsyncMock()
+    monkeypatch.setattr(reddit_json.asyncio, "sleep", sleep)
+
+    seen_ids: list[str] = []
+
+    async def fake_ingest(data, extractor, *, dry_run):
+        seen_ids.append(data["id"])
+        return "skipped", extractor
+
+    monkeypatch.setattr(reddit_json, "_ingest_reddit_json_item", fake_ingest)
+
+    counts = await reddit_json.backfill_reddit_json(
+        datetime.fromtimestamp(200, UTC).replace(tzinfo=None),
+        fetch_limit=100,
+        sleep_seconds=0,
+        max_pages=5,
+        dry_run=False,
+        client=client,
+    )
+
+    assert counts["pages"] == 1
+    assert counts["fetched"] == 1
+    assert seen_ids == ["newest"]
+    assert sleep.await_args_list == [
+        ((reddit_json._REDDIT_BLOCK_RETRY_DELAY_SECONDS,), {}),
+        ((reddit_json._REDDIT_BLOCK_RETRY_DELAY_SECONDS,), {}),
+    ]
 
 
 @pytest.mark.asyncio
