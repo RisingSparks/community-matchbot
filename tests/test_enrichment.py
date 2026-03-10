@@ -331,9 +331,11 @@ def test_intake_landing_page():
     client = TestClient(create_app())
     response = client.get("/forms/")
     assert response.status_code == 200
-    assert "Rising Sparks Pool" in response.text
+    assert "Rising Sparks" in response.text
     assert 'rel="icon"' in response.text
     assert "/favicon.svg" in response.text
+    assert '<link rel="canonical" href="http://testserver/forms/">' in response.text
+    assert 'property="og:title" content="Rising Sparks | Community Finder for Camps, Art Projects, and Infra"' in response.text
     assert "/forms/seeker" in response.text
     assert "/forms/camp" in response.text
     assert "/forms/infra" in response.text
@@ -348,8 +350,10 @@ def test_intake_seeker_form_renders():
     client = TestClient(create_app())
     response = client.get("/forms/seeker")
     assert response.status_code == 200
-    assert "Find Your Community" in response.text
+    assert "Find a Camp or Art Project" in response.text
     assert "/favicon.svg" in response.text
+    assert '<link rel="canonical" href="http://testserver/forms/seeker">' in response.text
+    assert 'name="description" content="Share your skills, interests, and availability to find aligned camps or art projects through Rising Sparks&#x27; moderator-reviewed discovery flow."' in response.text
     assert 'name="display_name"' in response.text
 
 
@@ -362,8 +366,9 @@ def test_intake_camp_form_renders():
     client = TestClient(create_app())
     response = client.get("/forms/camp")
     assert response.status_code == 200
-    assert "Find Your Builders" in response.text
+    assert "Find Builders and Collaborators" in response.text
     assert "/favicon.svg" in response.text
+    assert '<link rel="canonical" href="http://testserver/forms/camp">' in response.text
     assert 'name="camp_name"' in response.text
 
 
@@ -376,8 +381,9 @@ def test_intake_infra_form_renders():
     client = TestClient(create_app())
     response = client.get("/forms/infra")
     assert response.status_code == 200
-    assert "Share Infra Signals" in response.text
+    assert "infrastructure" in response.text
     assert "/favicon.svg" in response.text
+    assert '<link rel="canonical" href="http://testserver/forms/infra">' in response.text
     assert 'name="infra_role"' in response.text
     assert 'name="infra_categories"' in response.text
 
@@ -463,5 +469,7 @@ def test_intake_thanks_page():
     client = TestClient(create_app())
     response = client.get("/forms/thanks")
     assert response.status_code == 200
-    assert "Welcome to the Pool" in response.text
+    assert "pool" in response.text
     assert "/favicon.svg" in response.text
+    assert '<meta name="robots" content="noindex,nofollow">' in response.text
+    assert '<link rel="canonical" href="http://testserver/forms/thanks">' in response.text

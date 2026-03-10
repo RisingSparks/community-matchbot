@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response
 
@@ -58,8 +58,8 @@ def create_app(enable_scheduler: bool = True, run_migrations_on_startup: bool = 
     app.include_router(community_router)
 
     @app.get("/", response_class=HTMLResponse)
-    async def root() -> str:
-        return await community_page()
+    async def root(request: Request) -> str:
+        return await community_page(request)
 
     @app.get(FAVICON_PATH, include_in_schema=False)
     async def favicon() -> Response:

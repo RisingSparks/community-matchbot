@@ -53,6 +53,9 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert "Submit Your Signal" in response.text
         assert 'rel="icon"' in response.text
         assert "/favicon.svg" in response.text
+        assert '<link rel="canonical" href="http://testserver/community/">' in response.text
+        assert 'property="og:title" content="Rising Sparks Community Dashboard | Camps, Builders, and Infra Signals"' in response.text
+        assert 'name="twitter:card" content="summary"' in response.text
         assert "Looking for a camp, collaborators, or infrastructure help?" in response.text
         assert "Camp Connections" in response.text
         assert "Matching Queue" in response.text
@@ -72,6 +75,7 @@ def test_root_page_renders_dashboard(monkeypatch, tmp_path) -> None:
         assert "Submit Your Signal" in response.text
         assert 'rel="icon"' in response.text
         assert "/favicon.svg" in response.text
+        assert '<link rel="canonical" href="http://testserver/community/">' in response.text
         assert "Looking for a camp, collaborators, or infrastructure help?" in response.text
         assert "Camp Connections" in response.text
         assert "Matching Queue" in response.text

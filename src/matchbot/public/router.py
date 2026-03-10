@@ -10,14 +10,14 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import and_, case, func, or_
 from sqlalchemy.orm import aliased
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from matchbot.branding import FAVICON_LINK_TAGS
+from matchbot.branding import FAVICON_LINK_TAGS, build_meta_tags
 from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, PostType
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
@@ -927,9 +927,22 @@ _COMMUNITY_HTML = """
 """
 
 
+def _render_community_page(base_url: str) -> str:
+    meta_tags = build_meta_tags(
+        title="Rising Sparks Community Dashboard | Camps, Builders, and Infra Signals",
+        description=(
+            "See live Rising Sparks activity across camps, art projects, and infrastructure "
+            "signals, plus moderator-reviewed matching and community demand trends."
+        ),
+        path="/community/",
+        base_url=base_url,
+    )
+    return _COMMUNITY_HTML.replace("<title>Rising Sparks Community Dashboard</title>", meta_tags, 1)
+
+
 @router.get("/", response_class=HTMLResponse)
-async def community_page() -> str:
-    return _COMMUNITY_HTML
+async def community_page(request: Request) -> str:
+    return _render_community_page(str(request.base_url))
 
 
 async def _get_cached_community_payload() -> dict[str, Any]:

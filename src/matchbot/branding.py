@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from html import escape
+from urllib.parse import urljoin
+
 FAVICON_PATH = "/favicon.svg"
 
 FAVICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
@@ -34,3 +37,58 @@ FAVICON_LINK_TAGS = (
     f'<link rel="icon" href="{FAVICON_PATH}" type="image/svg+xml">\n'
     f'<link rel="shortcut icon" href="{FAVICON_PATH}" type="image/svg+xml">'
 )
+
+
+def build_meta_tags(
+    *,
+    title: str,
+    description: str,
+    path: str,
+    base_url: str | None = None,
+    robots: str = "index,follow",
+    og_type: str = "website",
+    site_name: str = "Rising Sparks",
+    image_path: str = FAVICON_PATH,
+    theme_color: str = "#21483f",
+) -> str:
+    """Build a compact set of SEO and sharing tags for public HTML pages."""
+    escaped_title = escape(title)
+    escaped_description = escape(description)
+    escaped_robots = escape(robots)
+    escaped_site_name = escape(site_name)
+    escaped_theme_color = escape(theme_color)
+
+    tags = [
+        f"<title>{escaped_title}</title>",
+        f'<meta name="description" content="{escaped_description}">',
+        f'<meta name="robots" content="{escaped_robots}">',
+        f'<meta name="theme-color" content="{escaped_theme_color}">',
+        f'<meta property="og:site_name" content="{escaped_site_name}">',
+        f'<meta property="og:type" content="{escape(og_type)}">',
+        f'<meta property="og:title" content="{escaped_title}">',
+        f'<meta property="og:description" content="{escaped_description}">',
+        f'<meta name="twitter:card" content="summary">',
+        f'<meta name="twitter:title" content="{escaped_title}">',
+        f'<meta name="twitter:description" content="{escaped_description}">',
+    ]
+
+    if base_url:
+        canonical_url = urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
+        tags.extend(
+            [
+                f'<link rel="canonical" href="{escape(canonical_url)}">',
+                f'<meta property="og:url" content="{escape(canonical_url)}">',
+                f'<meta name="twitter:url" content="{escape(canonical_url)}">',
+            ]
+        )
+
+        if image_path:
+            image_url = urljoin(base_url.rstrip("/") + "/", image_path.lstrip("/"))
+            tags.extend(
+                [
+                    f'<meta property="og:image" content="{escape(image_url)}">',
+                    f'<meta name="twitter:image" content="{escape(image_url)}">',
+                ]
+            )
+
+    return "\n  ".join(tags)
