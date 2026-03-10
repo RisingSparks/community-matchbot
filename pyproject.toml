@@ -67,3 +67,6 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/matchbot/forms/router.py" = ["E501"]  # HTML template strings
