@@ -109,6 +109,13 @@ _COMMUNITY_HTML = """
       color: var(--sage);
     }
     h1 { margin: 8px 0 10px; font-size: clamp(28px, 5vw, 46px); line-height: 1.05; }
+    .hero-blurb {
+      margin: 0;
+      max-width: 64ch;
+      font-size: 16px;
+      line-height: 1.55;
+      color: #3f3c3d;
+    }
     .hero-actions {
       display: flex;
       gap: 10px;
@@ -384,6 +391,11 @@ _COMMUNITY_HTML = """
     <section class="hero">
       <div class="eyebrow">Rising Sparks Connection Dashboard</div>
       <h1>Find your people. Build the city.</h1>
+      <p class="hero-blurb">
+        A lightweight community matchmaking experiment: surfacing infrastructure
+        offers and asks, camp and art-project connections, and the broader
+        patterns of what people across the ecosystem are seeking or ready to contribute.
+      </p>
       <div class="hero-actions">
         <a id="intake-link" class="hero-primary" href="/forms/">Submit Your Signal</a>
       </div>
