@@ -64,17 +64,14 @@ async def _run_with_db_retry[T](
     raise RuntimeError(f"Unreachable retry termination for operation {operation_name}.")
 
 
-_COMMUNITY_HTML = (
-    """
+_COMMUNITY_HTML = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Rising Sparks Community Dashboard</title>
-  """
-    + FAVICON_LINK_TAGS
-    + """
+  """ + FAVICON_LINK_TAGS + """
   <style>
     :root {
       --sand: #f4e6cf;
@@ -425,10 +422,7 @@ _COMMUNITY_HTML = (
         with right now.
       </p>
       <div class="pool-groups" id="pool-metrics"></div>
-    </section>
-
-    <section class="panel">
-      <h2 class="section-title">Infrastructure Exchange Snapshot</h2>
+      <div class="metrics-divider"></div>
       <div class="grid2">
         <div>
           <h2 class="section-title">Infrastructure Exchange Snapshot</h2>
@@ -944,7 +938,6 @@ _COMMUNITY_HTML = (
 </body>
 </html>
 """
-)
 
 
 def _render_community_page(base_url: str) -> str:
@@ -1094,7 +1087,9 @@ async def _build_matches_payload(
     status_value = status if status in allowed_statuses else "all"
     days_value = days if days in window_days else "30"
     since = (
-        None if window_days[days_value] is None else now - timedelta(days=window_days[days_value])
+        None
+        if window_days[days_value] is None
+        else now - timedelta(days=window_days[days_value])
     )
 
     where_clauses = []
@@ -1502,7 +1497,9 @@ def _build_live_feed(
                     "summary": _match_summary(match),
                     "score": round(match.score, 3),
                     "confidence": (
-                        round(match.confidence, 3) if match.confidence is not None else None
+                        round(match.confidence, 3)
+                        if match.confidence is not None
+                        else None
                     ),
                 }
             )
@@ -1515,7 +1512,9 @@ def _build_live_feed(
                     "summary": "Human-facilitated introduction sent.",
                     "score": round(match.score, 3),
                     "confidence": (
-                        round(match.confidence, 3) if match.confidence is not None else None
+                        round(match.confidence, 3)
+                        if match.confidence is not None
+                        else None
                     ),
                 }
             )
@@ -1620,8 +1619,14 @@ def _build_demand_rows(
             seeker_contrib_counts.update(contribution_values)
             seeker_vibe_counts.update(vibe_values)
 
-    top_contrib = [{"name": name, "count": count} for name, count in contrib_counts.most_common(10)]
-    top_vibes = [{"name": name, "count": count} for name, count in vibe_counts.most_common(10)]
+    top_contrib = [
+        {"name": name, "count": count}
+        for name, count in contrib_counts.most_common(10)
+    ]
+    top_vibes = [
+        {"name": name, "count": count}
+        for name, count in vibe_counts.most_common(10)
+    ]
 
     return {
         "top_contribution_types": top_contrib,
@@ -1749,7 +1754,9 @@ def _build_match_reason(match: Match, seeker: Post, camp: Post) -> str:
     shared_vibes = sorted(set(seeker.vibes_list()).intersection(camp.vibes_list()))
 
     if shared_contrib:
-        reasons.append(f"Both mention {_human_list(shared_contrib[:3])} as contribution styles.")
+        reasons.append(
+            f"Both mention {_human_list(shared_contrib[:3])} as contribution styles."
+        )
     else:
         reasons.append("No shared contribution tags were extracted.")
 
