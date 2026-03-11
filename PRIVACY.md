@@ -15,7 +15,7 @@ The Bot monitors specific public community channels on **Reddit**, **Discord**, 
 
 ## 3. How We Use Your Information
 *   **Matching:** To suggest potential connections between participants based on shared interests or logistical needs.
-*   **Moderation:** Human volunteers ("Moderators") review extracted data and proposed matches to ensure quality and safety.
+*   **Human Review:** Project volunteers may review extracted data and proposed matches to ensure quality and safety.
 *   **Introductions:** If a match is approved, we may send you an automated message on the platform where you posted to facilitate an introduction.
 *   **Feedback:** We may contact you to ask how a match went to improve the service.
 

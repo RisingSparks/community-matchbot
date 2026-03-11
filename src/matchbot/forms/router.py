@@ -441,7 +441,7 @@ _LANDING_HTML = f"""<!DOCTYPE html>
   <p class="lede">
     Matchbot connects self-motivated people with the camps and art projects
     where they can contribute, learn, and make something real.
-    Fill out a short form and our volunteer moderators will look for the right fit.
+    Fill out a short form and we will look for aligned connections.
   </p>
 
   <div class="choices">
@@ -493,7 +493,7 @@ _SEEKER_FORM_HTML = f"""<!DOCTYPE html>
   <h1>Find a Camp or<br><em>Art Project</em></h1>
   <p class="lede">
     Tell us who you are, what you can contribute, and what you&#8217;re looking for.
-    Our moderators will review your submission and reach out if they find a good fit.
+    We review submissions manually and reach out if we find a good fit.
   </p>
 
   <form method="post" action="/forms/seeker">
@@ -508,7 +508,7 @@ _SEEKER_FORM_HTML = f"""<!DOCTYPE html>
       <div class="field">
         <label>What are you building?</label>
         <textarea name="bio" maxlength="2000" placeholder="Tell us about your skills, your experience, and what draws you to the dust&#8230;"></textarea>
-        <div class="hint">This helps our moderators understand your contribution style. Be as specific or as open as you like.</div>
+        <div class="hint">This helps us understand your contribution style. Be as specific or as open as you like.</div>
       </div>
 
       <div class="field">
@@ -546,7 +546,7 @@ _SEEKER_FORM_HTML = f"""<!DOCTYPE html>
 
     <button class="btn-submit" type="submit">Join the pool &#8594;</button>
     <p class="process-note">
-      Our volunteer moderators review submissions manually.
+      We review submissions manually.
       If we find a good match, we&#8217;ll reach out to make a direct introduction — no automated spam.
     </p>
   </form>
@@ -576,7 +576,7 @@ _CAMP_FORM_HTML = f"""<!DOCTYPE html>
   <h1>Find Builders and<br><em>Collaborators</em></h1>
   <p class="lede">
     Tell us about your camp or art project and what you need.
-    Our moderators will look for motivated, aligned contributors and make introductions.
+    We look for motivated, aligned contributors and make introductions.
   </p>
 
   <form method="post" action="/forms/camp">
@@ -639,7 +639,7 @@ _CAMP_FORM_HTML = f"""<!DOCTYPE html>
 
     <button class="btn-submit" type="submit">List your openings &#8594;</button>
     <p class="process-note">
-      Our volunteer moderators review submissions manually.
+      We review submissions manually.
       If we find a good match, we&#8217;ll reach out to both parties with a direct introduction.
     </p>
   </form>
@@ -720,7 +720,7 @@ _INFRA_FORM_HTML = f"""<!DOCTYPE html>
 
       <div class="field">
         <label>Details</label>
-        <textarea name="bio" maxlength="2000" placeholder="Describe the gear, constraints, pickup/dropoff, or anything moderators should know&#8230;"></textarea>
+        <textarea name="bio" maxlength="2000" placeholder="Describe the gear, constraints, pickup/dropoff, or anything we should know&#8230;"></textarea>
       </div>
 
       <div class="field">
@@ -758,7 +758,7 @@ _THANKS_HTML = f"""<!DOCTYPE html>
     <h1>Welcome to<br>the <em>pool.</em></h1>
     <p>We&#8217;ve received your signal.</p>
     <p>
-      Our volunteer moderators will review it and look for aligned connections.
+      We&#8217;ll review it and look for aligned connections.
       If we find a likely match, we&#8217;ll reach out to make a human introduction.
     </p>
     <a class="return-link" href="/forms/">Submit another signal &#8594;</a>
@@ -783,7 +783,7 @@ async def intake_landing(request: Request) -> str:
         existing_title="Rising Sparks — Find Your Community",
         title="Rising Sparks | Community Finder for Camps, Art Projects, and Infra",
         description=(
-            "Rising Sparks is a moderator-reviewed discovery tool that helps self-motivated "
+            "Rising Sparks is a community discovery tool that helps self-motivated "
             "burners find aligned camps, art projects, and infrastructure opportunities."
         ),
         path="/forms/",
@@ -799,7 +799,7 @@ async def seeker_form(request: Request) -> str:
         title="Find a Camp or Art Project | Rising Sparks",
         description=(
             "Share your skills, interests, and availability to find aligned camps or art "
-            "projects through Rising Sparks' moderator-reviewed discovery flow."
+            "projects through Rising Sparks' human-reviewed discovery flow."
         ),
         path="/forms/seeker",
         base_url=str(request.base_url),
@@ -814,7 +814,7 @@ async def camp_form(request: Request) -> str:
         title="Find Builders and Collaborators | Rising Sparks",
         description=(
             "Tell Rising Sparks about your camp or art project to surface aligned builders, "
-            "crew, and collaborators through moderator-reviewed introductions."
+            "crew, and collaborators through thoughtful introductions."
         ),
         path="/forms/camp",
         base_url=str(request.base_url),
@@ -843,8 +843,8 @@ async def intake_thanks(request: Request) -> str:
         existing_title="Welcome to the Pool — Rising Sparks",
         title="Submission Received | Rising Sparks",
         description=(
-            "Rising Sparks received your signal. Volunteer moderators will review it and follow "
-            "up if they find an aligned connection."
+            "Rising Sparks received your signal. We will review it and follow "
+            "up if we find an aligned connection."
         ),
         path="/forms/thanks",
         base_url=str(request.base_url),

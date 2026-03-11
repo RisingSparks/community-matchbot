@@ -353,7 +353,7 @@ def test_intake_seeker_form_renders():
     assert "Find a Camp or Art Project" in response.text
     assert "/favicon.svg" in response.text
     assert '<link rel="canonical" href="http://testserver/forms/seeker">' in response.text
-    assert 'name="description" content="Share your skills, interests, and availability to find aligned camps or art projects through Rising Sparks&#x27; moderator-reviewed discovery flow."' in response.text
+    assert 'name="description" content="Share your skills, interests, and availability to find aligned camps or art projects through Rising Sparks&#x27; human-reviewed discovery flow."' in response.text
     assert 'name="display_name"' in response.text
 
 

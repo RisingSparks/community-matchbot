@@ -54,7 +54,10 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert 'rel="icon"' in response.text
         assert "/favicon.svg" in response.text
         assert '<link rel="canonical" href="http://testserver/community/">' in response.text
-        assert 'property="og:title" content="Rising Sparks Community Dashboard | Camps, Builders, and Infra Signals"' in response.text
+        assert (
+            'property="og:title" content="Rising Sparks Community Dashboard | '
+            'Camps, Builders, and Infra Signals"'
+        ) in response.text
         assert 'name="twitter:card" content="summary"' in response.text
         assert "Looking for a camp, collaborators, or infrastructure help?" in response.text
         assert "Camp Connections" in response.text
@@ -767,6 +770,60 @@ def test_community_data_retries_on_disconnect(monkeypatch, tmp_path) -> None:
         assert response.status_code == 200
         assert response.json()["updated_at"] == "ok"
         assert calls["count"] == 2
+    finally:
+        _reset_engine()
+
+
+def test_community_data_infers_missing_infra_roles(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_infra_role_inference.db")
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    async def _seed() -> None:
+        async with get_session() as session:
+            session.add_all(
+                [
+                    Post(
+                        platform=Platform.REDDIT,
+                        platform_post_id="infra_need",
+                        platform_author_id="infra_need",
+                        title="Need a generator for playa",
+                        raw_text="Looking to borrow a generator and some tools.",
+                        post_type=PostType.INFRASTRUCTURE,
+                        status=PostStatus.INDEXED,
+                        infra_categories="power|tools",
+                        detected_at=now - timedelta(hours=3),
+                    ),
+                    Post(
+                        platform=Platform.DISCORD,
+                        platform_post_id="infra_offer",
+                        platform_author_id="infra_offer",
+                        title="Offering shade hardware",
+                        raw_text="We can lend spare shade and tools.",
+                        post_type=PostType.INFRASTRUCTURE,
+                        status=PostStatus.NEEDS_REVIEW,
+                        infra_categories="shade|tools",
+                        detected_at=now - timedelta(hours=2),
+                    ),
+                ]
+            )
+            await session.commit()
+
+    try:
+        asyncio.run(_seed())
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get("/community/data")
+        assert response.status_code == 200
+        payload = response.json()
+
+        assert payload["key_metrics"]["active_infra_seeking"] == 1
+        assert payload["key_metrics"]["active_infra_offering"] == 1
+
+        infra = payload["demand"]["infra_exchange"]
+        assert [row["name"] for row in infra[:3]] == ["power", "tools"]
+        assert infra[0]["demand_count"] == 1
+        assert infra[0]["supply_count"] == 0
+        assert infra[1]["demand_count"] == 1
+        assert infra[1]["supply_count"] == 1
     finally:
         _reset_engine()
 

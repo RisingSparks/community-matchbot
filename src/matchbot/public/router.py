@@ -19,6 +19,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from matchbot.branding import FAVICON_LINK_TAGS, build_meta_tags
 from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, PostType
+from matchbot.extraction.keywords import keyword_filter
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
 
@@ -944,7 +945,7 @@ def _render_community_page(base_url: str) -> str:
         title="Rising Sparks Community Dashboard | Camps, Builders, and Infra Signals",
         description=(
             "See live Rising Sparks activity across camps, art projects, and infrastructure "
-            "signals, plus moderator-reviewed matching and community demand trends."
+            "signals, plus human-reviewed matching and community demand trends."
         ),
         path="/community/",
         base_url=base_url,
@@ -1342,6 +1343,8 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
                 Post.vibes,
                 Post.infra_role,
                 Post.infra_categories,
+                Post.title,
+                Post.raw_text,
             ).where(Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}))
         )
     ).all()
@@ -1371,6 +1374,7 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
     stories = _build_stories(list(deduped_story_posts.values()), story_matches)
     live_feed = _build_live_feed(live_feed_posts, live_feed_matches, seven_days_ago)
     demand = _build_demand_rows(demand_rows)
+    active_infra_seeking, active_infra_offering = _count_active_infra_roles(demand_rows)
     settings = get_settings()
 
     feedback_url = "/forms/"
@@ -1523,8 +1527,51 @@ def _split_pipe_values(raw: str | None) -> list[str]:
     return [value for value in (raw or "").split("|") if value]
 
 
+def _infer_infra_role(
+    post_type: str | None,
+    infra_role: str | None,
+    title: str | None,
+    raw_text: str | None,
+) -> str | None:
+    if post_type != PostType.INFRASTRUCTURE:
+        return None
+    if infra_role in {"seeking", "offering"}:
+        return infra_role
+
+    kw_result = keyword_filter(title or "", raw_text or "")
+    if kw_result.post_type == PostType.INFRASTRUCTURE:
+        return kw_result.infra_role
+    return None
+
+
+def _count_active_infra_roles(
+    rows: list[tuple[str | None, str, str | None, str, str, str | None, str, str, str]],
+) -> tuple[int, int]:
+    active_infra_seeking = 0
+    active_infra_offering = 0
+
+    for (
+        _role,
+        _status,
+        post_type,
+        _contribution_types,
+        _vibes,
+        infra_role,
+        _infra_categories,
+        title,
+        raw_text,
+    ) in rows:
+        effective_infra_role = _infer_infra_role(post_type, infra_role, title, raw_text)
+        if effective_infra_role == "seeking":
+            active_infra_seeking += 1
+        elif effective_infra_role == "offering":
+            active_infra_offering += 1
+
+    return active_infra_seeking, active_infra_offering
+
+
 def _build_demand_rows(
-    rows: list[tuple[str | None, str, str | None, str, str, str | None, str]],
+    rows: list[tuple[str | None, str, str | None, str, str, str | None, str, str, str]],
 ) -> dict[str, list[dict[str, Any]]]:
     contrib_counts: Counter[str] = Counter()
     vibe_counts: Counter[str] = Counter()
@@ -1535,7 +1582,17 @@ def _build_demand_rows(
     infra_demand_counts: Counter[str] = Counter()
     infra_supply_counts: Counter[str] = Counter()
 
-    for role, _status, post_type, contribution_types, vibes, infra_role, infra_categories in rows:
+    for (
+        role,
+        _status,
+        post_type,
+        contribution_types,
+        vibes,
+        infra_role,
+        infra_categories,
+        title,
+        raw_text,
+    ) in rows:
         contribution_values = _split_pipe_values(contribution_types)
         vibe_values = _split_pipe_values(vibes)
         infra_values = _split_pipe_values(infra_categories)
@@ -1545,9 +1602,10 @@ def _build_demand_rows(
             vibe_counts.update(vibe_values)
 
         if post_type == PostType.INFRASTRUCTURE:
-            if infra_role == "seeking":
+            effective_infra_role = _infer_infra_role(post_type, infra_role, title, raw_text)
+            if effective_infra_role == "seeking":
                 infra_demand_counts.update(infra_values)
-            elif infra_role == "offering":
+            elif effective_infra_role == "offering":
                 infra_supply_counts.update(infra_values)
             continue
 

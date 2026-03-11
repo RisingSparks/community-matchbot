@@ -22,7 +22,7 @@ More concretely, the project aims to:
 
 1. Make public "looking for camp/project/help" and "offering help/infra" posts easier to discover
 2. Highlight patterns across the community so people can see where skills, assets, and needs are clustering
-3. Support moderator-reviewed introductions when that is useful
+3. Support human-reviewed introductions when that is useful
 4. Stay as passive as possible by learning from existing Reddit, Facebook, and Discord activity instead of requiring people to fill out yet another form
 
 At this stage, the dashboard is primarily observational. It helps spark discussion about what kinds of matching, visibility, and coordination the community actually wants before the system takes a more active role.
@@ -31,7 +31,7 @@ At this stage, the dashboard is primarily observational. It helps spark discussi
 
 The bot ingests public posts from Reddit, Discord, and Facebook, extracts
 structured intent using deterministic rules + optional LLMs, proposes likely
-connections, and supports moderator-reviewed introductions.
+connections, and supports human-reviewed introductions.
 
 The workflow is community-led: camps and project teams remain in control of
 fit, vetting, and intake decisions.
@@ -43,7 +43,7 @@ Core flow:
 1. Ingest post (`RAW`)
 2. Extract structure (`INDEXED` or `NEEDS_REVIEW`)
 3. Propose matches (`PROPOSED` queue)
-4. Moderator approve/reject/triage
+4. Human review / approve / reject / triage
 5. Send intros + collect feedback
 
 ## Quickstart
