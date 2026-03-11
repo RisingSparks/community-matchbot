@@ -304,11 +304,6 @@ _COMMUNITY_HTML = """
       white-space: nowrap;
     }
     .funnel-chevron { font-size: 24px; color: var(--sage); line-height: 1; }
-    .metrics-divider {
-      border: none;
-      border-top: 1px dashed rgba(34,32,33,0.15);
-      margin: 20px 0;
-    }
     .group-desc { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
     .paired-row { margin-bottom: 16px; }
     .paired-label {
@@ -422,16 +417,14 @@ _COMMUNITY_HTML = """
         with right now.
       </p>
       <div class="pool-groups" id="pool-metrics"></div>
-      <div class="metrics-divider"></div>
-      <div class="grid2">
-        <div>
-          <h2 class="section-title">Infrastructure Exchange Snapshot</h2>
-          <p class="group-desc">
-            Active infrastructure needs and offers across indexed and reviewable posts.
-          </p>
-          <div id="infra-paired"></div>
-        </div>
-      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">Infrastructure Exchange Snapshot</h2>
+      <p class="group-desc">
+        Active infrastructure needs and offers across indexed and reviewable posts.
+      </p>
+      <div id="infra-paired"></div>
     </section>
 
     <section class="panel">
