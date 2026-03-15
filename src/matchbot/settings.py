@@ -1,7 +1,8 @@
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import urlparse
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -76,6 +77,26 @@ class Settings(BaseSettings):
         ),
     )
     report_output_dir: str = Field(default="./reports")
+
+    @model_validator(mode="after")
+    def check_neon_config(self) -> "Settings":
+        if self.database_backend == "neon":
+            url = self.neon_database_url
+            if not url:
+                raise ValueError(
+                    "DATABASE_BACKEND is 'neon' but NEON_DATABASE_URL is not set."
+                )
+            parsed = urlparse(url)
+            if parsed.scheme not in ("postgresql", "postgres", "postgresql+asyncpg"):
+                raise ValueError(
+                    f"NEON_DATABASE_URL must start with 'postgresql://', 'postgres://', "
+                    f"or 'postgresql+asyncpg://', got scheme: {parsed.scheme!r}"
+                )
+            if not parsed.hostname:
+                raise ValueError(
+                    "NEON_DATABASE_URL must include a hostname (e.g. host.neon.tech)."
+                )
+        return self
 
     @property
     def reddit_configured(self) -> bool:
