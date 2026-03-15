@@ -6,6 +6,7 @@ import asyncio
 import logging
 import re
 from collections import Counter
+from urllib.parse import urlparse
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -748,6 +749,13 @@ _COMMUNITY_HTML = """
       `;
     }
 
+    function escapeHTML(str) {
+      if (!str) return "";
+      const p = document.createElement("p");
+      p.textContent = str;
+      return p.innerHTML;
+    }
+
     function timeAgo(iso) {
       const h = Math.floor((Date.now() - new Date(iso).getTime()) / 3600000);
       return h < 24 ? h + "h ago" : Math.floor(h / 24) + "d ago";
@@ -755,19 +763,19 @@ _COMMUNITY_HTML = """
 
     function tagPills(items, cls) {
       return (items || []).slice(0, 5)
-        .map((t) => `<span class="disc-tag ${cls}">${t.replace(/_/g, " ")}</span>`)
+        .map((t) => `<span class="disc-tag ${cls}">${escapeHTML(t.replace(/_/g, " "))}</span>`)
         .join("");
     }
 
     function discCardMeta(item) {
       const src = item.source_url
-        ? ` · <a href="${item.source_url}" target="_blank" rel="noopener noreferrer">source</a>`
+        ? ` · <a href="${escapeHTML(item.source_url)}" target="_blank" rel="noopener noreferrer">source</a>`
         : "";
-      return `<div class="disc-card-meta">${item.platform} · ${timeAgo(item.detected_at)}${src}</div>`;
+      return `<div class="disc-card-meta">${escapeHTML(item.platform)} · ${timeAgo(item.detected_at)}${src}</div>`;
     }
 
     function discCampCard(item) {
-      const name = item.camp_name || "Anonymous Camp";
+      const name = escapeHTML(item.camp_name || "Anonymous Camp");
       return `
         <article class="disc-card">
           <div class="disc-card-name">${name}</div>
@@ -775,16 +783,16 @@ _COMMUNITY_HTML = """
             ${tagPills(item.vibes, "disc-tag-vibe")}
             ${tagPills(item.skills, "disc-tag-skill")}
           </div>
-          <p class="disc-card-snippet">${item.snippet}</p>
+          <p class="disc-card-snippet">${escapeHTML(item.snippet)}</p>
           ${discCardMeta(item)}
         </article>
       `;
     }
 
     function discSeekerCard(item) {
-      const intent = item.seeker_intent
-        ? item.seeker_intent.replace(/_/g, " ")
-        : "seeking";
+      const intent = escapeHTML(
+        item.seeker_intent ? item.seeker_intent.replace(/_/g, " ") : "seeking"
+      );
       return `
         <article class="disc-card">
           <div class="disc-card-name">Builder &middot; ${intent}</div>
@@ -792,7 +800,7 @@ _COMMUNITY_HTML = """
             ${tagPills(item.vibes, "disc-tag-vibe")}
             ${tagPills(item.skills, "disc-tag-skill")}
           </div>
-          <p class="disc-card-snippet">${item.snippet}</p>
+          <p class="disc-card-snippet">${escapeHTML(item.snippet)}</p>
           ${discCardMeta(item)}
         </article>
       `;
@@ -800,10 +808,10 @@ _COMMUNITY_HTML = """
 
     function discInfraCard(item) {
       const qty = item.quantity
-        ? `<span class="disc-tag disc-tag-infra">${item.quantity}</span>`
+        ? `<span class="disc-tag disc-tag-infra">${escapeHTML(item.quantity)}</span>`
         : "";
       const cond = item.condition
-        ? `<span class="disc-tag disc-tag-infra">${item.condition.replace(/_/g, " ")}</span>`
+        ? `<span class="disc-tag disc-tag-infra">${escapeHTML(item.condition.replace(/_/g, " "))}</span>`
         : "";
       return `
         <article class="disc-card">
@@ -811,7 +819,7 @@ _COMMUNITY_HTML = """
             ${tagPills(item.infra_categories, "disc-tag-infra")}
             ${qty}${cond}
           </div>
-          <p class="disc-card-snippet">${item.snippet}</p>
+          <p class="disc-card-snippet">${escapeHTML(item.snippet)}</p>
           ${discCardMeta(item)}
         </article>
       `;
@@ -1225,50 +1233,32 @@ async def _build_discovery_payload(
     allowed_tabs = {"mentorship_camps", "mentorship_seekers", "infra_seeking", "infra_offering"}
     tab_value = tab if tab in allowed_tabs else "mentorship_camps"
 
+    stmt = select(Post)
     if tab_value == "mentorship_camps":
-        stmt = (
-            select(Post)
-            .where(
-                Post.status == PostStatus.INDEXED,
-                Post.role == PostRole.CAMP,
-                or_(Post.post_type == PostType.MENTORSHIP, Post.post_type.is_(None)),
-            )
-            .order_by(Post.detected_at.desc())
-            .limit(limit)
+        stmt = stmt.where(
+            Post.status == PostStatus.INDEXED,
+            Post.role == PostRole.CAMP,
+            or_(Post.post_type == PostType.MENTORSHIP, Post.post_type.is_(None)),
         )
     elif tab_value == "mentorship_seekers":
-        stmt = (
-            select(Post)
-            .where(
-                Post.status == PostStatus.INDEXED,
-                Post.role == PostRole.SEEKER,
-                or_(Post.post_type == PostType.MENTORSHIP, Post.post_type.is_(None)),
-            )
-            .order_by(Post.detected_at.desc())
-            .limit(limit)
+        stmt = stmt.where(
+            Post.status == PostStatus.INDEXED,
+            Post.role == PostRole.SEEKER,
+            or_(Post.post_type == PostType.MENTORSHIP, Post.post_type.is_(None)),
         )
     elif tab_value == "infra_seeking":
-        stmt = (
-            select(Post)
-            .where(
-                Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}),
-                Post.post_type == PostType.INFRASTRUCTURE,
-                Post.infra_role == InfraRole.SEEKING,
-            )
-            .order_by(Post.detected_at.desc())
-            .limit(limit)
+        stmt = stmt.where(
+            Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}),
+            Post.post_type == PostType.INFRASTRUCTURE,
+            Post.infra_role == InfraRole.SEEKING,
         )
     else:  # infra_offering
-        stmt = (
-            select(Post)
-            .where(
-                Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}),
-                Post.post_type == PostType.INFRASTRUCTURE,
-                Post.infra_role == InfraRole.OFFERING,
-            )
-            .order_by(Post.detected_at.desc())
-            .limit(limit)
+        stmt = stmt.where(
+            Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}),
+            Post.post_type == PostType.INFRASTRUCTURE,
+            Post.infra_role == InfraRole.OFFERING,
         )
+    stmt = stmt.order_by(Post.detected_at.desc()).limit(limit)
 
     posts = (await session.exec(stmt)).all()
 
@@ -1280,7 +1270,7 @@ async def _build_discovery_payload(
             "platform": post.platform,
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
             "snippet": _sanitize_text(post.raw_text or post.title, max_len=160),
-            "source_url": post.source_url or None,
+            "source_url": _safe_url(post.source_url),
         }
         if tab_value in ("mentorship_camps", "mentorship_seekers"):
             item["camp_name"] = post.camp_name
@@ -2045,6 +2035,14 @@ def _parse_float(value: Any) -> float | None:
         except ValueError:
             return None
     return None
+
+
+def _safe_url(url: str | None) -> str | None:
+    """Return url only if it uses http or https; otherwise return None."""
+    if not url:
+        return None
+    parsed = urlparse(url)
+    return url if parsed.scheme in ("http", "https") else None
 
 
 def _sanitize_text(text: str, *, max_len: int = 160) -> str:

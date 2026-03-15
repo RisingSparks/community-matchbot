@@ -992,6 +992,57 @@ def test_community_discovery_api_returns_camps_and_seekers(monkeypatch, tmp_path
         _reset_engine()
 
 
+def test_community_discovery_api_blocks_javascript_source_urls(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_discovery_js_url.db")
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    async def _seed() -> None:
+        async with get_session() as session:
+            session.add_all([
+                Post(
+                    platform=Platform.REDDIT,
+                    platform_post_id="disc_js_url",
+                    platform_author_id="evil",
+                    source_url="javascript:alert('xss')",
+                    title="Malicious camp",
+                    raw_text="Legit looking text",
+                    role=PostRole.CAMP,
+                    post_type=PostType.MENTORSHIP,
+                    status=PostStatus.INDEXED,
+                    detected_at=now - timedelta(hours=1),
+                ),
+                Post(
+                    platform=Platform.REDDIT,
+                    platform_post_id="disc_https_url",
+                    platform_author_id="legit",
+                    source_url="https://reddit.com/r/ok",
+                    title="Legit camp",
+                    raw_text="Fine post",
+                    role=PostRole.CAMP,
+                    post_type=PostType.MENTORSHIP,
+                    status=PostStatus.INDEXED,
+                    detected_at=now - timedelta(hours=2),
+                ),
+            ])
+            await session.commit()
+
+    try:
+        asyncio.run(_seed())
+        client = TestClient(create_app(enable_scheduler=False))
+        resp = client.get("/community/api/discovery?tab=mentorship_camps")
+        assert resp.status_code == 200
+        items = resp.json()["items"]
+        assert len(items) == 2
+        # identify by snippet (raw_text is used as snippet)
+        js_item = next(i for i in items if "Legit looking" in (i["snippet"] or ""))
+        https_item = next(i for i in items if "Fine post" in (i["snippet"] or ""))
+        assert js_item["source_url"] is None
+        assert https_item["source_url"] == "https://reddit.com/r/ok"
+    finally:
+        _reset_engine()
+
+
 def test_community_discovery_api_sanitizes_snippets(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_discovery_sanitize.db")
 
