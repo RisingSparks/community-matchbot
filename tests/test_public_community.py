@@ -149,6 +149,7 @@ def test_community_rest_api_endpoints_exist_and_are_nonbreaking(monkeypatch, tmp
         demand = client.get("/community/api/demand")
         matches = client.get("/community/api/matches")
         stories = client.get("/community/api/stories")
+        discovery = client.get("/community/api/discovery")
 
         assert overview.status_code == 200
         assert metrics.status_code == 200
@@ -158,6 +159,9 @@ def test_community_rest_api_endpoints_exist_and_are_nonbreaking(monkeypatch, tmp
         assert demand.status_code == 200
         assert matches.status_code == 200
         assert stories.status_code == 200
+        assert discovery.status_code == 200
+        assert "items" in discovery.json()
+        assert "tab" in discovery.json()
 
         assert overview.json()["summary"] == legacy_payload["summary"]
         assert metrics.json()["key_metrics"] == legacy_payload["key_metrics"]
@@ -824,6 +828,199 @@ def test_community_data_infers_missing_infra_roles(monkeypatch, tmp_path) -> Non
         assert infra[0]["supply_count"] == 0
         assert infra[1]["demand_count"] == 1
         assert infra[1]["supply_count"] == 1
+    finally:
+        _reset_engine()
+
+
+def test_community_page_has_discovery_section(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_discovery_page.db")
+    try:
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get("/community/")
+        assert response.status_code == 200
+        assert "Community Pool" in response.text
+        assert "Camps &amp; Projects" in response.text
+        assert "Builders &amp; Seekers" in response.text
+        assert "Infra Needs" in response.text
+        assert "Infra Offers" in response.text
+        assert "discovery-grid" in response.text
+    finally:
+        _reset_engine()
+
+
+def test_community_discovery_api_empty(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_discovery_empty.db")
+    try:
+        client = TestClient(create_app(enable_scheduler=False))
+        for tab in ("mentorship_camps", "mentorship_seekers", "infra_seeking", "infra_offering"):
+            resp = client.get(f"/community/api/discovery?tab={tab}")
+            assert resp.status_code == 200
+            payload = resp.json()
+            assert payload["tab"] == tab
+            assert payload["items"] == []
+            assert payload["count"] == 0
+    finally:
+        _reset_engine()
+
+
+def test_community_discovery_api_unknown_tab_falls_back(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_discovery_fallback.db")
+    try:
+        client = TestClient(create_app(enable_scheduler=False))
+        resp = client.get("/community/api/discovery?tab=bogus")
+        assert resp.status_code == 200
+        assert resp.json()["tab"] == "mentorship_camps"
+    finally:
+        _reset_engine()
+
+
+def test_community_discovery_api_returns_camps_and_seekers(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_discovery_data.db")
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    async def _seed() -> None:
+        async with get_session() as session:
+            session.add_all([
+                Post(
+                    platform=Platform.REDDIT,
+                    platform_post_id="disc_camp_1",
+                    platform_author_id="camp_a",
+                    source_url="https://reddit.com/camp_a",
+                    title="Camp Solaris needs builders",
+                    raw_text="Camp Solaris has open spots for builders and artists.",
+                    role=PostRole.CAMP,
+                    post_type=PostType.MENTORSHIP,
+                    status=PostStatus.INDEXED,
+                    camp_name="Camp Solaris",
+                    vibes="inclusive|art",
+                    contribution_types="build|art",
+                    detected_at=now - timedelta(hours=5),
+                ),
+                Post(
+                    platform=Platform.DISCORD,
+                    platform_post_id="disc_seek_1",
+                    platform_author_id="seek_a",
+                    source_url="",
+                    title="Looking to join a camp",
+                    raw_text="Experienced builder seeking a creative camp.",
+                    role=PostRole.SEEKER,
+                    post_type=PostType.MENTORSHIP,
+                    status=PostStatus.INDEXED,
+                    vibes="inclusive",
+                    contribution_types="build",
+                    seeker_intent="join_camp",
+                    detected_at=now - timedelta(hours=3),
+                ),
+                Post(
+                    platform=Platform.REDDIT,
+                    platform_post_id="disc_infra_seek",
+                    platform_author_id="infra_s",
+                    source_url="https://reddit.com/infra_s",
+                    title="Need a generator",
+                    raw_text="Looking to borrow a generator for the event.",
+                    post_type=PostType.INFRASTRUCTURE,
+                    status=PostStatus.INDEXED,
+                    infra_role="seeking",
+                    infra_categories="power",
+                    quantity="1 unit",
+                    detected_at=now - timedelta(hours=2),
+                ),
+                Post(
+                    platform=Platform.REDDIT,
+                    platform_post_id="disc_infra_offer",
+                    platform_author_id="infra_o",
+                    source_url="https://reddit.com/infra_o",
+                    title="Offering shade hardware",
+                    raw_text="We have spare shade structures to lend.",
+                    post_type=PostType.INFRASTRUCTURE,
+                    status=PostStatus.INDEXED,
+                    infra_role="offering",
+                    infra_categories="shade",
+                    condition="good",
+                    detected_at=now - timedelta(hours=1),
+                ),
+                # Should NOT appear in mentorship_camps (infra type)
+                Post(
+                    platform=Platform.REDDIT,
+                    platform_post_id="disc_infra_camp",
+                    platform_author_id="infra_camp",
+                    title="Infra camp should not show",
+                    raw_text="Infra camp post",
+                    role=PostRole.CAMP,
+                    post_type=PostType.INFRASTRUCTURE,
+                    status=PostStatus.INDEXED,
+                    detected_at=now - timedelta(hours=4),
+                ),
+            ])
+            await session.commit()
+
+    try:
+        asyncio.run(_seed())
+        client = TestClient(create_app(enable_scheduler=False))
+
+        camps = client.get("/community/api/discovery?tab=mentorship_camps")
+        assert camps.status_code == 200
+        camps_data = camps.json()
+        assert camps_data["count"] == 1
+        assert camps_data["items"][0]["camp_name"] == "Camp Solaris"
+        assert "build" in camps_data["items"][0]["skills"]
+        assert "inclusive" in camps_data["items"][0]["vibes"]
+        assert camps_data["items"][0]["source_url"] == "https://reddit.com/camp_a"
+
+        seekers = client.get("/community/api/discovery?tab=mentorship_seekers")
+        assert seekers.status_code == 200
+        seekers_data = seekers.json()
+        assert seekers_data["count"] == 1
+        assert seekers_data["items"][0]["seeker_intent"] == "join_camp"
+        assert "build" in seekers_data["items"][0]["skills"]
+
+        infra_need = client.get("/community/api/discovery?tab=infra_seeking")
+        assert infra_need.status_code == 200
+        infra_need_data = infra_need.json()
+        assert infra_need_data["count"] == 1
+        assert "power" in infra_need_data["items"][0]["infra_categories"]
+        assert infra_need_data["items"][0]["quantity"] == "1 unit"
+
+        infra_offer = client.get("/community/api/discovery?tab=infra_offering")
+        assert infra_offer.status_code == 200
+        infra_offer_data = infra_offer.json()
+        assert infra_offer_data["count"] == 1
+        assert "shade" in infra_offer_data["items"][0]["infra_categories"]
+        assert infra_offer_data["items"][0]["condition"] == "good"
+    finally:
+        _reset_engine()
+
+
+def test_community_discovery_api_sanitizes_snippets(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_discovery_sanitize.db")
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    async def _seed() -> None:
+        async with get_session() as session:
+            session.add(Post(
+                platform=Platform.REDDIT,
+                platform_post_id="disc_pii",
+                platform_author_id="pii_user",
+                source_url="https://reddit.com/pii",
+                title="Seeker with PII",
+                raw_text="Email me at secret@example.com or u/MyUsername for details.",
+                role=PostRole.SEEKER,
+                post_type=PostType.MENTORSHIP,
+                status=PostStatus.INDEXED,
+                detected_at=now - timedelta(hours=1),
+            ))
+            await session.commit()
+
+    try:
+        asyncio.run(_seed())
+        client = TestClient(create_app(enable_scheduler=False))
+        resp = client.get("/community/api/discovery?tab=mentorship_seekers")
+        assert resp.status_code == 200
+        snippet = resp.json()["items"][0]["snippet"]
+        assert "secret@example.com" not in snippet
+        assert "u/MyUsername" not in snippet
     finally:
         _reset_engine()
 

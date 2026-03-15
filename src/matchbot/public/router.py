@@ -18,7 +18,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from matchbot.branding import FAVICON_LINK_TAGS, build_meta_tags
-from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, PostType
+from matchbot.db.models import InfraRole, Match, MatchStatus, Post, PostRole, PostStatus, PostType
 from matchbot.extraction.keywords import keyword_filter
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
@@ -367,6 +367,42 @@ _COMMUNITY_HTML = """
       background: rgba(245, 240, 232, 0.7);
       border-color: rgba(34, 32, 33, 0.07);
     }
+    .disc-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      max-height: 460px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .disc-card {
+      background: var(--card);
+      border-radius: 14px;
+      border: 1px solid rgba(34, 32, 33, 0.1);
+      padding: 12px;
+      box-shadow: 0 4px 10px rgba(34, 32, 33, 0.05);
+    }
+    .disc-card-name {
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0 0 6px;
+      color: var(--sage);
+    }
+    .disc-card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+    .disc-tag {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .disc-tag-vibe  { background: rgba(45, 91, 79, 0.12); color: var(--sage); }
+    .disc-tag-skill { background: rgba(197, 104, 27, 0.12); color: #a04a10; }
+    .disc-tag-infra { background: rgba(74, 86, 146, 0.12); color: #3a4494; }
+    .disc-card-snippet { font-size: 12px; color: #5a5658; line-height: 1.4; margin: 0; }
+    .disc-card-meta { font-size: 11px; color: var(--muted); margin-top: 6px; }
+    .disc-card-meta a { color: var(--sage); }
     @media (max-width: 980px) {
       .grid4 { grid-template-columns: repeat(2, 1fr); }
       .grid3 { grid-template-columns: 1fr; }
@@ -417,6 +453,19 @@ _COMMUNITY_HTML = """
         with right now.
       </p>
       <div class="pool-groups" id="pool-metrics"></div>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">Community Pool</h2>
+      <p class="group-desc">Browse active signals — camps looking for contributors, seekers ready to help, and infrastructure needs and offers.</p>
+      <div class="tab-bar" role="tablist" aria-label="Community pool tabs">
+        <button type="button" class="tab-btn" id="disc-tab-camps" data-disc-tab="mentorship_camps" aria-selected="true">Camps &amp; Projects</button>
+        <button type="button" class="tab-btn" id="disc-tab-seekers" data-disc-tab="mentorship_seekers" aria-selected="false">Builders &amp; Seekers</button>
+        <button type="button" class="tab-btn" id="disc-tab-infra-need" data-disc-tab="infra_seeking" aria-selected="false">Infra Needs</button>
+        <button type="button" class="tab-btn" id="disc-tab-infra-offer" data-disc-tab="infra_offering" aria-selected="false">Infra Offers</button>
+      </div>
+      <div class="disc-grid" id="discovery-grid"></div>
+      <p class="note" id="discovery-count" style="margin-top:8px"></p>
     </section>
 
     <section class="panel">
@@ -699,6 +748,102 @@ _COMMUNITY_HTML = """
       `;
     }
 
+    function timeAgo(iso) {
+      const h = Math.floor((Date.now() - new Date(iso).getTime()) / 3600000);
+      return h < 24 ? h + "h ago" : Math.floor(h / 24) + "d ago";
+    }
+
+    function tagPills(items, cls) {
+      return (items || []).slice(0, 5)
+        .map((t) => `<span class="disc-tag ${cls}">${t.replace(/_/g, " ")}</span>`)
+        .join("");
+    }
+
+    function discCardMeta(item) {
+      const src = item.source_url
+        ? ` · <a href="${item.source_url}" target="_blank" rel="noopener noreferrer">source</a>`
+        : "";
+      return `<div class="disc-card-meta">${item.platform} · ${timeAgo(item.detected_at)}${src}</div>`;
+    }
+
+    function discCampCard(item) {
+      const name = item.camp_name || "Anonymous Camp";
+      return `
+        <article class="disc-card">
+          <div class="disc-card-name">${name}</div>
+          <div class="disc-card-tags">
+            ${tagPills(item.vibes, "disc-tag-vibe")}
+            ${tagPills(item.skills, "disc-tag-skill")}
+          </div>
+          <p class="disc-card-snippet">${item.snippet}</p>
+          ${discCardMeta(item)}
+        </article>
+      `;
+    }
+
+    function discSeekerCard(item) {
+      const intent = item.seeker_intent
+        ? item.seeker_intent.replace(/_/g, " ")
+        : "seeking";
+      return `
+        <article class="disc-card">
+          <div class="disc-card-name">Builder &middot; ${intent}</div>
+          <div class="disc-card-tags">
+            ${tagPills(item.vibes, "disc-tag-vibe")}
+            ${tagPills(item.skills, "disc-tag-skill")}
+          </div>
+          <p class="disc-card-snippet">${item.snippet}</p>
+          ${discCardMeta(item)}
+        </article>
+      `;
+    }
+
+    function discInfraCard(item) {
+      const qty = item.quantity
+        ? `<span class="disc-tag disc-tag-infra">${item.quantity}</span>`
+        : "";
+      const cond = item.condition
+        ? `<span class="disc-tag disc-tag-infra">${item.condition.replace(/_/g, " ")}</span>`
+        : "";
+      return `
+        <article class="disc-card">
+          <div class="disc-card-tags">
+            ${tagPills(item.infra_categories, "disc-tag-infra")}
+            ${qty}${cond}
+          </div>
+          <p class="disc-card-snippet">${item.snippet}</p>
+          ${discCardMeta(item)}
+        </article>
+      `;
+    }
+
+    function discoveryCard(item, tab) {
+      if (tab === "mentorship_camps") return discCampCard(item);
+      if (tab === "mentorship_seekers") return discSeekerCard(item);
+      return discInfraCard(item);
+    }
+
+    let _discTab = "mentorship_camps";
+
+    function setDiscoveryTab(tab) {
+      _discTab = tab;
+      for (const btn of document.querySelectorAll("[data-disc-tab]")) {
+        btn.setAttribute("aria-selected", btn.dataset.discTab === tab ? "true" : "false");
+      }
+    }
+
+    async function loadDiscovery(tab) {
+      setDiscoveryTab(tab);
+      const res = await fetch(`/community/api/discovery?tab=${tab}&limit=50`);
+      const data = await res.json();
+      const items = data.items || [];
+      document.getElementById("discovery-grid").innerHTML = items.length
+        ? items.map((item) => discoveryCard(item, tab)).join("")
+        : `<p class="note" style="padding:12px 0">No active signals for this category yet.</p>`;
+      const countEl = document.getElementById("discovery-count");
+      if (countEl) countEl.textContent = items.length ? `${items.length} active signal${items.length === 1 ? "" : "s"}` : "";
+    }
+
     async function loadMatches() {
       const status = document.getElementById("match-status-filter").value || "all";
       const days = document.getElementById("match-days-filter").value || "30";
@@ -915,6 +1060,7 @@ _COMMUNITY_HTML = """
       );
 
       await loadMatches();
+      await loadDiscovery(_discTab);
     }
 
     document.getElementById("match-status-filter").addEventListener("change", loadMatches);
@@ -925,6 +1071,9 @@ _COMMUNITY_HTML = """
     document.getElementById("live-view-table").addEventListener("click", () => {
       setLiveActivityTab("live-feed-table-panel");
     });
+    for (const btn of document.querySelectorAll("[data-disc-tab]")) {
+      btn.addEventListener("click", () => loadDiscovery(btn.dataset.discTab));
+    }
     load();
     setInterval(load, 60000);
   </script>
@@ -1053,6 +1202,104 @@ async def community_api_stories() -> dict[str, Any]:
     return {
         "stories": payload["stories"],
         "updated_at": payload["updated_at"],
+    }
+
+
+@router.get("/api/discovery")
+async def community_api_discovery(
+    tab: str = Query(default="mentorship_camps"),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> dict[str, Any]:
+    return await _run_with_db_retry(
+        "community_api_discovery",
+        lambda session: _build_discovery_payload(session, tab=tab, limit=limit),
+    )
+
+
+async def _build_discovery_payload(
+    session: AsyncSession,
+    *,
+    tab: str,
+    limit: int,
+) -> dict[str, Any]:
+    allowed_tabs = {"mentorship_camps", "mentorship_seekers", "infra_seeking", "infra_offering"}
+    tab_value = tab if tab in allowed_tabs else "mentorship_camps"
+
+    if tab_value == "mentorship_camps":
+        stmt = (
+            select(Post)
+            .where(
+                Post.status == PostStatus.INDEXED,
+                Post.role == PostRole.CAMP,
+                or_(Post.post_type == PostType.MENTORSHIP, Post.post_type.is_(None)),
+            )
+            .order_by(Post.detected_at.desc())
+            .limit(limit)
+        )
+    elif tab_value == "mentorship_seekers":
+        stmt = (
+            select(Post)
+            .where(
+                Post.status == PostStatus.INDEXED,
+                Post.role == PostRole.SEEKER,
+                or_(Post.post_type == PostType.MENTORSHIP, Post.post_type.is_(None)),
+            )
+            .order_by(Post.detected_at.desc())
+            .limit(limit)
+        )
+    elif tab_value == "infra_seeking":
+        stmt = (
+            select(Post)
+            .where(
+                Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}),
+                Post.post_type == PostType.INFRASTRUCTURE,
+                Post.infra_role == InfraRole.SEEKING,
+            )
+            .order_by(Post.detected_at.desc())
+            .limit(limit)
+        )
+    else:  # infra_offering
+        stmt = (
+            select(Post)
+            .where(
+                Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}),
+                Post.post_type == PostType.INFRASTRUCTURE,
+                Post.infra_role == InfraRole.OFFERING,
+            )
+            .order_by(Post.detected_at.desc())
+            .limit(limit)
+        )
+
+    posts = (await session.exec(stmt)).all()
+
+    now = datetime.now(UTC)
+    items: list[dict[str, Any]] = []
+    for post in posts:
+        item: dict[str, Any] = {
+            "post_id": post.id,
+            "platform": post.platform,
+            "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
+            "snippet": _sanitize_text(post.raw_text or post.title, max_len=160),
+            "source_url": post.source_url or None,
+        }
+        if tab_value in ("mentorship_camps", "mentorship_seekers"):
+            item["camp_name"] = post.camp_name
+            item["vibes"] = [v for v in (post.vibes or "").split("|") if v]
+            item["skills"] = [v for v in (post.contribution_types or "").split("|") if v]
+            if tab_value == "mentorship_seekers":
+                item["seeker_intent"] = post.seeker_intent
+        else:
+            item["infra_categories"] = [v for v in (post.infra_categories or "").split("|") if v]
+            item["quantity"] = post.quantity
+            item["condition"] = post.condition
+            item["dates_needed"] = post.dates_needed
+        items.append(item)
+
+    return {
+        "items": items,
+        "tab": tab_value,
+        "count": len(items),
+        "updated_at": now.isoformat(),
     }
 
 
