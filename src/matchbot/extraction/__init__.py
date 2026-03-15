@@ -134,6 +134,8 @@ async def process_post(
         post.status = PostStatus.SKIPPED
         post.extraction_confidence = extracted.confidence
         post.extraction_method = f"llm_{extractor.provider_name()}"
+        # Deactivate any profile backed solely by this post (re-extraction flow)
+        await sync_profile_from_post(session, post)
         session.add(post)
         await _append_event(
             session,
