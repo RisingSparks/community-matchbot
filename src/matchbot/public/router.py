@@ -370,9 +370,9 @@ _COMMUNITY_HTML = """
     }
     .disc-grid {
       display: grid;
-      gap: 10px;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      max-height: 460px;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+      max-height: 520px;
       overflow-y: auto;
       padding-right: 4px;
     }
@@ -457,16 +457,25 @@ _COMMUNITY_HTML = """
     </section>
 
     <section class="panel">
-      <h2 class="section-title">Community Pool</h2>
-      <p class="group-desc">Browse active signals — camps looking for contributors, seekers ready to help, and infrastructure needs and offers.</p>
+      <h2 class="section-title">Community Pool — Camps &amp; Builders</h2>
+      <p class="group-desc">Camps and projects seeking contributors, alongside builders ready to plug in.</p>
       <div class="tab-bar" role="tablist" aria-label="Community pool tabs">
-        <button type="button" class="tab-btn" id="disc-tab-camps" data-disc-tab="mentorship_camps" aria-selected="true">Camps &amp; Projects</button>
-        <button type="button" class="tab-btn" id="disc-tab-seekers" data-disc-tab="mentorship_seekers" aria-selected="false">Builders &amp; Seekers</button>
-        <button type="button" class="tab-btn" id="disc-tab-infra-need" data-disc-tab="infra_seeking" aria-selected="false">Infra Needs</button>
-        <button type="button" class="tab-btn" id="disc-tab-infra-offer" data-disc-tab="infra_offering" aria-selected="false">Infra Offers</button>
+        <button type="button" class="tab-btn" id="disc-tab-camps" data-mentorship-tab="mentorship_camps" aria-selected="true">Camps &amp; Projects</button>
+        <button type="button" class="tab-btn" id="disc-tab-seekers" data-mentorship-tab="mentorship_seekers" aria-selected="false">Builders &amp; Seekers</button>
       </div>
-      <div class="disc-grid" id="discovery-grid"></div>
-      <p class="note" id="discovery-count" style="margin-top:8px"></p>
+      <div class="disc-grid" id="discovery-grid-mentorship"></div>
+      <p class="note" id="discovery-count-mentorship" style="margin-top:8px"></p>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">Community Pool — Infra Needs &amp; Offers</h2>
+      <p class="group-desc">Gear, structures, and equipment — what people need and what's available to share.</p>
+      <div class="tab-bar" role="tablist" aria-label="Infrastructure pool tabs">
+        <button type="button" class="tab-btn" id="disc-tab-infra-need" data-infra-tab="infra_seeking" aria-selected="true">Infra Needs</button>
+        <button type="button" class="tab-btn" id="disc-tab-infra-offer" data-infra-tab="infra_offering" aria-selected="false">Infra Offers</button>
+      </div>
+      <div class="disc-grid" id="discovery-grid-infra"></div>
+      <p class="note" id="discovery-count-infra" style="margin-top:8px"></p>
     </section>
 
     <section class="panel">
@@ -831,24 +840,44 @@ _COMMUNITY_HTML = """
       return discInfraCard(item);
     }
 
-    let _discTab = "mentorship_camps";
+    let _discTabMentorship = "mentorship_camps";
+    let _discTabInfra = "infra_seeking";
 
-    function setDiscoveryTab(tab) {
-      _discTab = tab;
-      for (const btn of document.querySelectorAll("[data-disc-tab]")) {
-        btn.setAttribute("aria-selected", btn.dataset.discTab === tab ? "true" : "false");
+    function setMentorshipTab(tab) {
+      _discTabMentorship = tab;
+      for (const btn of document.querySelectorAll("[data-mentorship-tab]")) {
+        btn.setAttribute("aria-selected", btn.dataset.mentorshipTab === tab ? "true" : "false");
       }
     }
 
-    async function loadDiscovery(tab) {
-      setDiscoveryTab(tab);
+    function setInfraTab(tab) {
+      _discTabInfra = tab;
+      for (const btn of document.querySelectorAll("[data-infra-tab]")) {
+        btn.setAttribute("aria-selected", btn.dataset.infraTab === tab ? "true" : "false");
+      }
+    }
+
+    async function loadMentorship(tab) {
+      setMentorshipTab(tab);
       const res = await fetch(`/community/api/discovery?tab=${tab}&limit=50`);
       const data = await res.json();
       const items = data.items || [];
-      document.getElementById("discovery-grid").innerHTML = items.length
+      document.getElementById("discovery-grid-mentorship").innerHTML = items.length
         ? items.map((item) => discoveryCard(item, tab)).join("")
         : `<p class="note" style="padding:12px 0">No active signals for this category yet.</p>`;
-      const countEl = document.getElementById("discovery-count");
+      const countEl = document.getElementById("discovery-count-mentorship");
+      if (countEl) countEl.textContent = items.length ? `${items.length} active signal${items.length === 1 ? "" : "s"}` : "";
+    }
+
+    async function loadInfra(tab) {
+      setInfraTab(tab);
+      const res = await fetch(`/community/api/discovery?tab=${tab}&limit=50`);
+      const data = await res.json();
+      const items = data.items || [];
+      document.getElementById("discovery-grid-infra").innerHTML = items.length
+        ? items.map((item) => discoveryCard(item, tab)).join("")
+        : `<p class="note" style="padding:12px 0">No active signals for this category yet.</p>`;
+      const countEl = document.getElementById("discovery-count-infra");
       if (countEl) countEl.textContent = items.length ? `${items.length} active signal${items.length === 1 ? "" : "s"}` : "";
     }
 
@@ -1068,7 +1097,8 @@ _COMMUNITY_HTML = """
       );
 
       await loadMatches();
-      await loadDiscovery(_discTab);
+      await loadMentorship(_discTabMentorship);
+      await loadInfra(_discTabInfra);
     }
 
     document.getElementById("match-status-filter").addEventListener("change", loadMatches);
@@ -1079,8 +1109,11 @@ _COMMUNITY_HTML = """
     document.getElementById("live-view-table").addEventListener("click", () => {
       setLiveActivityTab("live-feed-table-panel");
     });
-    for (const btn of document.querySelectorAll("[data-disc-tab]")) {
-      btn.addEventListener("click", () => loadDiscovery(btn.dataset.discTab));
+    for (const btn of document.querySelectorAll("[data-mentorship-tab]")) {
+      btn.addEventListener("click", () => loadMentorship(btn.dataset.mentorshipTab));
+    }
+    for (const btn of document.querySelectorAll("[data-infra-tab]")) {
+      btn.addEventListener("click", () => loadInfra(btn.dataset.infraTab));
     }
     load();
     setInterval(load, 60000);
