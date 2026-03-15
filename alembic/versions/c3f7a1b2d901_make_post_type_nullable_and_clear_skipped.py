@@ -19,10 +19,12 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.alter_column('post', 'post_type', existing_type=sa.String(), nullable=True)
+    with op.batch_alter_table('post') as batch_op:
+        batch_op.alter_column('post_type', existing_type=sa.String(), nullable=True)
     op.execute("UPDATE post SET post_type = NULL WHERE status = 'skipped'")
 
 
 def downgrade() -> None:
     op.execute("UPDATE post SET post_type = 'mentorship' WHERE post_type IS NULL")
-    op.alter_column('post', 'post_type', existing_type=sa.String(), nullable=False)
+    with op.batch_alter_table('post') as batch_op:
+        batch_op.alter_column('post_type', existing_type=sa.String(), nullable=False)

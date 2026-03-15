@@ -141,6 +141,11 @@ async def process_post(
     post.camp_size_max = extracted.camp_size_max
     post.year = extracted.year
     post.location_preference = extracted.location_preference
+    post.origin_location_raw = extracted.origin_location_raw
+    post.origin_location_city = extracted.origin_location_city
+    post.origin_location_state = extracted.origin_location_state
+    post.origin_location_county = extracted.origin_location_county
+    post.origin_location_zip = extracted.origin_location_zip
     post.availability_notes = extracted.availability_notes
     post.contact_method = extracted.contact_method
 
