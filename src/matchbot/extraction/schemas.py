@@ -6,7 +6,7 @@ from matchbot.db.models import PostType
 class ExtractedPost(BaseModel):
     # --- shared fields ---
     role: str = "unknown"          # seeker | camp | unknown (mentorship path)
-    post_type: str = PostType.MENTORSHIP  # mentorship | infrastructure
+    post_type: str | None = None  # mentorship | infrastructure | None (irrelevant)
     confidence: float = 0.5        # 0.0–1.0
     extraction_notes: str | None = None
 
@@ -23,6 +23,11 @@ class ExtractedPost(BaseModel):
     contribution_types: list[str] = []
     contribution_types_other: list[str] = []
     location_preference: str | None = None
+    origin_location_raw: str | None = None    # verbatim geographic origin, e.g. "Oklahoma" or "Portland, OR"
+    origin_location_city: str | None = None
+    origin_location_state: str | None = None  # 2-letter US code preferred, e.g. "OR"
+    origin_location_county: str | None = None
+    origin_location_zip: str | None = None
     availability_notes: str | None = None
     contact_method: str | None = None
 
@@ -55,9 +60,11 @@ class ExtractedPost(BaseModel):
 
     @field_validator("post_type")
     @classmethod
-    def validate_post_type(cls, v: str) -> str:
+    def validate_post_type(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
         allowed = {PostType.MENTORSHIP, PostType.INFRASTRUCTURE}
-        return v if v in allowed else PostType.MENTORSHIP
+        return v if v in allowed else None
 
     @field_validator("infra_role")
     @classmethod

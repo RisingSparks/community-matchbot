@@ -591,3 +591,45 @@ async def test_anthropic_extractor_raises_on_refusal():
     extractor = AnthropicExtractor(client=mock_client)
     with pytest.raises(ExtractionError, match="refused extraction"):
         await extractor.extract("title", "body", "reddit", "community")
+
+
+@pytest.mark.asyncio
+async def test_process_post_skips_when_llm_returns_null_post_type(db_session, mock_extractor):
+    """When the LLM returns post_type=null the post is marked SKIPPED, not queued."""
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="nulltype001",
+        title="Poor ticket sales this year and other ramblings",
+        raw_text=(
+            "Long rant about ticket prices. Anyone have thoughts on why fewer people "
+            "are going? Can someone spare some advice? Looking to borrow ideas."
+        ),
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        post_type=None,
+        confidence=0.1,
+        extraction_notes="General community discussion, not camp-finding or gear exchange.",
+    )
+
+    result = await process_post(db_session, post, mock_extractor)
+
+    assert result.status == PostStatus.SKIPPED
+    assert result.post_type is None
+    mock_extractor.extract.assert_called_once()
+
+
+def test_extracted_post_null_post_type_is_valid():
+    """post_type=None is a valid ExtractedPost state (LLM says irrelevant)."""
+    ep = ExtractedPost(post_type=None, confidence=0.1)
+    assert ep.post_type is None
+
+
+def test_extracted_post_unknown_post_type_becomes_none():
+    """Unrecognised post_type strings are coerced to None rather than defaulting to mentorship."""
+    ep = ExtractedPost(post_type="general_discussion")
+    assert ep.post_type is None

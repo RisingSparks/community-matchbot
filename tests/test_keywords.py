@@ -127,3 +127,21 @@ class TestAmbiguousRole:
         result = keyword_filter("SEEKING CAMP FOR BURNING MAN", "WILLING TO BUILD")
         assert result.matched is True
         assert result.candidate_role == PostRole.UNKNOWN
+
+
+class TestMentorshipFalsePositives:
+    """Regression tests for posts wrongly classified as mentorship seekers."""
+
+    def test_can_contribute_to_community_not_seeker(self):
+        """'Can contribute' in general discussion must not hard-match as seeker."""
+        result = keyword_filter(
+            "Poor ticket sales this year and other ramblings",
+            (
+                "We should find ways to help people get tickets so they "
+                "can contribute to the community."
+            ),
+        )
+        # Should not be a hard-match seeker (may still soft-match via scoring)
+        assert not (result.matched and result.tier == "hard_match"), (
+            f"Unexpectedly hard-matched as mentorship seeker: reasons={result.reasons}"
+        )

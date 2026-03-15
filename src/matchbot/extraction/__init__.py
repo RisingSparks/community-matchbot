@@ -129,6 +129,29 @@ async def process_post(
     # --- 5. Update Post fields ---
     post.post_type = extracted.post_type
 
+    if post.post_type is None:
+        # LLM determined the post is not relevant to camp-finding or gear exchange
+        post.status = PostStatus.SKIPPED
+        post.extraction_confidence = extracted.confidence
+        post.extraction_method = f"llm_{extractor.provider_name()}"
+        # Deactivate any profile backed solely by this post (re-extraction flow)
+        await sync_profile_from_post(session, post)
+        session.add(post)
+        await _append_event(
+            session,
+            post,
+            "post_skipped",
+            {
+                "reason": "llm_not_relevant",
+                "provider": extractor.provider_name(),
+                "confidence": extracted.confidence,
+                "extraction_notes": extracted.extraction_notes,
+            },
+        )
+        await session.commit()
+        await session.refresh(post)
+        return post
+
     # Mentorship fields
     post.role = extracted.role
     post.seeker_intent = extracted.seeker_intent
@@ -141,6 +164,11 @@ async def process_post(
     post.camp_size_max = extracted.camp_size_max
     post.year = extracted.year
     post.location_preference = extracted.location_preference
+    post.origin_location_raw = extracted.origin_location_raw
+    post.origin_location_city = extracted.origin_location_city
+    post.origin_location_state = extracted.origin_location_state
+    post.origin_location_county = extracted.origin_location_county
+    post.origin_location_zip = extracted.origin_location_zip
     post.availability_notes = extracted.availability_notes
     post.contact_method = extracted.contact_method
 

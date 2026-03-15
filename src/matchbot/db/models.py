@@ -139,6 +139,11 @@ class Post(SQLModel, table=True):
     camp_size_max: int | None = Field(default=None)
     year: int | None = Field(default=None)
     location_preference: str | None = Field(default=None)
+    origin_location_raw: str | None = Field(default=None)   # verbatim from post, e.g. "Oklahoma" or "Portland, OR"
+    origin_location_city: str | None = Field(default=None)
+    origin_location_state: str | None = Field(default=None)  # 2-letter code preferred, e.g. "OR"
+    origin_location_county: str | None = Field(default=None)
+    origin_location_zip: str | None = Field(default=None)
     availability_notes: str | None = Field(default=None)
     contact_method: str | None = Field(default=None)
     extraction_confidence: float | None = Field(default=None)

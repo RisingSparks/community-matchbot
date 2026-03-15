@@ -23,7 +23,7 @@ _SEEKER_PATTERNS = [
     r"\bnoob\b",
     r"\bnewcomer\b",
     r"\bwilling\s+to\s+(?:build|cook|contribute|help|work)\b",
-    r"\bcan\s+(?:help\s+with|contribute|build|cook)\b",
+    r"\bcan\s+(?:help\s+with|build|cook)\b",
     r"\boffering\s+(?:my\s+)?(?:skills?|help|time|labor)\b",
     r"\bopen\s+to\s+(?:joining|any)\s+camp\b",
     r"\bhave\s+skills?\b",
