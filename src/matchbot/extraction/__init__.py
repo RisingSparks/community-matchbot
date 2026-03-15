@@ -129,6 +129,27 @@ async def process_post(
     # --- 5. Update Post fields ---
     post.post_type = extracted.post_type
 
+    if post.post_type is None:
+        # LLM determined the post is not relevant to camp-finding or gear exchange
+        post.status = PostStatus.SKIPPED
+        post.extraction_confidence = extracted.confidence
+        post.extraction_method = f"llm_{extractor.provider_name()}"
+        session.add(post)
+        await _append_event(
+            session,
+            post,
+            "post_skipped",
+            {
+                "reason": "llm_not_relevant",
+                "provider": extractor.provider_name(),
+                "confidence": extracted.confidence,
+                "extraction_notes": extracted.extraction_notes,
+            },
+        )
+        await session.commit()
+        await session.refresh(post)
+        return post
+
     # Mentorship fields
     post.role = extracted.role
     post.seeker_intent = extracted.seeker_intent

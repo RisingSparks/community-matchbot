@@ -57,9 +57,9 @@ class TestExtractedPostInfraSchema:
         assert "power" in ep.infra_categories
         assert "shade" in ep.infra_categories
 
-    def test_invalid_post_type_becomes_mentorship(self):
+    def test_invalid_post_type_becomes_none(self):
         ep = ExtractedPost(post_type="weirdstuff")
-        assert ep.post_type == "mentorship"
+        assert ep.post_type is None
 
     def test_infrastructure_post_type_accepted(self):
         ep = ExtractedPost(post_type="infrastructure")
