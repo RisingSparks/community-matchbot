@@ -23,6 +23,11 @@ class ExtractedPost(BaseModel):
     contribution_types: list[str] = []
     contribution_types_other: list[str] = []
     location_preference: str | None = None
+    origin_location_raw: str | None = None    # verbatim geographic origin, e.g. "Oklahoma" or "Portland, OR"
+    origin_location_city: str | None = None
+    origin_location_state: str | None = None  # 2-letter US code preferred, e.g. "OR"
+    origin_location_county: str | None = None
+    origin_location_zip: str | None = None
     availability_notes: str | None = None
     contact_method: str | None = None
 

@@ -30,6 +30,10 @@ Rules:
 - Set confidence < 0.5 for vague or ambiguous posts
 - availability_notes / dates_needed: use near-verbatim language from the post
 - contact_method: describe HOW to contact — NEVER include actual personal info
+- origin_location_*: the author's real-world home location (city, state, etc.), NOT their playa placement.
+  Set origin_location_raw to the verbatim phrase from the post (e.g. "Oklahoma", "Portland, OR").
+  Parse city/state/county/zip from that phrase when possible; use 2-letter state codes (e.g. "OR", "TX").
+  Leave all origin_location fields null if the post contains no geographic origin information.
 - Never invent information not in the post
 - Respond ONLY with valid JSON — no markdown, no explanation
 
@@ -66,6 +70,11 @@ Output schema:
   "contribution_types": [string, ...],
   "contribution_types_other": [string, ...],
   "location_preference": string | null,
+  "origin_location_raw": string | null,
+  "origin_location_city": string | null,
+  "origin_location_state": string | null,
+  "origin_location_county": string | null,
+  "origin_location_zip": string | null,
   "availability_notes": string | null,
   "contact_method": string | null,
 
@@ -113,6 +122,9 @@ Rules:
 - Extract year only if explicitly mentioned
 - Use near-verbatim language for availability_notes and dates_needed
 - contact_method should describe how to contact, never personal contact details
+- origin_location_* captures the author's real-world home location (not playa placement).
+  Set origin_location_raw to the verbatim phrase; parse city/state/county/zip where possible.
+  Use 2-letter state codes. Leave null if no geographic origin is mentioned.
 - Do not invent facts that are not in the post
 - Confidence should be below 0.5 when the post is vague or ambiguous
 
