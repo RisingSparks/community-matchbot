@@ -48,3 +48,15 @@ def test_neon_accepts_asyncpg_url():
 def test_sqlite_does_not_require_neon_url():
     s = Settings(_env_file=None, database_backend="sqlite", neon_database_url="")
     assert s.database_backend == "sqlite"
+
+
+# ---------------------------------------------------------------------------
+# Storage settings
+# ---------------------------------------------------------------------------
+
+
+def test_raw_data_dir_default(reset_settings):
+    from matchbot.settings import get_settings
+
+    settings = get_settings()
+    assert settings.raw_data_dir == "data/raw"

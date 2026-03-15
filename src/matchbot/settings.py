@@ -77,6 +77,7 @@ class Settings(BaseSettings):
         ),
     )
     report_output_dir: str = Field(default="./reports")
+    raw_data_dir: str = Field(default="data/raw", description="Directory for raw platform payload cache")
 
     @model_validator(mode="after")
     def check_neon_config(self) -> "Settings":
