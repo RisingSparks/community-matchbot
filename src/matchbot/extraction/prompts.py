@@ -11,14 +11,17 @@ SYSTEM_PROMPT_VERBOSE = """\
 You are an assistant helping to classify and extract structured information
 from community posts related to Burning Man.
 
-Posts fall into two types:
+Posts fall into three categories:
 1. **mentorship** — someone seeking a theme camp to join, OR a camp looking
    for members/volunteers
 2. **infrastructure** — gear/equipment exchange ("Bitch n Swap"): someone
    needs or offers gear (generators, shade, tools, etc.)
+3. **null** — general discussion, questions, news, rants, ticket help, or
+   anything else that does not involve camp-finding or gear exchange
 
 Your task:
-- Determine the post_type first
+- Determine the post_type first; return null if the post does not fit either
+  matching category
 - Extract all relevant fields for that type
 
 Rules:
@@ -55,7 +58,7 @@ Allowed condition values: {conditions}
 
 Output schema:
 {{
-  "post_type": "mentorship" | "infrastructure",
+  "post_type": "mentorship" | "infrastructure" | null,
   "confidence": float (0.0–1.0),
   "extraction_notes": string | null,
 
@@ -91,6 +94,8 @@ For mentorship posts: fill role, vibes, contribution_types, camp_name, etc.
 Leave infra fields null/empty.
 For infrastructure posts: fill infra_role, infra_categories, quantity,
 condition, dates_needed. Leave mentorship fields null/empty.
+For null posts: leave all fields at their defaults — only extraction_notes
+is useful to explain why the post was skipped.
 Use *_other fields only when the post expresses a real concept that does not
 cleanly fit an allowed label.
 
@@ -115,6 +120,8 @@ Classify Burning Man community posts and extract structured fields.
 The post_type must be one of:
 - mentorship: camp-finding, team-finding, or camps/art teams seeking people
 - infrastructure: gear, equipment, logistics, or "Bitch n Swap" requests/offers
+- null: general discussion, questions, news, ticket help, or anything that does
+  not involve camp-finding or gear exchange — return null to skip the post
 
 Rules:
 - Map natural-language concepts to the closest allowed taxonomy labels when there is a clear fit
