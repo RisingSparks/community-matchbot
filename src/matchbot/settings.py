@@ -87,10 +87,10 @@ class Settings(BaseSettings):
                     "DATABASE_BACKEND is 'neon' but NEON_DATABASE_URL is not set."
                 )
             parsed = urlparse(url)
-            if parsed.scheme not in ("postgresql", "postgres"):
+            if parsed.scheme not in ("postgresql", "postgres", "postgresql+asyncpg"):
                 raise ValueError(
-                    f"NEON_DATABASE_URL must start with 'postgresql://' or 'postgres://', "
-                    f"got scheme: {parsed.scheme!r}"
+                    f"NEON_DATABASE_URL must start with 'postgresql://', 'postgres://', "
+                    f"or 'postgresql+asyncpg://', got scheme: {parsed.scheme!r}"
                 )
             if not parsed.hostname:
                 raise ValueError(
