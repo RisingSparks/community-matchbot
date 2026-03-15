@@ -6,7 +6,7 @@ from matchbot.db.models import PostType
 class ExtractedPost(BaseModel):
     # --- shared fields ---
     role: str = "unknown"          # seeker | camp | unknown (mentorship path)
-    post_type: str | None = PostType.MENTORSHIP  # mentorship | infrastructure | None (irrelevant)
+    post_type: str | None = None  # mentorship | infrastructure | None (irrelevant)
     confidence: float = 0.5        # 0.0–1.0
     extraction_notes: str | None = None
 
