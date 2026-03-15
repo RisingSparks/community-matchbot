@@ -1,7 +1,8 @@
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import urlparse
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -123,6 +124,20 @@ class Settings(BaseSettings):
         default="/forms/",
         description="Fallback URL for public community feedback CTA.",
     )
+
+    @model_validator(mode="after")
+    def _check_neon_url(self) -> "Settings":
+        if self.database_backend != "neon":
+            return self
+        if not self.neon_database_url:
+            raise ValueError("NEON_DATABASE_URL is not set.")
+        scheme = urlparse(self.neon_database_url).scheme
+        if scheme not in ("postgresql", "postgres", "postgresql+asyncpg"):
+            raise ValueError(
+                f"NEON_DATABASE_URL has an unsupported scheme '{scheme}'. "
+                "Expected 'postgresql', 'postgres', or 'postgresql+asyncpg'."
+            )
+        return self
 
 
 @lru_cache(maxsize=1)

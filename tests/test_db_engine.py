@@ -89,8 +89,11 @@ def test_get_engine_uses_sqlite_when_backend_is_sqlite_even_if_neon_url_exists(m
 
 
 def test_get_engine_raises_if_neon_backend_without_neon_url(monkeypatch) -> None:
+    # Validation now happens at Settings construction time (see test_settings.py).
+    # Use model_construct to bypass the validator so we can still exercise the
+    # engine-level guard directly.
     engine_module._engine = None
-    settings = Settings(database_backend="neon", db_path="local.db", neon_database_url="")
+    settings = Settings.model_construct(database_backend="neon", db_path="local.db", neon_database_url="")
 
     monkeypatch.setattr(engine_module, "get_settings", lambda: settings)
 
