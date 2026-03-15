@@ -8,6 +8,33 @@ from dataclasses import dataclass
 from matchbot.db.models import InfraRole, PostRole, PostType
 
 # ---------------------------------------------------------------------------
+# Infrastructure item vocabulary
+# Used to gate generic borrow/lend/swap patterns so they don't fire on posts
+# that merely mention borrowing/sharing without any physical infra item.
+# ---------------------------------------------------------------------------
+
+_INFRA_ITEM_CONTEXT_PATTERNS = [
+    r"\bgenerator\b",
+    r"\bsolar\b",
+    r"\btarp\b",
+    r"\bcanopy\b",
+    r"\btrailer\b",
+    r"\btool(?:s|box)?\b",
+    r"\bshade\s+(?:structure|sail|cloth|screen|canopy)\b",
+    r"\bkitchen\s+(?:gear|equipment|supplies|setup)\b",
+    r"\bstove\b",
+    r"\bspeaker[s]?\b",
+    r"\bpump\b",
+    r"\bpropane\b",
+    r"\bpower\s+(?:supply|station|strip|distribution|tool)\b",
+    r"\bbattery\s+(?:pack|bank)\b",
+    r"\bgray\s*water\b",
+    r"\bgreywater\b",
+    r"\brebar\b",
+    r"\bparacord\b",
+]
+
+# ---------------------------------------------------------------------------
 # Mentorship patterns (camp-finding)
 # ---------------------------------------------------------------------------
 
@@ -23,7 +50,7 @@ _SEEKER_PATTERNS = [
     r"\bnoob\b",
     r"\bnewcomer\b",
     r"\bwilling\s+to\s+(?:build|cook|contribute|help|work)\b",
-    r"\bcan\s+(?:help\s+with|contribute|build|cook)\b",
+    r"\bcan\s+(?:help\s+with|build|cook)\b",
     r"\boffering\s+(?:my\s+)?(?:skills?|help|time|labor)\b",
     r"\bopen\s+to\s+(?:joining|any)\s+camp\b",
     r"\bhave\s+skills?\b",
@@ -56,30 +83,39 @@ _CAMP_PATTERNS = [
 
 _INFRA_SEEKING_PATTERNS = [
     r"\bneed(?:ing)?\s+(?:a\s+|an\s+)?(?:generator|solar|power|shade|tarp|canopy|trailer|truck|tool|kitchen|stove|radio|speaker)\b",
-    r"\blooking\s+(?:to\s+)?(?:borrow|rent)\b",
     r"\biso\b.{0,40}\b(?:generator|shade|tarp|power|tool|trailer|truck|kitchen)\b",
     r"\bwho\s+has\s+(?:a\s+|an\s+)?(?:generator|solar|shade|tarp|trailer|truck|tool)\b",
-    r"\banyone\s+(?:have|has|lending|renting)\b",
-    r"\bcan\s+someone\s+(?:lend|loan|spare|share)\b",
     r"\bneeded?\s*:\s*(?:generator|shade|tarp|power|tool|trailer|truck|kitchen|speaker|radio)\b",
-    r"\blooking\s+for\s+(?:to\s+)?(?:borrow|rent|acquire)\b",
     r"\bwanted\b.{0,30}\b(?:generator|shade|tarp|power|tool|trailer|truck|kitchen)\b",
     r"\bseeking\s+(?:gear|equipment|tools?|shade|power|generator)\b",
 ]
 
+# Generic borrow/lend patterns with no embedded item — only fire when
+# _INFRA_ITEM_CONTEXT_PATTERNS also matches somewhere in the text.
+_INFRA_SEEKING_GENERIC_PATTERNS = [
+    r"\blooking\s+(?:to\s+)?(?:borrow|rent)\b",
+    r"\banyone\s+(?:have|has|lending|renting)\b",
+    r"\bcan\s+someone\s+(?:lend|loan|spare|share)\b",
+    r"\blooking\s+for\s+(?:to\s+)?(?:borrow|rent|acquire)\b",
+]
+
 _INFRA_OFFERING_PATTERNS = [
     r"\bhave\s+(?:a\s+|an\s+|extra\s+|spare\s+)?(?:generator|solar|shade|tarp|canopy|trailer|truck|tool|kitchen|stove|radio|speaker)\b",
-    r"\boffering\s+(?:to\s+)?(?:lend|loan|share|rent|give|sell)\b",
-    r"\bcan\s+(?:lend|loan|share|spare)\b",
     r"\b(?:lending|loaning|sharing|renting|giving\s+away)\b.{0,40}\b(?:generator|shade|tarp|power|tool|trailer|truck|kitchen)\b",
     r"\bfree\s+(?:to\s+)?(?:a\s+good\s+)?home\b",
-    r"\bswap\b.{0,30}\b(?:for|to|or)\b",
     r"\bbitch\s+n\s+swap\b",
     r"\bsurplus\b.{0,30}\b(?:generator|shade|tarp|power|tool|trailer|truck|kitchen|gear|equipment)\b",
+    r"\b(?:generator|shade|tarp|canopy|trailer|truck|tool|kitchen|stove)\b.{0,40}\b(?:available|for\s+loan|to\s+borrow|to\s+rent|free)\b",
+]
+
+# Generic offer/swap patterns — only fire when item context is also present.
+_INFRA_OFFERING_GENERIC_PATTERNS = [
+    r"\boffering\s+(?:to\s+)?(?:lend|loan|share|rent|give|sell)\b",
+    r"\bcan\s+(?:lend|loan|share|spare)\b",
+    r"\bswap\b.{0,30}\b(?:for|to|or)\b",
     r"\b(?:for|available)\s+(?:borrow|loan|rent|free)\b",
     r"\bgiving\s+away\b",
     r"\bavailable\s+to\s+(?:lend|loan|share|borrow)\b",
-    r"\b(?:generator|shade|tarp|canopy|trailer|truck|tool|kitchen|stove)\b.{0,40}\b(?:available|for\s+loan|to\s+borrow|to\s+rent|free)\b",
 ]
 
 
@@ -109,6 +145,15 @@ def keyword_filter(title: str, body: str) -> KeywordResult:
     # Check infrastructure patterns first (more specific)
     infra_seeking = _any_match(text, _INFRA_SEEKING_PATTERNS)
     infra_offering = _any_match(text, _INFRA_OFFERING_PATTERNS)
+
+    # Generic borrow/lend/swap patterns only fire when an infra item is present
+    if not infra_seeking or not infra_offering:
+        has_item_context = _any_match(text, _INFRA_ITEM_CONTEXT_PATTERNS)
+        if has_item_context:
+            if not infra_seeking:
+                infra_seeking = _any_match(text, _INFRA_SEEKING_GENERIC_PATTERNS)
+            if not infra_offering:
+                infra_offering = _any_match(text, _INFRA_OFFERING_GENERIC_PATTERNS)
 
     if infra_seeking or infra_offering:
         # Determine infra role
