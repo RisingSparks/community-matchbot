@@ -188,3 +188,6 @@ matchbot.db-journal
 
 .gemini/
 gha-creds-*.json
+
+# Git worktrees
+.worktrees/
