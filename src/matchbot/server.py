@@ -13,7 +13,7 @@ from matchbot.forms.router import router as forms_router
 from matchbot.listeners.facebook import router as facebook_router
 from matchbot.log_config import configure_logging
 from matchbot.mod.router import router as mod_router
-from matchbot.public.router import community_page
+from matchbot.public.router import community_home
 from matchbot.public.router import router as community_router
 
 
@@ -59,7 +59,7 @@ def create_app(enable_scheduler: bool = True, run_migrations_on_startup: bool = 
 
     @app.get("/", response_class=HTMLResponse)
     async def root(request: Request) -> str:
-        return await community_page(request)
+        return await community_home(request)
 
     @app.get(FAVICON_PATH, include_in_schema=False)
     async def favicon() -> Response:
