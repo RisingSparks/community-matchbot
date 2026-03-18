@@ -41,27 +41,33 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_render.db")
     try:
         client = TestClient(create_app(enable_scheduler=False))
+
+        # / community/ now serves the new home page
         response = client.get("/community/")
         assert response.status_code == 200
         assert "Rising Sparks" in response.text
-        assert "Live Activity" in response.text
-        assert "Skills" in response.text
-        assert "Vibes" in response.text
-        assert "Infrastructure Exchange Snapshot" in response.text
-        assert "Matched Drill-Down" in response.text
-        assert "Metrics Summary" in response.text
-        assert "Submit Your Signal" in response.text
+        assert "Find your people" in response.text
+        assert "Build the city" in response.text
+        assert "Looking for a camp or project" in response.text
+        assert "Gear" in response.text
         assert 'rel="icon"' in response.text
         assert "/favicon.svg" in response.text
-        assert '<link rel="canonical" href="http://testserver/community/">' in response.text
+
+        # Full dashboard content lives at /community/transparency
+        trans = client.get("/community/transparency")
+        assert trans.status_code == 200
+        assert "Rising Sparks" in trans.text
+        assert "Live Activity" in trans.text
+        assert "Skills" in trans.text
+        assert "Vibes" in trans.text
+        assert "Infrastructure Exchange Snapshot" in trans.text
+        assert "Matched Drill-Down" in trans.text
+        assert "Metrics Summary" in trans.text
+        assert 'rel="icon"' in trans.text
         assert (
-            'property="og:title" content="Rising Sparks Community Dashboard | '
-            'Camps, Builders, and Infra Signals"'
-        ) in response.text
-        assert 'name="twitter:card" content="summary"' in response.text
-        assert "Looking for a camp, collaborators, or infrastructure help?" in response.text
-        assert "Camp Connections" in response.text
-        assert "Matching Queue" in response.text
+            'property="og:title" content="Open Stats'
+        ) in trans.text
+        assert 'name="twitter:card" content="summary"' in trans.text
     finally:
         _reset_engine()
 
@@ -70,18 +76,14 @@ def test_root_page_renders_dashboard(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_root_render.db")
     try:
         client = TestClient(create_app(enable_scheduler=False))
+        # / now serves the community home page
         response = client.get("/")
         assert response.status_code == 200
         assert "Rising Sparks" in response.text
-        assert "Live Activity" in response.text
-        assert "Metrics Summary" in response.text
-        assert "Submit Your Signal" in response.text
+        assert "Find your people" in response.text
+        assert "Build the city" in response.text
         assert 'rel="icon"' in response.text
         assert "/favicon.svg" in response.text
-        assert '<link rel="canonical" href="http://testserver/community/">' in response.text
-        assert "Looking for a camp, collaborators, or infrastructure help?" in response.text
-        assert "Camp Connections" in response.text
-        assert "Matching Queue" in response.text
     finally:
         _reset_engine()
 
@@ -836,7 +838,8 @@ def test_community_page_has_discovery_section(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_discovery_page.db")
     try:
         client = TestClient(create_app(enable_scheduler=False))
-        response = client.get("/community/")
+        # The dashboard content (including Community Pool) lives at /community/transparency
+        response = client.get("/community/transparency")
         assert response.status_code == 200
         assert "Community Pool" in response.text
         assert "Camps &amp; Projects" in response.text
