@@ -68,11 +68,15 @@ async def _run_with_db_retry[T](
 # ── Shared navigation & design for new community pages ──────────────────────
 
 _NAV_CSS = """
-:root { --nav-h: 64px; }
+:root { 
+  --nav-h: 64px;
+  --nav-bg: rgba(255,253,248,0.96);
+  --nav-border: rgba(34,32,33,0.12);
+}
 .site-nav {
   position: fixed; bottom: 0; left: 0; right: 0; height: var(--nav-h);
-  background: rgba(255,253,248,0.96); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(34,32,33,0.12); z-index: 100;
+  background: var(--nav-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--nav-border); z-index: 100;
   padding-bottom: env(safe-area-inset-bottom);
 }
 .site-nav__inner { display: flex; height: 64px; max-width: 700px; margin: 0 auto; }
@@ -87,7 +91,7 @@ _NAV_CSS = """
 body { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom)); }
 @media (min-width: 680px) {
   body { padding-bottom: 0; padding-top: 58px; }
-  .site-nav { top: 0; bottom: auto; height: 58px; border-top: none; border-bottom: 1px solid rgba(34,32,33,0.12); }
+  .site-nav { top: 0; bottom: auto; height: 58px; border-top: none; border-bottom: 1px solid var(--nav-border); }
   .site-nav__inner { max-width: 1120px; height: 58px; align-items: center; padding: 0 18px; }
   .nav-tab { flex: 0 0 auto; flex-direction: row; gap: 6px; padding: 8px 14px; border-radius: 999px; min-height: auto; }
   .nav-tab__icon { font-size: 15px; }
@@ -96,6 +100,7 @@ body { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom)); }
   .site-nav__logo { margin-right: auto; font-size: 15px; font-weight: 700; color: #2d5b4f; text-decoration: none; padding: 8px 14px 8px 0; letter-spacing: -0.01em; }
 }
 """
+
 
 
 def _nav_html(active: str) -> str:
@@ -127,9 +132,16 @@ def _nav_html(active: str) -> str:
 
 _BROWSE_CSS = """
 :root {
+  /* Brand colors */
   --sand: #f5f0e8; --sage: #2d5b4f; --sun: #e8a04a;
-  --ink: #221e21; --card: #fffdf8; --muted: #6a6264;
-  --border: rgba(34,30,33,0.12); --radius-lg: 18px; --radius-md: 12px;
+  --ink: #221e21; --muted: #6a6264;
+  
+  /* Components - Cards */
+  --card-bg: #fffdf8;
+  --card-border: rgba(34,30,33,0.12);
+  --card-radius-lg: 18px;
+  --card-radius-md: 12px;
+  --card-shadow: 0 4px 14px rgba(34,30,33,0.06);
 }
 *, *::before, *::after { box-sizing: border-box; }
 body {
@@ -153,7 +165,7 @@ body {
 .filter-row::-webkit-scrollbar { display: none; }
 .filter-chip {
   display: inline-flex; align-items: center; padding: 7px 14px;
-  background: var(--card); border: 1.5px solid var(--border); border-radius: 999px;
+  background: var(--card-bg); border: 1.5px solid var(--card-border); border-radius: 999px;
   font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer;
   min-height: 44px; color: var(--ink); transition: background 0.15s, border-color 0.15s, color 0.15s;
   flex-shrink: 0; user-select: none; -webkit-user-select: none;
@@ -164,10 +176,10 @@ body {
 @media (min-width: 580px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1000px) { .card-grid { grid-template-columns: repeat(3, 1fr); } }
 .listing-card {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); padding: 18px;
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: var(--card-radius-lg); padding: 18px;
   display: flex; flex-direction: column; gap: 10px;
-  box-shadow: 0 4px 14px rgba(34,30,33,0.06);
+  box-shadow: var(--card-shadow);
 }
 .listing-card__meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .platform-badge {
@@ -201,7 +213,7 @@ body {
 .loading-state { text-align: center; padding: 48px 24px; color: var(--muted); font-size: 15px; }
 .page-cta {
   margin-top: 32px; background: linear-gradient(125deg, #2b4f44, #1f3932);
-  border-radius: var(--radius-lg); padding: 20px 24px;
+  border-radius: var(--card-radius-lg); padding: 20px 24px;
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; flex-wrap: wrap; color: #f5f0e8;
 }
@@ -221,7 +233,7 @@ body {
 .gear-panel-head p { margin: 0; font-size: 14px; color: var(--muted); }
 """
 
-_TAXONOMY_JS = """
+_TAXONOMY_JS = r"""
 const VIBE_LABELS = {
   art:'Art', music:'Music', dance:'Dance', fire_arts:'Fire Arts',
   technology:'Tech', build_focused:'Builders', workshop:'Workshop',
@@ -249,8 +261,15 @@ const INFRA_LABELS = {
   trailers:'Trailers', generators:'Generators', solar:'Solar',
   fire_safety:'Fire Safety', medical:'Medical', rebar:'Rebar'
 };
+function esc(str) {
+  if (!str) return '';
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return String(str).replace(/[&<>"']/g, s => map[s]);
+}
 function humanLabel(dict, slug) {
-  return dict[slug] || slug.replace(/_/g, ' ').replace(/\\b\\w/g, c => c.toUpperCase());
+  // Replace underscores with spaces and capitalize each word
+  const label = dict[slug] || slug.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return esc(label);
 }
 function fmt(n) { return new Intl.NumberFormat().format(n || 0); }
 function timeAgo(iso) {
@@ -264,7 +283,7 @@ function timeAgo(iso) {
 function platformBadge(p) {
   const labels = {reddit:'Reddit', discord:'Discord', facebook:'Facebook', manual:'Form'};
   const cls = ['reddit','discord','facebook','manual'].includes(p) ? p : 'manual';
-  return '<span class="platform-badge platform-badge--' + cls + '">' + (labels[p] || p) + '</span>';
+  return '<span class="platform-badge platform-badge--' + cls + '">' + esc(labels[p] || p) + '</span>';
 }
 function vibeTags(vibes, max) {
   return (vibes || []).slice(0, max || 3).map(v =>
@@ -284,14 +303,14 @@ function infraTags(cats, max) {
 function conditionTag(cond) {
   if (!cond || cond === 'unknown') return '';
   const labels = {new:'New', good:'Good', fair:'Fair', worn:'Worn', needs_repair:'Needs repair'};
-  return '<span class="tag tag--cond">' + (labels[cond] || cond) + '</span>';
+  return '<span class="tag tag--cond">' + esc(labels[cond] || cond) + '</span>';
 }
 function sourceLink(url) {
   if (!url) return '';
-  return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="source-link">Original post \u2192</a>';
+  return '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" class="source-link">Original post \u2192</a>';
 }
 function emptyState(heading, body) {
-  return '<div class="empty-state"><div class="empty-state__icon">\u2726</div><h2>' + heading + '</h2><p>' + body + '</p><a href="/forms/">Submit your signal \u2192</a></div>';
+  return '<div class="empty-state"><div class="empty-state__icon">\u2726</div><h2>' + esc(heading) + '</h2><p>' + esc(body) + '</p><a href="/forms/">Submit your signal \u2192</a></div>';
 }
 """
 
@@ -421,13 +440,13 @@ async function loadHome() {
     }
     grid.innerHTML = recent.map(({item, type}) => {
       const title = type === 'camp'
-        ? (item.name || 'Camp or Project')
+        ? esc(item.name || 'Camp or Project')
         : (item.contributions && item.contributions.length ? humanLabel(CONTRIB_LABELS, item.contributions[0]) : 'Seeker');
       return '<article class="listing-card">'
         + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.detected_at) + '</span></div>'
         + '<h3 class="listing-card__title">' + title + '</h3>'
         + '<div class="tag-row">' + vibeTags(item.vibes, 2) + contribTags(item.contributions, 2) + '</div>'
-        + '<p class="listing-card__snippet">' + (item.snippet || '') + '</p>'
+        + '<p class="listing-card__snippet">' + esc(item.snippet || '') + '</p>'
         + '<div class="listing-card__footer">' + sourceLink(item.source_url) + '</div>'
         + '</article>';
     }).join('');
@@ -460,9 +479,9 @@ function buildCampCard(item) {
   const vibes = item.vibes || [], contribs = item.contributions || [];
   return '<article class="listing-card">'
     + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.detected_at) + '</span></div>'
-    + '<h3 class="listing-card__title">' + (item.name || 'Camp or Project') + '</h3>'
+    + '<h3 class="listing-card__title">' + esc(item.name || 'Camp or Project') + '</h3>'
     + '<div class="tag-row">' + vibeTags(vibes, 3) + contribTags(contribs, 2) + '</div>'
-    + '<p class="listing-card__snippet">' + (item.snippet || '') + '</p>'
+    + '<p class="listing-card__snippet">' + esc(item.snippet || '') + '</p>'
     + '<div class="listing-card__footer">' + sourceLink(item.source_url) + '</div>'
     + '</article>';
 }
@@ -488,7 +507,7 @@ function buildCampFilters(camps) {
   if (!sorted.length) { row.style.display = 'none'; return; }
   row.innerHTML = sorted.map(([slug, count]) => {
     const label = VIBE_LABELS[slug] ? humanLabel(VIBE_LABELS, slug) : humanLabel(CONTRIB_LABELS, slug);
-    return '<button class="filter-chip" data-tag="' + slug + '" aria-pressed="false">' + label + ' <span style="opacity:0.6;font-size:11px">(' + count + ')</span></button>';
+    return '<button class="filter-chip" data-tag="' + esc(slug) + '" aria-pressed="false">' + label + ' <span style="opacity:0.6;font-size:11px">(' + count + ')</span></button>';
   }).join('');
   row.querySelectorAll('.filter-chip').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -543,7 +562,7 @@ function buildSeekerCard(item) {
     + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.detected_at) + '</span></div>'
     + '<h3 class="listing-card__title">' + lead + '</h3>'
     + '<div class="tag-row">' + vibeTags(vibes, 3) + contribTags(contribs, 2) + '</div>'
-    + '<p class="listing-card__snippet">' + (item.snippet || '') + '</p>'
+    + '<p class="listing-card__snippet">' + esc(item.snippet || '') + '</p>'
     + '<div class="listing-card__footer">' + sourceLink(item.source_url) + '</div>'
     + '</article>';
 }
@@ -569,7 +588,7 @@ function buildSeekerFilters(seekers) {
   if (!sorted.length) { row.style.display = 'none'; return; }
   row.innerHTML = sorted.map(([slug, count]) => {
     const label = VIBE_LABELS[slug] ? humanLabel(VIBE_LABELS, slug) : humanLabel(CONTRIB_LABELS, slug);
-    return '<button class="filter-chip" data-tag="' + slug + '" aria-pressed="false">' + label + ' <span style="opacity:0.6;font-size:11px">(' + count + ')</span></button>';
+    return '<button class="filter-chip" data-tag="' + esc(slug) + '" aria-pressed="false">' + label + ' <span style="opacity:0.6;font-size:11px">(' + count + ')</span></button>';
   }).join('');
   row.querySelectorAll('.filter-chip').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -634,8 +653,8 @@ function buildGearCard(item) {
   return '<article class="listing-card">'
     + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.detected_at) + '</span></div>'
     + '<div class="tag-row">' + infraTags(cats, 3) + conditionTag(item.condition) + '</div>'
-    + (item.quantity ? '<p style="margin:0;font-size:13px;color:#6a6264">Qty: ' + item.quantity + '</p>' : '')
-    + '<p class="listing-card__snippet">' + (item.snippet || '') + '</p>'
+    + (item.quantity ? '<p style="margin:0;font-size:13px;color:#6a6264">Qty: ' + esc(item.quantity) + '</p>' : '')
+    + '<p class="listing-card__snippet">' + esc(item.snippet || '') + '</p>'
     + '<div class="listing-card__footer">' + sourceLink(item.source_url) + '</div>'
     + '</article>';
 }
@@ -649,7 +668,7 @@ function setupGearPanel(items, filterId, gridId) {
 
   if (sorted.length) {
     filterRow.innerHTML = sorted.map(([slug, count]) =>
-      '<button class="filter-chip" data-tag="' + slug + '" aria-pressed="false">'
+      '<button class="filter-chip" data-tag="' + esc(slug) + '" aria-pressed="false">'
       + humanLabel(INFRA_LABELS, slug)
       + ' <span style="opacity:0.6;font-size:11px">(' + count + ')</span></button>'
     ).join('');
@@ -1389,7 +1408,7 @@ _COMMUNITY_HTML = """
       const w = max > 0 ? Math.max(4, Math.round((count / max) * 100)) : 0;
       return `
         <div class="bar-row">
-          <div class="bar-label">${name}</div>
+          <div class="bar-label">${escapeHTML(name)}</div>
           <div class="bar-track"><div class="bar-fill" style="width:${w}%"></div></div>
           <div class="bar-value">${fmt(count)}</div>
         </div>
@@ -1399,11 +1418,11 @@ _COMMUNITY_HTML = """
     function eventRow(item) {
       return `
         <div class="event-row">
-          <div class="pill">${item.event_type}</div>
+          <div class="pill">${escapeHTML(item.event_type)}</div>
           <div class="event-meta">
-            ${new Date(item.occurred_at).toLocaleString()} • ${item.platform}
+            ${new Date(item.occurred_at).toLocaleString()} • ${escapeHTML(item.platform)}
           </div>
-          <div class="event-text">${item.summary}</div>
+          <div class="event-text">${escapeHTML(item.summary)}</div>
         </div>
       `;
     }
@@ -1416,9 +1435,9 @@ _COMMUNITY_HTML = """
       return `
         <tr>
           <td class="mono">${new Date(item.occurred_at).toLocaleString()}</td>
-          <td><span class="pill">${item.event_type}</span></td>
-          <td>${item.platform || "n/a"}</td>
-          <td>${item.summary || ""}</td>
+          <td><span class="pill">${escapeHTML(item.event_type)}</span></td>
+          <td>${escapeHTML(item.platform || "n/a")}</td>
+          <td>${escapeHTML(item.summary || "")}</td>
           <td class="mono">${score}</td>
           <td class="mono">${confidence}</td>
         </tr>
@@ -1447,30 +1466,30 @@ _COMMUNITY_HTML = """
       const reason = item.match_reason || item.shared_signals || "Low-signal potential match.";
       const seekerLink = item.seeker_source_url
         ? (
-          `<a href="${item.seeker_source_url}" target="_blank" rel="noopener noreferrer">` +
+          `<a href="${escapeHTML(item.seeker_source_url)}" target="_blank" rel="noopener noreferrer">` +
           `Seeker source</a>`
         )
         : "Seeker source: n/a";
       const campLink = item.camp_source_url
         ? (
-          `<a href="${item.camp_source_url}" target="_blank" rel="noopener noreferrer">` +
+          `<a href="${escapeHTML(item.camp_source_url)}" target="_blank" rel="noopener noreferrer">` +
           `Camp source</a>`
         )
         : "Camp source: n/a";
 
       return `
         <div class="event-row">
-          <div class="pill">match_${item.status}</div>
+          <div class="pill">match_${escapeHTML(item.status)}</div>
           <div class="event-meta">
             ${new Date(item.created_at).toLocaleString()} •
-            ${item.seeker_platform} → ${item.camp_platform}
+            ${escapeHTML(item.seeker_platform)} → ${escapeHTML(item.camp_platform)}
           </div>
           <div class="event-text">
             Score ${score} • Confidence ${confidence}
           </div>
-          <div class="event-text"><strong>Why this might fit:</strong> ${reason}</div>
-          <div class="event-text"><strong>Seeker:</strong> ${item.seeker_summary}</div>
-          <div class="event-text"><strong>Camp:</strong> ${item.camp_summary}</div>
+          <div class="event-text"><strong>Why this might fit:</strong> ${escapeHTML(reason)}</div>
+          <div class="event-text"><strong>Seeker:</strong> ${escapeHTML(item.seeker_summary)}</div>
+          <div class="event-text"><strong>Camp:</strong> ${escapeHTML(item.camp_summary)}</div>
           <div class="event-meta">${seekerLink} • ${campLink}</div>
         </div>
       `;
@@ -1478,9 +1497,8 @@ _COMMUNITY_HTML = """
 
     function escapeHTML(str) {
       if (!str) return "";
-      const p = document.createElement("p");
-      p.textContent = str;
-      return p.innerHTML;
+      const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+      return String(str).replace(/[&<>"']/g, (s) => map[s]);
     }
 
     function timeAgo(iso) {
@@ -2078,43 +2096,69 @@ async def community_api_listings() -> dict[str, Any]:
 async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
     now = datetime.now(UTC)
 
-    camps_rows = (
-        await session.exec(
-            select(Post)
-            .where(
-                Post.status == PostStatus.INDEXED,
-                Post.role == PostRole.CAMP,
-                Post.post_type == PostType.MENTORSHIP,
+    try:
+        camps_rows = (
+            await session.exec(
+                select(Post)
+                .where(
+                    Post.status == PostStatus.INDEXED,
+                    Post.role == PostRole.CAMP,
+                    Post.post_type == PostType.MENTORSHIP,
+                )
+                .order_by(Post.detected_at.desc())
+                .limit(60)
             )
-            .order_by(Post.detected_at.desc())
-            .limit(60)
-        )
-    ).all()
+        ).all()
 
-    seekers_rows = (
-        await session.exec(
-            select(Post)
-            .where(
-                Post.status == PostStatus.INDEXED,
-                Post.role == PostRole.SEEKER,
-                Post.post_type == PostType.MENTORSHIP,
+        seekers_rows = (
+            await session.exec(
+                select(Post)
+                .where(
+                    Post.status == PostStatus.INDEXED,
+                    Post.role == PostRole.SEEKER,
+                    Post.post_type == PostType.MENTORSHIP,
+                )
+                .order_by(Post.detected_at.desc())
+                .limit(60)
             )
-            .order_by(Post.detected_at.desc())
-            .limit(60)
-        )
-    ).all()
+        ).all()
 
-    gear_rows = (
-        await session.exec(
-            select(Post)
-            .where(
-                Post.status == PostStatus.INDEXED,
-                Post.post_type == PostType.INFRASTRUCTURE,
+        gear_seeking_rows = (
+            await session.exec(
+                select(Post)
+                .where(
+                    Post.status == PostStatus.INDEXED,
+                    Post.post_type == PostType.INFRASTRUCTURE,
+                    Post.infra_role == InfraRole.SEEKING,
+                )
+                .order_by(Post.detected_at.desc())
+                .limit(60)
             )
-            .order_by(Post.detected_at.desc())
-            .limit(60)
-        )
-    ).all()
+        ).all()
+
+        gear_offering_rows = (
+            await session.exec(
+                select(Post)
+                .where(
+                    Post.status == PostStatus.INDEXED,
+                    Post.post_type == PostType.INFRASTRUCTURE,
+                    Post.infra_role == InfraRole.OFFERING,
+                )
+                .order_by(Post.detected_at.desc())
+                .limit(60)
+            )
+        ).all()
+
+    except Exception as exc:
+        log_exception(exc, "_build_listings_payload")
+        return {
+            "camps": [],
+            "seekers": [],
+            "gear_seeking": [],
+            "gear_offering": [],
+            "updated_at": now.isoformat(),
+            "error": "Failed to load community listings.",
+        }
 
     def _camp_card(post: Post) -> dict[str, Any]:
         return {
@@ -2152,14 +2196,11 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
         }
 
-    gear_seeking = [_gear_card(p) for p in gear_rows if (p.infra_role or "").lower() == "seeking"]
-    gear_offering = [_gear_card(p) for p in gear_rows if (p.infra_role or "").lower() == "offering"]
-
     return {
         "camps": [_camp_card(p) for p in camps_rows],
         "seekers": [_seeker_card(p) for p in seekers_rows],
-        "gear_seeking": gear_seeking,
-        "gear_offering": gear_offering,
+        "gear_seeking": [_gear_card(p) for p in gear_seeking_rows],
+        "gear_offering": [_gear_card(p) for p in gear_offering_rows],
         "updated_at": now.isoformat(),
     }
 
