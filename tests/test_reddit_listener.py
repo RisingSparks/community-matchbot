@@ -34,6 +34,7 @@ def _make_submission(
 
 @pytest.mark.asyncio
 async def test_handle_submission_creates_post(db_session, mock_extractor):
+    import matchbot.listeners.reddit as rl
     from matchbot.extraction.schemas import ExtractedPost
 
     mock_extractor.extract.return_value = ExtractedPost(
@@ -42,8 +43,9 @@ async def test_handle_submission_creates_post(db_session, mock_extractor):
 
     submission = _make_submission()
 
-    with patch("matchbot.listeners.reddit._get_extractor", return_value=mock_extractor):
-        post = await _handle_submission(submission, db_session)
+    with patch.object(rl, "_raw_store", MagicMock()):
+        with patch("matchbot.listeners.reddit._get_extractor", return_value=mock_extractor):
+            post = await _handle_submission(submission, db_session)
 
     assert post is not None
     assert post.platform == Platform.REDDIT
@@ -54,15 +56,19 @@ async def test_handle_submission_creates_post(db_session, mock_extractor):
 
 @pytest.mark.asyncio
 async def test_handle_submission_deduplicates(db_session, mock_extractor):
+    import matchbot.listeners.reddit as rl
+
     submission = _make_submission(sub_id="dup001")
 
     # First call
-    with patch("matchbot.listeners.reddit._get_extractor", return_value=mock_extractor):
-        post1 = await _handle_submission(submission, db_session)
+    with patch.object(rl, "_raw_store", MagicMock()):
+        with patch("matchbot.listeners.reddit._get_extractor", return_value=mock_extractor):
+            post1 = await _handle_submission(submission, db_session)
 
     # Second call — should deduplicate
-    with patch("matchbot.listeners.reddit._get_extractor", return_value=mock_extractor):
-        post2 = await _handle_submission(submission, db_session)
+    with patch.object(rl, "_raw_store", MagicMock()):
+        with patch("matchbot.listeners.reddit._get_extractor", return_value=mock_extractor):
+            post2 = await _handle_submission(submission, db_session)
 
     assert post1 is not None
     assert post2 is None  # skipped
@@ -77,13 +83,16 @@ async def test_handle_submission_deduplicates(db_session, mock_extractor):
 
 @pytest.mark.asyncio
 async def test_handle_submission_skipped_if_no_keyword_match(db_session, mock_extractor):
+    import matchbot.listeners.reddit as rl
+
     submission = _make_submission(
         title="What gear should I bring?",
         body="Packing list advice wanted.",
     )
 
-    with patch("matchbot.listeners.reddit._get_extractor", return_value=mock_extractor):
-        post = await _handle_submission(submission, db_session)
+    with patch.object(rl, "_raw_store", MagicMock()):
+        with patch("matchbot.listeners.reddit._get_extractor", return_value=mock_extractor):
+            post = await _handle_submission(submission, db_session)
 
     assert post is not None
     assert post.status == PostStatus.SKIPPED
@@ -93,6 +102,7 @@ async def test_handle_submission_skipped_if_no_keyword_match(db_session, mock_ex
 
 @pytest.mark.asyncio
 async def test_handle_submission_truncates_long_body(db_session, mock_extractor):
+    import matchbot.listeners.reddit as rl
     from matchbot.extraction.schemas import ExtractedPost
 
     mock_extractor.extract.return_value = ExtractedPost(
@@ -106,7 +116,8 @@ async def test_handle_submission_truncates_long_body(db_session, mock_extractor)
         body=long_body,
     )
 
-    with patch("matchbot.listeners.reddit._get_extractor", return_value=mock_extractor):
-        post = await _handle_submission(submission, db_session)
+    with patch.object(rl, "_raw_store", MagicMock()):
+        with patch("matchbot.listeners.reddit._get_extractor", return_value=mock_extractor):
+            post = await _handle_submission(submission, db_session)
 
     assert len(post.raw_text) <= 2000
