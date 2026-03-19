@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, date as _date, datetime
 from typing import Any, Literal
 
 import httpx
@@ -24,8 +24,19 @@ from matchbot.extraction.keywords import keyword_filter
 from matchbot.extraction.openai_extractor import OpenAIExtractor
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
+from matchbot.storage.raw_store import RawStore
 
 logger = logging.getLogger(__name__)
+
+_raw_store: RawStore | None = None
+
+
+def _get_raw_store() -> RawStore:
+    global _raw_store
+    if _raw_store is None:
+        _raw_store = RawStore(base_dir=get_settings().raw_data_dir)
+    return _raw_store
+
 
 _REDDIT_NEW_URL = "https://www.reddit.com/r/BurningMan/new.json"
 _REDDIT_NEW_URL_FALLBACK = "https://old.reddit.com/r/BurningMan/new.json"
@@ -234,6 +245,9 @@ async def _ingest_reddit_json_item(
 
     if await _post_exists(post_id):
         return "deduped", extractor
+
+    # Persist the raw API payload before any transformation or truncation.
+    _get_raw_store().save("reddit", _date.today().isoformat(), post_id, data)
 
     title = (data.get("title") or "")[:500]
     body = (data.get("selftext") or "")[:2000]
