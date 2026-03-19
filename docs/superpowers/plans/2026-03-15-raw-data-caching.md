@@ -17,7 +17,7 @@
 **Files:**
 - Modify: `src/matchbot/settings.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_settings.py  (add to existing file, or create if absent)
@@ -27,14 +27,14 @@ def test_raw_data_dir_default(reset_settings):
     assert settings.raw_data_dir == "data/raw"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```
 uv run pytest tests/test_settings.py::test_raw_data_dir_default -x -q
 ```
 Expected: FAIL — `AttributeError: ... has no attribute 'raw_data_dir'`
 
-- [ ] **Step 3: Add field to Settings**
+- [x] **Step 3: Add field to Settings**
 
 Open `src/matchbot/settings.py`. The `# Storage` section begins at line 66. Add the new field there, after `report_output_dir`:
 
@@ -43,14 +43,14 @@ Open `src/matchbot/settings.py`. The `# Storage` section begins at line 66. Add 
     raw_data_dir: str = Field(default="data/raw", description="Directory for raw platform payload cache")
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```
 uv run pytest tests/test_settings.py::test_raw_data_dir_default -x -q
 ```
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/matchbot/settings.py tests/test_settings.py
@@ -66,7 +66,7 @@ git commit -m "feat: add raw_data_dir setting (default data/raw)"
 - Create: `src/matchbot/storage/raw_store.py`
 - Create: `tests/test_raw_store.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_raw_store.py
@@ -142,18 +142,18 @@ def test_list_ids_sorted(store):
     assert ids == ["aaa", "zzz"]
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```
 uv run pytest tests/test_raw_store.py -x -q
 ```
 Expected: FAIL — `ModuleNotFoundError: No module named 'matchbot.storage'`
 
-- [ ] **Step 3: Create `src/matchbot/storage/__init__.py`**
+- [x] **Step 3: Create `src/matchbot/storage/__init__.py`**
 
 Empty file — just signals this is a package.
 
-- [ ] **Step 4: Implement `raw_store.py`**
+- [x] **Step 4: Implement `raw_store.py`**
 
 ```python
 # src/matchbot/storage/raw_store.py
@@ -249,14 +249,14 @@ class RawStore:
         return matches[0] if matches else None
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 ```
 uv run pytest tests/test_raw_store.py -x -q
 ```
 Expected: all PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/matchbot/storage/__init__.py src/matchbot/storage/raw_store.py tests/test_raw_store.py
@@ -267,14 +267,14 @@ git commit -m "feat: add RawStore for file-based raw payload caching"
 
 ### Task 3: Add `data/raw/.gitkeep` and update `.gitignore`
 
-- [ ] **Step 1: Create the directory placeholder**
+- [x] **Step 1: Create the directory placeholder**
 
 ```bash
 mkdir -p data/raw
 touch data/raw/.gitkeep
 ```
 
-- [ ] **Step 2: Add gitignore entry**
+- [x] **Step 2: Add gitignore entry**
 
 Raw data files may contain real user names/post content. The default is to keep them **out of git**. Teams can opt in by removing the gitignore line.
 
@@ -287,7 +287,7 @@ data/raw/
 !data/raw/.gitkeep
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add data/raw/.gitkeep .gitignore
@@ -304,7 +304,7 @@ git commit -m "chore: create data/raw/ directory with gitignore opt-out"
 - Modify: `src/matchbot/listeners/reddit_json.py`
 - Create: `tests/test_reddit_json_raw_store.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_reddit_json_raw_store.py
@@ -371,14 +371,14 @@ async def test_ingest_skips_save_when_deduped(tmp_path, sample_item, monkeypatch
     assert not store.exists("reddit", "test123")
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```
 uv run pytest tests/test_reddit_json_raw_store.py -x -q
 ```
 Expected: FAIL — `AttributeError: module has no attribute '_raw_store'`
 
-- [ ] **Step 3: Modify `reddit_json.py` to integrate RawStore**
+- [x] **Step 3: Modify `reddit_json.py` to integrate RawStore**
 
 Add near the top (after existing imports):
 
@@ -409,21 +409,21 @@ In `_ingest_reddit_json_item()`, after the `_post_exists` check and before the `
     # ... rest of function unchanged ...
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```
 uv run pytest tests/test_reddit_json_raw_store.py -x -q
 ```
 Expected: PASS
 
-- [ ] **Step 5: Run full test suite to confirm no regressions**
+- [x] **Step 5: Run full test suite to confirm no regressions**
 
 ```
 uv run pytest tests/ -x -q
 ```
 Expected: all PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/matchbot/listeners/reddit_json.py tests/test_reddit_json_raw_store.py
@@ -438,11 +438,11 @@ git commit -m "feat: save raw Reddit JSON payloads to RawStore on ingest"
 - Modify: `src/matchbot/listeners/reddit.py`
 - Create: `tests/test_reddit_praw_raw_store.py`
 
-- [ ] **Step 1: Read the PRAW listener to find where Post is constructed**
+- [x] **Step 1: Read the PRAW listener to find where Post is constructed**
 
 Read `src/matchbot/listeners/reddit.py` and locate the function that processes each submission (likely a loop over `subreddit.stream.submissions()`). Note the exact variable name holding the submission and the dedup check.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 ```python
 # tests/test_reddit_praw_raw_store.py
@@ -502,14 +502,14 @@ async def test_praw_saves_raw_payload(tmp_path, monkeypatch):
 
 > **Note:** After reading `reddit.py` in Step 1, update the test to call the actual per-submission function. The assertions remain the same regardless of function name.
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 ```
 uv run pytest tests/test_reddit_praw_raw_store.py -x -q
 ```
 Expected: FAIL
 
-- [ ] **Step 4: Add RawStore import and helpers to `reddit.py`**
+- [x] **Step 4: Add RawStore import and helpers to `reddit.py`**
 
 ```python
 from datetime import date as _date
@@ -542,7 +542,7 @@ def _submission_to_dict(submission) -> dict:
     }
 ```
 
-- [ ] **Step 5: Add save call after dedup check**
+- [x] **Step 5: Add save call after dedup check**
 
 In the per-submission handler (found in Step 1), immediately after the dedup check, add:
 
@@ -550,21 +550,21 @@ In the per-submission handler (found in Step 1), immediately after the dedup che
 _get_raw_store().save("reddit", _date.today().isoformat(), submission.id, _submission_to_dict(submission))
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 ```
 uv run pytest tests/test_reddit_praw_raw_store.py -x -q
 ```
 Expected: PASS
 
-- [ ] **Step 7: Run full test suite**
+- [x] **Step 7: Run full test suite**
 
 ```
 uv run pytest tests/ -x -q
 ```
 Expected: all PASS
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/matchbot/listeners/reddit.py tests/test_reddit_praw_raw_store.py
@@ -578,11 +578,11 @@ git commit -m "feat: save raw Reddit PRAW submissions to RawStore on ingest"
 **Files:**
 - Modify: `src/matchbot/listeners/discord_bot.py`
 
-- [ ] **Step 1: Read the Discord listener**
+- [x] **Step 1: Read the Discord listener**
 
 Read `src/matchbot/listeners/discord_bot.py`. Find `_handle_discord_message` (or equivalent). Note that it already computes `platform_post_id = f"{message.channel.id}_{message.id}"` — reuse this variable rather than recomputing it.
 
-- [ ] **Step 2: Add RawStore import and message serialization helper**
+- [x] **Step 2: Add RawStore import and message serialization helper**
 
 ```python
 from datetime import date as _date
@@ -612,7 +612,7 @@ def _message_to_dict(message) -> dict:
     }
 ```
 
-- [ ] **Step 3: Add save call**
+- [x] **Step 3: Add save call**
 
 In `_handle_discord_message`, after `platform_post_id` is computed and after any dedup check, add:
 
@@ -621,14 +621,14 @@ In `_handle_discord_message`, after `platform_post_id` is computed and after any
 _get_raw_store().save("discord", _date.today().isoformat(), platform_post_id, _message_to_dict(message))
 ```
 
-- [ ] **Step 4: Run full test suite**
+- [x] **Step 4: Run full test suite**
 
 ```
 uv run pytest tests/ -x -q
 ```
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/matchbot/listeners/discord_bot.py
@@ -642,7 +642,7 @@ git commit -m "feat: save raw Discord messages to RawStore on ingest"
 **Files:**
 - Modify: `src/matchbot/listeners/facebook.py`
 
-- [ ] **Step 1: Read the Facebook listener**
+- [x] **Step 1: Read the Facebook listener**
 
 Read `src/matchbot/listeners/facebook.py`. Find the feed processing function. Note the exact `platform_post_id` extraction logic — in the current code it is:
 
@@ -652,7 +652,7 @@ platform_post_id = value.get("post_id") or value.get("id") or f"fb_{uuid.uuid4()
 
 The priority order (`post_id` before `id`) and the UUID fallback are important to match exactly.
 
-- [ ] **Step 2: Add RawStore import**
+- [x] **Step 2: Add RawStore import**
 
 ```python
 from datetime import date as _date
@@ -668,7 +668,7 @@ def _get_raw_store() -> RawStore:
     return _raw_store
 ```
 
-- [ ] **Step 3: Add save call in the feed processing function**
+- [x] **Step 3: Add save call in the feed processing function**
 
 After `platform_post_id` is computed, add a save call — but **only when post_id is not UUID-generated**, because UUID-based IDs are random and can't be correlated on replay:
 
@@ -680,14 +680,14 @@ if stable_post_id:
     _get_raw_store().save("facebook", _date.today().isoformat(), stable_post_id, value)
 ```
 
-- [ ] **Step 4: Run full test suite**
+- [x] **Step 4: Run full test suite**
 
 ```
 uv run pytest tests/ -x -q
 ```
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/matchbot/listeners/facebook.py
@@ -707,7 +707,7 @@ The replay command reads raw files from `data/raw/` and re-runs each payload thr
 - Modify: `src/matchbot/cli/app.py` (wire up `data` sub-app)
 - Create: `tests/test_cli_data.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_cli_data.py
@@ -777,14 +777,14 @@ def test_data_replay_unknown_platform(raw_dir, monkeypatch):
     assert result.exit_code != 0
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```
 uv run pytest tests/test_cli_data.py -x -q
 ```
 Expected: FAIL — `data` group not found
 
-- [ ] **Step 3: Implement `src/matchbot/cli/cmd_data.py`**
+- [x] **Step 3: Implement `src/matchbot/cli/cmd_data.py`**
 
 ```python
 # src/matchbot/cli/cmd_data.py
@@ -974,7 +974,7 @@ def replay(
 
 > **Design note:** `asyncio.run()` is called once at the top level wrapping the full replay loop, not per-item. This avoids creating/destroying an event loop on every post, and is safe for a CLI context (no pre-existing event loop).
 
-- [ ] **Step 4: Wire up in `src/matchbot/cli/app.py`**
+- [x] **Step 4: Wire up in `src/matchbot/cli/app.py`**
 
 ```python
 # Add with the other imports:
@@ -984,14 +984,14 @@ from matchbot.cli.cmd_data import app as data_app
 app.add_typer(data_app, name="data", help="Raw data caching and replay")
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```
 uv run pytest tests/test_cli_data.py -x -q
 ```
 Expected: PASS
 
-- [ ] **Step 6: Smoke-test CLI manually**
+- [x] **Step 6: Smoke-test CLI manually**
 
 ```
 uv run matchbot data --help
@@ -999,14 +999,14 @@ uv run matchbot data replay --help
 ```
 Expected: help text with `--platform`, `--date`, `--dry-run` options.
 
-- [ ] **Step 7: Run full test suite**
+- [x] **Step 7: Run full test suite**
 
 ```
 uv run pytest tests/ -x -q
 ```
 Expected: all PASS
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/matchbot/cli/cmd_data.py src/matchbot/cli/app.py tests/test_cli_data.py
@@ -1031,11 +1031,11 @@ This inverts the old design (opt-in `--from-cache`) to opt-out (`--live`), which
 
 **Reuse rule:** Do NOT duplicate `_replay_one()` or `_post_exists_batch()`. Import them directly from `matchbot.cli.cmd_data`.
 
-- [ ] **Step 1: Read `scripts/backfill_reddit_json.py` and `src/matchbot/cli/cmd_data.py`**
+- [x] **Step 1: Read `scripts/backfill_reddit_json.py` and `src/matchbot/cli/cmd_data.py`**
 
 Understand the current `main()` / `_main_async()` structure and which symbols to import from `cmd_data`.
 
-- [ ] **Step 2: Add `--live` option to `main()`**
+- [x] **Step 2: Add `--live` option to `main()`**
 
 ```python
 live: bool = typer.Option(
@@ -1047,7 +1047,7 @@ live: bool = typer.Option(
 
 Pass it through to `_main_async()`.
 
-- [ ] **Step 3: Implement cache-first auto-detection in `_main_async()`**
+- [x] **Step 3: Implement cache-first auto-detection in `_main_async()`**
 
 After the `reset_db` / `create_db_and_tables()` block, add:
 
@@ -1132,7 +1132,7 @@ async def _backfill_from_cache(all_ids: list[str], *, dry_run: bool) -> None:
     )
 ```
 
-- [ ] **Step 4: Guard `--live` with API-only flags**
+- [x] **Step 4: Guard `--live` with API-only flags**
 
 When `--live` is NOT set, `--fetch-limit`, `--sleep-seconds`, and `--max-pages` are irrelevant (cache path runs instead). Warn if they're set alongside the implicit cache path:
 
@@ -1145,7 +1145,7 @@ if not live and cached_ids and (fetch_limit or sleep_seconds != 1.5 or max_pages
 
 Place this warning before the `await _backfill_from_cache(...)` call.
 
-- [ ] **Step 5: Smoke-test manually**
+- [x] **Step 5: Smoke-test manually**
 
 ```bash
 # First run (empty cache) — should hit Reddit as before:
@@ -1159,7 +1159,7 @@ python scripts/backfill_reddit_json.py --since-date 2026-01-01 --dry-run
 python scripts/backfill_reddit_json.py --since-date 2026-01-01 --live --dry-run
 ```
 
-- [ ] **Step 6: Run full test suite**
+- [x] **Step 6: Run full test suite**
 
 ```
 uv run pytest tests/ -x -q
@@ -1167,7 +1167,7 @@ uv run pytest tests/ -x -q
 
 Expected: all PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add scripts/backfill_reddit_json.py
