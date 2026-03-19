@@ -78,7 +78,7 @@ def report_weekly(
         rprint(f"  Active seeker profiles:  {metrics['active_seeker_profiles']}")
         rprint(f"  Total posts indexed:     {metrics['total_posts_indexed']}")
         rprint(f"  Match attempts:          {metrics['match_attempts_total']}")
-        rprint(f"  Intros sent:             {metrics['intro_sent_total']}")
+        rprint(f"  Connections made:             {metrics['intro_sent_total']}")
         rprint(f"  Conversations started:   {metrics['conversation_started_total']}")
         rprint(f"  Onboarded:               {metrics['onboarded_total']}")
         rprint(f"  Intro→Conversation rate: {metrics['intro_to_conversation_rate']:.1%}")

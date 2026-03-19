@@ -396,7 +396,7 @@ _HOME_BODY = """
         </div>
         <div class="snapshot-card">
           <span class="snapshot-num" id="snap-intros">\u2014</span>
-          <span class="snapshot-lbl">intros sent this season</span>
+          <span class="snapshot-lbl">connections made this season</span>
         </div>
       </div>
     </section>
@@ -1732,7 +1732,7 @@ _COMMUNITY_HTML = """
         ),
         funnelConnector(matched, introduced),
         funnelStep(
-          "Intros Sent",
+          "Connections Made",
           introduced,
           `Human confirmed the match and notified both parties — ${
             fmt(weekly.intros_7d || 0)
