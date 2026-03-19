@@ -8,6 +8,7 @@ import hmac
 import json
 import logging
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from sqlmodel import select
@@ -19,10 +20,20 @@ from matchbot.extraction.anthropic_extractor import AnthropicExtractor
 from matchbot.extraction.openai_extractor import OpenAIExtractor
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
+from matchbot.storage.raw_store import RawStore
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/webhook")
+
+_raw_store: RawStore | None = None
+
+
+def _get_raw_store() -> RawStore:
+    global _raw_store
+    if _raw_store is None:
+        _raw_store = RawStore(base_dir=get_settings().raw_data_dir)
+    return _raw_store
 
 
 def _get_extractor():
@@ -46,7 +57,11 @@ async def facebook_verify(request: Request) -> Response:
         logger.info("Facebook webhook verified.")
         return Response(content=challenge, media_type="text/plain")
 
-    logger.warning("Facebook webhook verification failed. mode=%s token_match=%s", mode, token == settings.facebook_verify_token)
+    logger.warning(
+        "Facebook webhook verification failed. mode=%s token_match=%s",
+        mode,
+        token == settings.facebook_verify_token,
+    )
     raise HTTPException(status_code=403, detail="Verification failed")
 
 
@@ -117,6 +132,17 @@ async def _handle_feed_change(value: dict) -> None:
         ).first()
         if existing:
             return
+
+        # Save only when we have a stable platform-provided ID.
+        # UUID-generated fallback IDs (fb_...) are random and cannot be replayed reliably.
+        stable_post_id = value.get("post_id") or value.get("id")
+        if stable_post_id:
+            _get_raw_store().save(
+                "facebook",
+                datetime.now(UTC).date().isoformat(),
+                stable_post_id,
+                value,
+            )
 
         post = Post(
             platform=Platform.FACEBOOK,
