@@ -1,7 +1,8 @@
 # tests/test_raw_store.py
 import json
+
 import pytest
-from pathlib import Path
+
 from matchbot.storage.raw_store import RawStore
 
 
@@ -24,6 +25,12 @@ def test_save_is_idempotent(store, tmp_path):
     # Second save should NOT overwrite
     data = json.loads((tmp_path / "reddit" / "2026-03-15" / "abc123.json").read_text())
     assert data["title"] == "First"
+
+
+def test_save_returns_path(store, tmp_path):
+    result = store.save("reddit", "2026-03-15", "abc123", {"x": 1})
+    expected = tmp_path / "reddit" / "2026-03-15" / "abc123.json"
+    assert result == expected
 
 
 def test_exists_true(store):

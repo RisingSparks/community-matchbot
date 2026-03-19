@@ -65,4 +65,6 @@ class RawStore:
         if not platform_dir.exists():
             return None
         matches = list(platform_dir.glob(f"*/{post_id}.json"))
+        if len(matches) > 1:
+            logger.warning("RawStore: post_id %s found in multiple date dirs: %s", post_id, matches)
         return matches[0] if matches else None
