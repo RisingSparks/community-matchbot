@@ -80,6 +80,7 @@ _NAV_CSS = """
   padding-bottom: env(safe-area-inset-bottom);
 }
 .site-nav__inner { display: flex; height: 64px; max-width: 700px; margin: 0 auto; }
+.site-nav__logo { display: none; }
 .nav-tab {
   flex: 1; display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 3px; text-decoration: none; color: #6a6264;
@@ -97,7 +98,7 @@ body { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom)); }
   .nav-tab__icon { font-size: 15px; }
   .nav-tab__label { font-size: 13px; text-transform: none; letter-spacing: 0; }
   .nav-tab--active { background: rgba(45,91,79,0.1); }
-  .site-nav__logo { margin-right: auto; font-size: 15px; font-weight: 700; color: #2d5b4f; text-decoration: none; padding: 8px 14px 8px 0; letter-spacing: -0.01em; }
+  .site-nav__logo { display: block; margin-right: auto; font-size: 15px; font-weight: 700; color: #2d5b4f; text-decoration: none; padding: 8px 14px 8px 0; letter-spacing: -0.01em; }
 }
 """
 
