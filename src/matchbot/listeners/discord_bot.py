@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 import discord
@@ -17,10 +18,34 @@ from matchbot.extraction import process_post
 from matchbot.extraction.anthropic_extractor import AnthropicExtractor
 from matchbot.extraction.openai_extractor import OpenAIExtractor
 from matchbot.settings import get_settings
+from matchbot.storage.raw_store import RawStore
 
 logger = logging.getLogger(__name__)
 
 _SOURCES_PATH = Path(__file__).parent.parent / "config" / "sources.yaml"
+
+_raw_store: RawStore | None = None
+
+
+def _get_raw_store() -> RawStore:
+    global _raw_store
+    if _raw_store is None:
+        _raw_store = RawStore(base_dir=get_settings().raw_data_dir)
+    return _raw_store
+
+
+def _message_to_dict(message: discord.Message) -> dict:
+    """Serialize a Discord Message to a storable dict."""
+    return {
+        "id": str(message.id),
+        "channel_id": str(message.channel.id),
+        "author_id": str(message.author.id),
+        "author_display_name": message.author.display_name,
+        "content": message.content,
+        "jump_url": message.jump_url,
+        "guild_name": message.guild.name if message.guild else None,
+        "created_at": message.created_at.isoformat(),
+    }
 
 
 def _load_discord_config() -> dict:
@@ -134,6 +159,13 @@ async def _handle_discord_message(message: discord.Message) -> None:
         ).first()
         if existing:
             return
+
+        _get_raw_store().save(
+            "discord",
+            datetime.now(UTC).date().isoformat(),
+            platform_post_id,
+            _message_to_dict(message),
+        )
 
         post = Post(
             platform=Platform.DISCORD,
