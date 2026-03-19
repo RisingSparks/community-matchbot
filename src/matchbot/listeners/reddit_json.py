@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, date as _date, datetime
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 import httpx
@@ -247,7 +247,7 @@ async def _ingest_reddit_json_item(
         return "deduped", extractor
 
     # Persist the raw API payload before any transformation or truncation.
-    _get_raw_store().save("reddit", _date.today().isoformat(), post_id, data)
+    _get_raw_store().save("reddit", datetime.now(UTC).date().isoformat(), post_id, data)
 
     title = (data.get("title") or "")[:500]
     body = (data.get("selftext") or "")[:2000]

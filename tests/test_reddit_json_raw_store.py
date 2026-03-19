@@ -1,5 +1,6 @@
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 @pytest.fixture
@@ -18,9 +19,9 @@ def sample_item():
 @pytest.mark.asyncio
 async def test_ingest_saves_raw_payload(tmp_path, sample_item, monkeypatch):
     """Raw payload should be saved to disk before DB processing."""
-    from matchbot.storage.raw_store import RawStore
-    from matchbot.listeners import reddit_json as rj
     from matchbot.extraction.keywords import KeywordResult
+    from matchbot.listeners import reddit_json as rj
+    from matchbot.storage.raw_store import RawStore
 
     store = RawStore(base_dir=tmp_path)
     monkeypatch.setattr(rj, "_raw_store", store)
@@ -28,12 +29,19 @@ async def test_ingest_saves_raw_payload(tmp_path, sample_item, monkeypatch):
 
     # Keyword filter returns no_match so we skip DB session complexity
     monkeypatch.setattr(
-        rj, "keyword_filter", MagicMock(return_value=KeywordResult(matched=False, candidate_role="unknown", tier="no_match"))
+        rj,
+        "keyword_filter",
+        MagicMock(
+            return_value=KeywordResult(
+                matched=False, candidate_role="unknown", tier="no_match"
+            )
+        ),
     )
 
     mock_ctx = AsyncMock()
     mock_ctx.__aenter__ = AsyncMock(return_value=mock_ctx)
     mock_ctx.__aexit__ = AsyncMock(return_value=False)
+    mock_ctx.add = MagicMock()  # session.add is synchronous in SQLAlchemy
     monkeypatch.setattr(rj, "get_session", MagicMock(return_value=mock_ctx))
 
     await rj._ingest_reddit_json_item(sample_item, extractor=None, dry_run=False)
@@ -48,8 +56,8 @@ async def test_ingest_saves_raw_payload(tmp_path, sample_item, monkeypatch):
 @pytest.mark.asyncio
 async def test_ingest_skips_save_when_deduped(tmp_path, sample_item, monkeypatch):
     """Already-seen posts should not be saved again."""
-    from matchbot.storage.raw_store import RawStore
     from matchbot.listeners import reddit_json as rj
+    from matchbot.storage.raw_store import RawStore
 
     store = RawStore(base_dir=tmp_path)
     monkeypatch.setattr(rj, "_raw_store", store)
