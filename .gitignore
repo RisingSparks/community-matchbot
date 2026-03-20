@@ -191,3 +191,7 @@ gha-creds-*.json
 
 # Git worktrees
 .worktrees/
+
+# Raw scraped platform data — opt in to commit by removing these lines
+data/raw/*
+!data/raw/.gitkeep

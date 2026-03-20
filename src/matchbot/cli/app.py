@@ -5,6 +5,7 @@ from typing import Annotated
 
 import typer
 
+from matchbot.cli.cmd_data import app as data_app
 from matchbot.cli.cmd_enrich import app as enrich_app
 from matchbot.cli.cmd_posts import app as posts_app
 from matchbot.cli.cmd_queue import app as queue_app
@@ -24,6 +25,7 @@ app.add_typer(posts_app, name="posts", help="Browse and manage community signals
 app.add_typer(report_app, name="report", help="Generate impact and pilot findings")
 app.add_typer(submit_app, name="submit", help="Manually add community signals")
 app.add_typer(enrich_app, name="enrich", help="Enrich signals from the WWW Guide")
+app.add_typer(data_app, name="data", help="Raw data caching and replay")
 
 
 @app.callback()

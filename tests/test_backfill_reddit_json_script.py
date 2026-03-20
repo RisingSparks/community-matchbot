@@ -47,6 +47,7 @@ async def test_main_async_creates_tables_without_reset(monkeypatch: pytest.Monke
         sleep_seconds=0.0,
         max_pages=10,
         dry_run=False,
+        live=True,
     )
 
     assert calls == ["create", "backfill", "dispose"]
@@ -91,6 +92,7 @@ async def test_main_async_resets_tables_when_requested(monkeypatch: pytest.Monke
         sleep_seconds=0.0,
         max_pages=10,
         dry_run=False,
+        live=True,
     )
 
     assert calls == ["reset", "backfill", "dispose"]
@@ -127,4 +129,5 @@ async def test_main_async_aborts_when_reset_not_confirmed(
             sleep_seconds=0.0,
             max_pages=10,
             dry_run=False,
+            live=True,
         )

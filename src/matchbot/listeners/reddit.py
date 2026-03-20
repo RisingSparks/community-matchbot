@@ -19,10 +19,37 @@ from matchbot.extraction.anthropic_extractor import AnthropicExtractor
 from matchbot.extraction.openai_extractor import OpenAIExtractor
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
+from matchbot.storage.raw_store import RawStore
 
 logger = logging.getLogger(__name__)
 
 _SOURCES_PATH = Path(__file__).parent.parent / "config" / "sources.yaml"
+
+_raw_store: RawStore | None = None
+
+
+def _get_raw_store() -> RawStore:
+    global _raw_store
+    if _raw_store is None:
+        _raw_store = RawStore(base_dir=get_settings().raw_data_dir)
+    return _raw_store
+
+
+def _submission_to_dict(submission) -> dict:
+    """Serialize an asyncpraw Submission to a storable dict (full text, no truncation)."""
+    return {
+        "id": submission.id,
+        "title": submission.title,
+        "selftext": submission.selftext,
+        "author": str(submission.author) if submission.author else None,
+        "author_fullname": getattr(submission, "author_fullname", None),
+        "permalink": submission.permalink,
+        "url": getattr(submission, "url", None),
+        "created_utc": getattr(submission, "created_utc", None),
+        "subreddit": str(submission.subreddit.display_name),
+        "score": getattr(submission, "score", None),
+        "num_comments": getattr(submission, "num_comments", None),
+    }
 
 
 def _load_subreddits() -> list[str]:
@@ -62,6 +89,13 @@ async def _handle_submission(submission, session: AsyncSession) -> Post | None:
     if existing:
         logger.debug("Skipping duplicate Reddit post: %s", submission.id)
         return None
+
+    _get_raw_store().save(
+        "reddit",
+        datetime.now(UTC).date().isoformat(),
+        submission.id,
+        _submission_to_dict(submission),
+    )
 
     raw_text = (submission.selftext or "")[:2000]
     post = Post(

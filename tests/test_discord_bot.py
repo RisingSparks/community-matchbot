@@ -9,6 +9,7 @@ from sqlmodel import select
 
 from matchbot.db.models import Platform, Post, PostStatus
 from matchbot.listeners.discord_bot import _handle_discord_message
+from matchbot.storage.raw_store import RawStore
 
 
 def _make_discord_message(
@@ -29,11 +30,14 @@ def _make_discord_message(
     msg.id = int(message_id.replace("msg", "100"))
     msg.guild.name = guild_name
     msg.jump_url = jump_url
+    msg.created_at = MagicMock()
+    msg.created_at.isoformat.return_value = "2026-03-15T10:00:00"
     return msg
 
 
 @pytest.mark.asyncio
-async def test_handle_discord_message_creates_post(db_session, mock_extractor):
+async def test_handle_discord_message_creates_post(tmp_path, db_session, mock_extractor):
+    import matchbot.listeners.discord_bot as db_module
     from matchbot.extraction.schemas import ExtractedPost
 
     mock_extractor.extract.return_value = ExtractedPost(
@@ -45,6 +49,7 @@ async def test_handle_discord_message_creates_post(db_session, mock_extractor):
     with (
         patch("matchbot.listeners.discord_bot.get_session") as mock_session_factory,
         patch("matchbot.listeners.discord_bot._get_extractor", return_value=mock_extractor),
+        patch.object(db_module, "_raw_store", RawStore(base_dir=tmp_path)),
     ):
         from contextlib import asynccontextmanager
 
@@ -63,7 +68,8 @@ async def test_handle_discord_message_creates_post(db_session, mock_extractor):
 
 
 @pytest.mark.asyncio
-async def test_handle_discord_message_deduplicates(db_session, mock_extractor):
+async def test_handle_discord_message_deduplicates(tmp_path, db_session, mock_extractor):
+    import matchbot.listeners.discord_bot as db_module
     from matchbot.extraction.schemas import ExtractedPost
 
     mock_extractor.extract.return_value = ExtractedPost(role="seeker", confidence=0.9)
@@ -76,6 +82,7 @@ async def test_handle_discord_message_deduplicates(db_session, mock_extractor):
     with (
         patch("matchbot.listeners.discord_bot.get_session") as mock_session_factory,
         patch("matchbot.listeners.discord_bot._get_extractor", return_value=mock_extractor),
+        patch.object(db_module, "_raw_store", RawStore(base_dir=tmp_path)),
     ):
         from contextlib import asynccontextmanager
 
@@ -96,12 +103,15 @@ async def test_handle_discord_message_deduplicates(db_session, mock_extractor):
 
 
 @pytest.mark.asyncio
-async def test_handle_discord_message_no_keyword_match_skips(db_session, mock_extractor):
+async def test_handle_discord_message_no_keyword_match_skips(tmp_path, db_session, mock_extractor):
+    import matchbot.listeners.discord_bot as db_module
+
     msg = _make_discord_message(content="What's the weather like on playa?")
 
     with (
         patch("matchbot.listeners.discord_bot.get_session") as mock_session_factory,
         patch("matchbot.listeners.discord_bot._get_extractor", return_value=mock_extractor),
+        patch.object(db_module, "_raw_store", RawStore(base_dir=tmp_path)),
     ):
         from contextlib import asynccontextmanager
 
