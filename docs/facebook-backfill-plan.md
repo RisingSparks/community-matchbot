@@ -52,17 +52,25 @@ In Chrome Manifest V3, service workers are not persistent — Chrome terminates 
 
 *Solution*: Store captured data in `chrome.storage.session` instead of in-memory. `chrome.storage.session` persists for the browser session even if the service worker is killed and restarted. Each GraphQL response is appended to the session storage array immediately when received.
 
-**2. MAIN world vs ISOLATED world communication**
+**Storage quota**: `chrome.storage.session` has a hard 10MB total quota. A long scroll session (1–2 hours) can easily hit this. The `content_relay.js` must check for quota errors on `set` and surface them in the popup. When nearing the limit, prompt the user to download and clear before continuing. The popup should show a running byte estimate so the user knows where they stand.
+
+**2. Data loss on browser close**
+`chrome.storage.session` is cleared when the browser closes. If the user closes Chrome without clicking Download, all captured data is lost. The popup must display a persistent warning: "Data is lost if you close this browser without downloading." Additionally, clicking Download should NOT automatically clear storage — the user should explicitly click Clear afterward, so a browser crash during download doesn't lose everything.
+
+**3. MAIN world vs ISOLATED world communication**
 Content scripts in MV3 run in an ISOLATED world by default and cannot access or patch the page's `window.fetch`. To patch the page's actual `window.fetch`, we need `"world": "MAIN"` in the content script config. But MAIN world scripts cannot use `chrome.runtime.sendMessage` (the Chrome extension API is not available in MAIN world).
 
 *Solution*: Two-script architecture:
 - `content_main.js` runs in MAIN world: patches `window.fetch`/`XHR`, broadcasts captured data via `document.dispatchEvent(new CustomEvent('fb_graphql_captured', {detail: responseText}))`
 - `content_relay.js` runs in ISOLATED world: listens for the custom event and calls `chrome.storage.session.get/set` to append the data
 
-**3. XHR alongside Fetch**
+**4. XHR alongside Fetch**
 Facebook may use `XMLHttpRequest` for some requests, not just `fetch`. Both need to be patched in `content_main.js`.
 
-**4. Streaming / compressed responses**
+**5. Race condition in `content_relay.js`**
+The get-then-set pattern used to append to the responses array is not atomic. If two GraphQL responses arrive nearly simultaneously (common during active scroll), both read the same existing array and one push is silently dropped. For this use case (passive capture where losing an occasional response is acceptable), this is a known limitation rather than a bug — but it should be noted in a comment in the code. A simple mitigation is to include a monotonic sequence counter so the download can detect gaps.
+
+**6. Streaming / compressed responses**
 Facebook gzips most responses. Chrome automatically decompresses before handing the response to the page's JavaScript, so `response.text()` returns decoded JSON. No special handling needed at the extension level.
 
 **5. Filtering noise**
