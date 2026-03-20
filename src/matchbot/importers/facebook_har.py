@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 import json
 import logging
 from datetime import UTC, datetime
@@ -19,6 +21,7 @@ from matchbot.extraction.openai_extractor import OpenAIExtractor
 from matchbot.settings import get_settings
 
 logger = logging.getLogger(__name__)
+_RAW_POST_COMMIT_BATCH_SIZE = 100
 
 
 def _find_post_nodes(obj: Any, depth: int = 0) -> list[dict]:
@@ -149,11 +152,10 @@ def parse_har_file(path: Path) -> list[dict]:
         if not text:
             continue
 
-        import base64
         if content.get("encoding") == "base64":
             try:
                 text = base64.b64decode(text).decode("utf-8")
-            except Exception as exc:
+            except (binascii.Error, UnicodeDecodeError) as exc:
                 logger.debug("Failed to decode base64 content in HAR: %s", exc)
                 continue
 
@@ -251,6 +253,7 @@ async def backfill_facebook_posts(
 
     try:
         async with get_session() as session:
+            pending_raw_commits = 0
             for fields in post_fields_list:
                 # 1. Filter by date
                 if since_datetime and fields["source_created_at"] < since_datetime:
@@ -300,21 +303,26 @@ async def backfill_facebook_posts(
                 )
 
                 session.add(post)
-                await session.commit()
-                await session.refresh(post)
+                await session.flush()
 
                 if no_extract:
+                    pending_raw_commits += 1
+                    if pending_raw_commits >= _RAW_POST_COMMIT_BATCH_SIZE:
+                        await session.commit()
+                        pending_raw_commits = 0
                     continue
 
                 # 3. Process (classify + extract)
                 try:
                     # process_post handles keyword filtering (SKIPPED vs INDEXED)
-                    await process_post(session, post, extractor)
+                    await process_post(session, post, extractor, on_extraction_error="raw")
                     if post.status == PostStatus.INDEXED:
                         counts["matched"] += 1
                         counts["extracted"] += 1
                     elif post.status == PostStatus.SKIPPED:
                         counts["skipped"] += 1
+                    elif post.status == PostStatus.RAW:
+                        counts["raw_after_error"] += 1
                 except Exception as exc:
                     logger.error("Extraction error for post %s: %s", post.platform_post_id, exc)
                     counts["raw_after_error"] += 1
@@ -322,6 +330,9 @@ async def backfill_facebook_posts(
 
                 if sleep_seconds > 0:
                     await asyncio.sleep(sleep_seconds)
+
+            if pending_raw_commits > 0:
+                await session.commit()
 
     finally:
         if extractor:

@@ -7,9 +7,11 @@
     const response = await origFetch.apply(this, args);
     const url = (typeof args[0] === 'string' ? args[0] : args[0]?.url) ?? '';
     if (url.includes('/api/graphql')) {
-      response.clone().text().then(text => {
+      response.clone().text().then((text) => {
         document.dispatchEvent(new CustomEvent('_fbgc', {detail: text}));
-      }).catch(() => {});
+      }).catch((err) => {
+        console.error('FBGC: error reading fetch response body', err);
+      });
     }
     return response;
   };

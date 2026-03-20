@@ -2,7 +2,6 @@
 """Backfill historical Facebook posts from HAR or Extension JSON files."""
 
 import asyncio
-import json
 import logging
 import sys
 from datetime import UTC, datetime, time
@@ -24,18 +23,19 @@ from matchbot.settings import get_settings
 
 logger = logging.getLogger("matchbot.backfill_facebook")
 app = typer.Typer()
+_FORMAT_SNIFF_BYTES = 64 * 1024
 
 
 def _detect_format(path: Path) -> str:
     """Detect if the file is a HAR or extension-style JSON."""
     try:
         with open(path, "rb") as f:
-            data = json.load(f)
-            if isinstance(data, dict) and "log" in data and "entries" in data["log"]:
-                return "har"
-            if isinstance(data, list):
+            header = f.read(_FORMAT_SNIFF_BYTES).lstrip()
+            if header.startswith(b"["):
                 return "extension"
-    except Exception:
+            if header.startswith(b"{") and b'"log"' in header and b'"entries"' in header:
+                return "har"
+    except OSError:
         pass
     return "unknown"
 
@@ -44,10 +44,18 @@ def _detect_format(path: Path) -> str:
 def main(
     files: list[Path] = typer.Argument(..., help="Path to HAR or Extension JSON file(s)"),
     group_name: str = typer.Option(..., "--group-name", help="Name of the Facebook group"),
-    group_id: str | None = typer.Option(None, "--group-id", help="Numeric Facebook Group ID (optional)"),
-    since_date: str | None = typer.Option(None, "--since-date", help="UTC date cutoff (YYYY-MM-DD)"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Parse and dedup only, without DB writes."),
-    no_extract: bool = typer.Option(False, "--no-extract", help="Skip LLM extraction, save as RAW."),
+    group_id: str | None = typer.Option(
+        None, "--group-id", help="Numeric Facebook Group ID (optional)"
+    ),
+    since_date: str | None = typer.Option(
+        None, "--since-date", help="UTC date cutoff (YYYY-MM-DD)"
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Parse and dedup only, without DB writes."
+    ),
+    no_extract: bool = typer.Option(
+        False, "--no-extract", help="Skip LLM extraction, save as RAW."
+    ),
     sleep_seconds: float = typer.Option(0.5, "--sleep-seconds", help="Pause between LLM calls."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging."),
 ) -> None:
@@ -82,7 +90,9 @@ async def _main_async(
     if since_date:
         try:
             parsed_since_date = datetime.strptime(since_date, "%Y-%m-%d").date()
-            since_datetime = datetime.combine(parsed_since_date, time.min, tzinfo=UTC).replace(tzinfo=None)
+            since_datetime = datetime.combine(
+                parsed_since_date, time.min, tzinfo=UTC
+            ).replace(tzinfo=None)
         except ValueError as exc:
             raise typer.BadParameter("--since-date must be in YYYY-MM-DD format") from exc
 
@@ -112,7 +122,7 @@ async def _main_async(
     unique_posts_map = {}
     for p in all_parsed_posts:
         unique_posts_map[p["platform_post_id"]] = p
-    
+
     unique_posts = list(unique_posts_map.values())
     logger.info("Total unique posts found across all files: %d", len(unique_posts))
 

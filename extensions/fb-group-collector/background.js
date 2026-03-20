@@ -1,40 +1,60 @@
 // Service worker, handles popup actions and state
 // chrome.storage.session persists for the browser session
 
+const MSG = {
+  GET_STATE: 'get_state',
+  QUOTA_EXCEEDED: 'quota_exceeded',
+  SET_CAPTURING: 'set_capturing',
+  DOWNLOAD: 'download',
+  CLEAR: 'clear',
+};
+
+const STORE = {
+  CAPTURING: 'fbgc_capturing',
+  RESPONSES: 'fbgc_responses',
+  QUOTA_EXCEEDED: 'fbgc_quota_exceeded',
+};
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === 'get_state') {
-    chrome.storage.session.get(['fbgc_capturing', 'fbgc_responses', 'fbgc_quota_exceeded'], (r) => {
-      const responses = r.fbgc_responses ?? [];
-      const bytesUsed = JSON.stringify(responses).length;
-      sendResponse({
-        capturing: !!r.fbgc_capturing,
-        count: responses.length,
-        bytesUsed,
-        quotaExceeded: !!r.fbgc_quota_exceeded,
+  switch (msg.type) {
+    case MSG.GET_STATE:
+      chrome.storage.session.get(
+        [STORE.CAPTURING, STORE.RESPONSES, STORE.QUOTA_EXCEEDED],
+        (r) => {
+          const responses = r[STORE.RESPONSES] ?? [];
+          const bytesUsed = JSON.stringify(responses).length;
+          sendResponse({
+            capturing: !!r[STORE.CAPTURING],
+            count: responses.length,
+            bytesUsed,
+            quotaExceeded: !!r[STORE.QUOTA_EXCEEDED],
+          });
+        },
+      );
+      return true;
+
+    case MSG.QUOTA_EXCEEDED:
+      chrome.storage.session.set({[STORE.QUOTA_EXCEEDED]: true});
+      break;
+
+    case MSG.SET_CAPTURING:
+      chrome.storage.session.set({[STORE.CAPTURING]: msg.value});
+      break;
+
+    case MSG.DOWNLOAD:
+      chrome.storage.session.get(STORE.RESPONSES, (r) => {
+        sendResponse({data: r[STORE.RESPONSES] ?? []});
       });
-    });
-    return true; // async response
-  }
+      return true;
 
-  if (msg.type === 'quota_exceeded') {
-    chrome.storage.session.set({fbgc_quota_exceeded: true});
-  }
+    case MSG.CLEAR:
+      chrome.storage.session.set({
+        [STORE.RESPONSES]: [],
+        [STORE.QUOTA_EXCEEDED]: false,
+      });
+      break;
 
-  if (msg.type === 'set_capturing') {
-    chrome.storage.session.set({fbgc_capturing: msg.value});
-  }
-
-  if (msg.type === 'download') {
-    chrome.storage.session.get('fbgc_responses', (r) => {
-      sendResponse({data: r.fbgc_responses ?? []});
-    });
-    return true;
-  }
-
-  if (msg.type === 'clear') {
-    chrome.storage.session.set({
-      fbgc_responses: [],
-      fbgc_quota_exceeded: false
-    });
+    default:
+      break;
   }
 });
