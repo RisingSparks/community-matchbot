@@ -56,15 +56,21 @@ class RawStore:
             return sorted(p.stem for p in date_dir.glob("*.json"))
         return sorted(p.stem for p in platform_dir.glob("*/*.json"))
 
+    @staticmethod
+    def _safe_post_id(post_id: str) -> str:
+        """Sanitize post_id to prevent path traversal."""
+        return str(post_id).replace("/", "_").replace("\\", "_").replace("..", "_")
+
     def _path(self, platform: str, date: str, post_id: str) -> Path:
-        return self._base / platform / date / f"{post_id}.json"
+        return self._base / platform / date / f"{self._safe_post_id(post_id)}.json"
 
     def _find(self, platform: str, post_id: str) -> Path | None:
         """Glob for post_id.json under any date subdirectory."""
         platform_dir = self._base / platform
         if not platform_dir.exists():
             return None
-        matches = list(platform_dir.glob(f"*/{post_id}.json"))
+        safe_id = self._safe_post_id(post_id)
+        matches = list(platform_dir.glob(f"*/{safe_id}.json"))
         if len(matches) > 1:
             logger.warning("RawStore: post_id %s found in multiple date dirs: %s", post_id, matches)
         return matches[0] if matches else None

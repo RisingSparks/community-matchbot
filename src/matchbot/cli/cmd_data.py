@@ -26,6 +26,8 @@ def _get_raw_store() -> RawStore:
 
 async def _post_exists_async(platform: str, post_ids: list[str]) -> dict[str, bool]:
     """Return a mapping of post_id → True if already in DB."""
+    if not post_ids:
+        return {}
     from sqlmodel import select
 
     from matchbot.db.engine import get_session

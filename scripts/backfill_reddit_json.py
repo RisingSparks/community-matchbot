@@ -41,15 +41,19 @@ def _collect_cached_ids(since_datetime: datetime, *, settings) -> list[str]:
     return all_ids
 
 
-async def _backfill_from_cache(all_ids: list[str], *, dry_run: bool) -> None:
+async def _backfill_from_cache(
+    all_ids: list[str], *, dry_run: bool, since_datetime: datetime
+) -> None:
     """Replay raw Reddit payloads from disk without hitting the Reddit API."""
-    from matchbot.cli.cmd_data import _post_exists_batch, _replay_one
+    from matchbot.cli.cmd_data import _post_exists_async, _replay_one
+    from matchbot.listeners.reddit_json import _source_created_at_from_json
     from matchbot.settings import get_settings
     from matchbot.storage.raw_store import RawStore
 
     settings = get_settings()
     store = RawStore(base_dir=settings.raw_data_dir)
-    exists_map = _post_exists_batch("reddit", all_ids)
+    # Use the async helper directly — we're already inside a running event loop.
+    exists_map = await _post_exists_async("reddit", all_ids)
 
     processed = skipped = errors = 0
     for post_id in all_ids:
@@ -62,6 +66,19 @@ async def _backfill_from_cache(all_ids: list[str], *, dry_run: bool) -> None:
         if payload is None:
             logger.warning("Cache replay: file missing for %s", post_id)
             errors += 1
+            continue
+
+        # Filter by actual post creation time, not the scrape-folder date.
+        # A wide backfill may have cached posts older than --since-date.
+        post_created_at = _source_created_at_from_json(payload)
+        if post_created_at is not None and post_created_at < since_datetime:
+            logger.debug(
+                "Cache replay: skipping %s (created_at %s before since_datetime %s)",
+                post_id,
+                post_created_at,
+                since_datetime,
+            )
+            skipped += 1
             continue
 
         if dry_run:
@@ -199,7 +216,9 @@ async def _main_async(
                 since_datetime.date(),
             )
             try:
-                await _backfill_from_cache(cached_ids, dry_run=dry_run)
+                await _backfill_from_cache(
+                    cached_ids, dry_run=dry_run, since_datetime=since_datetime
+                )
             finally:
                 await dispose_engine()
             return
