@@ -2,6 +2,15 @@
 // Broadcasts captured responses via CustomEvent (MAIN->ISOLATED bridge)
 
 (function() {
+  if (window.__FBGC_PATCHED__) {
+    return;
+  }
+  window.__FBGC_PATCHED__ = true;
+
+  if (typeof window.fetch !== 'function' || typeof window.XMLHttpRequest !== 'function') {
+    return;
+  }
+
   const origFetch = window.fetch;
   window.fetch = async function(...args) {
     const response = await origFetch.apply(this, args);

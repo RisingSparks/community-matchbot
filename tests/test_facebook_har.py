@@ -160,6 +160,26 @@ def test_parse_extension_json(tmp_path):
     assert posts[0]["platform_post_id"] == "e1"
 
 
+def test_parse_extension_json_with_record_objects(tmp_path):
+    ext_content = [
+        {
+            "seq": 1,
+            "capturedAt": "2026-03-22T12:00:00.000Z",
+            "text": json.dumps({
+                "id": "e2",
+                "message": "record post",
+                "creation_time": 1700000030,
+            }),
+        }
+    ]
+    ext_file = tmp_path / "test_records.json"
+    ext_file.write_text(json.dumps(ext_content))
+
+    posts = parse_extension_json(ext_file)
+    assert len(posts) == 1
+    assert posts[0]["platform_post_id"] == "e2"
+
+
 def test_detect_format_sniffs_har_without_loading_full_json(tmp_path):
     har_file = tmp_path / "sample.har"
     har_file.write_text('{"log":{"entries":[]},"payload":"' + ("x" * 1000) + '"}')

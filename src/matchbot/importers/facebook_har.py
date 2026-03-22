@@ -182,7 +182,14 @@ def parse_har_file(path: Path) -> list[dict]:
 
 
 def parse_extension_json(path: Path) -> list[dict]:
-    """Load an extension-style JSON (array of response strings) and extract posts."""
+    """Load an extension-style JSON and extract posts.
+
+    Supports both the original format:
+      ["raw response text", ...]
+
+    and the richer format emitted by the hardened extension:
+      [{"seq": 1, "capturedAt": "...", "text": "raw response text"}, ...]
+    """
     try:
         with open(path, "rb") as f:
             responses = json.load(f)
@@ -195,7 +202,10 @@ def parse_extension_json(path: Path) -> list[dict]:
         return []
 
     all_posts = []
-    for text in responses:
+    for item in responses:
+        text = item
+        if isinstance(item, dict):
+            text = item.get("text")
         if not isinstance(text, str):
             continue
         for line in text.splitlines():

@@ -1,4 +1,4 @@
-// Handles popup UI logic and communication with background script
+// Handles popup UI logic and communication with the background service worker.
 
 const MSG = {
   GET_STATE: 'get_state',
@@ -7,16 +7,21 @@ const MSG = {
   CLEAR: 'clear',
 };
 
+const POLL_INTERVAL_MS = 1000;
+const FLUSH_WAIT_MS = 400;
+
 let currentState = {
   capturing: false,
   count: 0,
   bytesUsed: 0,
   quotaExceeded: false,
+  unsavedResponses: 0,
+  lastError: '',
 };
 
-function requestState() {
+function sendMessage(message) {
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage({type: MSG.GET_STATE}, (response) => {
+    chrome.runtime.sendMessage(message, (response) => {
       if (chrome.runtime.lastError) {
         reject(chrome.runtime.lastError);
         return;
@@ -26,56 +31,99 @@ function requestState() {
   });
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function setStatus(message) {
+  const el = document.getElementById('download_status');
+  if (!message) {
+    el.style.display = 'none';
+    el.innerText = '';
+    return;
+  }
+  el.style.display = 'block';
+  el.innerText = message;
+}
+
 async function updateUI() {
   try {
-    currentState = await requestState();
+    currentState = await sendMessage({type: MSG.GET_STATE});
   } catch {
     return;
   }
 
   document.getElementById('cap_status').innerText = currentState.capturing ? 'ON' : 'OFF';
   document.getElementById('cap_count').innerText = currentState.count;
-  document.getElementById('cap_storage').innerText = `${(currentState.bytesUsed / 1024).toFixed(1)} KB`;
+  document.getElementById('cap_storage').innerText =
+    `${(currentState.bytesUsed / 1024).toFixed(1)} KB`;
   document.getElementById('toggle').innerText = currentState.capturing
     ? 'Stop Capturing'
     : 'Start Capturing';
   document.getElementById('quota_warn').style.display =
     currentState.bytesUsed > 8 * 1024 * 1024 || currentState.quotaExceeded ? 'block' : 'none';
+
+  const unsavedWarn = document.getElementById('unsaved_warn');
+  if (currentState.unsavedResponses > 0 || currentState.lastError) {
+    unsavedWarn.style.display = 'block';
+    unsavedWarn.innerText = currentState.lastError
+      || `Warning: ${currentState.unsavedResponses} response(s) were not persisted.`;
+  } else {
+    unsavedWarn.style.display = 'none';
+    unsavedWarn.innerText = '';
+  }
 }
 
 document.getElementById('toggle').addEventListener('click', async () => {
-  let state;
   try {
-    state = await requestState();
+    await sendMessage({type: MSG.SET_CAPTURING, value: !currentState.capturing});
   } catch {
+    setStatus('Failed to change capture state.');
+    return;
+  }
+  setStatus('');
+  await updateUI();
+});
+
+document.getElementById('download').addEventListener('click', async () => {
+  setStatus('');
+
+  try {
+    if (currentState.capturing) {
+      await sendMessage({type: MSG.SET_CAPTURING, value: false});
+      await sleep(FLUSH_WAIT_MS);
+    }
+
+    const result = await sendMessage({type: MSG.DOWNLOAD});
+    if (!result?.ok) {
+      setStatus(result?.error || 'Download failed.');
+      return;
+    }
+    setStatus('Download started. Clear storage after the file is saved.');
+  } catch {
+    setStatus('Download failed.');
     return;
   }
 
-  chrome.runtime.sendMessage({type: MSG.SET_CAPTURING, value: !state.capturing}, updateUI);
+  await updateUI();
 });
 
-document.getElementById('download').addEventListener('click', () => {
-  chrome.runtime.sendMessage({type: MSG.DOWNLOAD}, (r) => {
-    if (!r.data || r.data.length === 0) {
-      alert('No data captured yet.');
-      return;
-    }
-    const blob = new Blob([JSON.stringify(r.data, null, 2)], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'fb_posts_' + new Date().toISOString().split('T')[0] + '.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  });
-});
-
-document.getElementById('clear').addEventListener('click', () => {
-  if (confirm('Clear all captured data from storage?')) {
-    chrome.runtime.sendMessage({type: MSG.CLEAR}, updateUI);
+document.getElementById('clear').addEventListener('click', async () => {
+  if (!confirm('Clear all captured data from storage?')) {
+    return;
   }
+
+  try {
+    await sendMessage({type: MSG.CLEAR});
+  } catch {
+    setStatus('Failed to clear storage.');
+    return;
+  }
+  setStatus('');
+  await updateUI();
 });
 
-// Refresh UI every second while popup is open
-setInterval(updateUI, 1000);
-updateUI();
+setInterval(() => {
+  void updateUI();
+}, POLL_INTERVAL_MS);
+void updateUI();

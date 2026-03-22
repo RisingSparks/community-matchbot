@@ -181,6 +181,102 @@ FACEBOOK_VERIFY_TOKEN=burnerbot-secret-2025
 
 Access to group posts requires the `groups_access_member_info` permission, which requires **Facebook App Review** for production use. For initial testing, add yourself as a test user in the app dashboard and use a group you administer.
 
+### Historical Facebook group backfill
+
+Historical group posts are handled separately from the webhook flow above. The repo includes a passive Chrome extension that captures Facebook's own GraphQL responses while you browse normally, plus a CLI importer that ingests the captured file.
+
+This is the preferred approach because it does not synthesize scrolls or clicks. You browse the group yourself, the extension observes the network responses, and the Python script imports the results afterward.
+
+#### Option A: bundled Chrome extension (recommended)
+
+1. Load the unpacked extension:
+   - Open Chrome or another Chromium browser
+   - Go to `chrome://extensions`
+   - Enable **Developer mode**
+   - Click **Load unpacked**
+   - Select `extensions/fb-group-collector/`
+
+2. Start a capture session:
+   - Open the target Facebook group in the same browser profile you normally use
+   - Click the extension icon
+   - Click **Start Capturing**
+   - Scroll the group manually to load the posts you want
+
+3. Download the capture:
+   - Click **Download fb_posts.json**
+   - Save the file somewhere local, for example `data/raw/facebook/fb_posts_2026-03-22.json`
+   - Only click **Clear Storage** after the download succeeds
+
+4. Import the capture:
+
+```bash
+uv run python scripts/backfill_facebook.py data/raw/facebook/fb_posts_2026-03-22.json \
+  --group-name "Burning Man Theme Camps" \
+  --group-id 1234567890 \
+  --dry-run
+```
+
+If the dry run looks right, import for real:
+
+```bash
+uv run python scripts/backfill_facebook.py data/raw/facebook/fb_posts_2026-03-22.json \
+  --group-name "Burning Man Theme Camps" \
+  --group-id 1234567890 \
+  --no-extract
+```
+
+Use `--no-extract` if you want to ingest the raw posts first and run extraction later. Omit it if you want the import to run LLM extraction during the backfill.
+
+Useful options:
+
+```bash
+uv run python scripts/backfill_facebook.py data/raw/facebook/fb_posts_2026-03-22.json \
+  --group-name "Burning Man Theme Camps" \
+  --group-id 1234567890 \
+  --since-date 2026-01-01 \
+  --sleep-seconds 0.5
+```
+
+- `--since-date YYYY-MM-DD`: skip posts older than that UTC date
+- `--dry-run`: parse and deduplicate only, with no DB writes
+- `--no-extract`: save imported posts as `RAW` without calling the LLM extractor
+- `--sleep-seconds`: pause between extraction calls when extraction is enabled
+
+Operational notes:
+
+- The extension is passive. It does not automate browsing.
+- Captured data in extension storage is lost if the browser closes before you download it.
+- `chrome.storage.session` has a 10 MB limit. If the popup warns that storage is nearly full, download and clear before continuing.
+- Extension output contains Facebook post data and user identifiers. Treat it as sensitive local data.
+
+#### Option B: HAR export fallback
+
+If the extension stops working because Facebook changes its frontend behavior, you can fall back to a HAR export.
+
+1. Open Chrome DevTools on the Facebook group page
+2. Go to the **Network** tab
+3. Enable **Preserve log**
+4. Scroll the group manually
+5. Export with **Save all as HAR with content**
+6. Import the HAR with the same command:
+
+```bash
+uv run python scripts/backfill_facebook.py data/raw/facebook/session.har \
+  --group-name "Burning Man Theme Camps" \
+  --group-id 1234567890 \
+  --dry-run
+```
+
+HAR files are higher risk than the extension output because they can contain cookies, auth headers, and unrelated browser traffic. Never commit them to git, and delete them when you are done.
+
+#### Files involved
+
+- `extensions/fb-group-collector/`: unpacked MV3 extension for passive capture
+- `scripts/backfill_facebook.py`: CLI entry point
+- `src/matchbot/importers/facebook_har.py`: HAR and extension JSON parser + ingestion logic
+
+For design rationale and risk tradeoffs, see `docs/facebook-backfill-plan.md`.
+
 ---
 
 ## Moderator API credentials

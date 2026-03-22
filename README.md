@@ -91,6 +91,22 @@ uv run python scripts/backfill_reddit_json.py --since-date 2026-01-01
 uv run python scripts/backfill_reddit_json.py --since-date 2026-01-01 --dry-run
 ```
 
+Backfill historical Facebook group posts from a HAR export or the bundled Chrome extension capture:
+
+```bash
+uv run python scripts/backfill_facebook.py ./fb_posts.json \
+  --group-name "Burning Man Theme Camps" \
+  --group-id 1234567890 \
+  --dry-run
+
+uv run python scripts/backfill_facebook.py ./fb_posts.json \
+  --group-name "Burning Man Theme Camps" \
+  --group-id 1234567890 \
+  --no-extract
+```
+
+See `docs/PLATFORM_SETUP.md` for the step-by-step Facebook backfill workflow.
+
 Enable verbose logs with either:
 
 - `VERBOSE=true`
@@ -230,6 +246,7 @@ Opt out by sending the bot a PM/DM with the exact text `opt out` on supported pl
 ## Documentation Index
 
 - `docs/PLATFORM_SETUP.md`: Reddit/Discord/Facebook setup
+- `docs/facebook-backfill-plan.md`: design notes and risk analysis for Facebook historical backfill
 - `docs/TESTING.md`: local E2E + debugging workflow
 - `docs/MOD_API_REFERENCE.md`: moderator API reference
 - `docs/MODERATOR_UI_SPEC.md`: moderator UI spec
