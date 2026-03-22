@@ -21,6 +21,14 @@ const META = {
   LAST_ERROR: 'fbgc_last_error',
 };
 
+async function ensureStorageAccess() {
+  if (chrome.storage?.session?.setAccessLevel) {
+    await chrome.storage.session.setAccessLevel({
+      accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS',
+    });
+  }
+}
+
 async function resetMeta() {
   await chrome.storage.local.set({
     [META.QUOTA_EXCEEDED]: false,
@@ -37,14 +45,71 @@ async function resetSession() {
   });
 }
 
+async function ensureDefaults() {
+  const sessionState = await chrome.storage.session.get([
+    STORE.CAPTURING,
+    STORE.RESPONSES,
+    STORE.NEXT_SEQ,
+  ]);
+  const localState = await chrome.storage.local.get([
+    META.QUOTA_EXCEEDED,
+    META.UNSAVED_RESPONSES,
+    META.LAST_ERROR,
+  ]);
+
+  const sessionDefaults = {};
+  if (typeof sessionState[STORE.CAPTURING] !== 'boolean') {
+    sessionDefaults[STORE.CAPTURING] = false;
+  }
+  if (!Array.isArray(sessionState[STORE.RESPONSES])) {
+    sessionDefaults[STORE.RESPONSES] = [];
+  }
+  if (!Number.isFinite(sessionState[STORE.NEXT_SEQ])) {
+    const existing = Array.isArray(sessionState[STORE.RESPONSES]) ? sessionState[STORE.RESPONSES] : [];
+    sessionDefaults[STORE.NEXT_SEQ] = existing.length + 1;
+  }
+  if (Object.keys(sessionDefaults).length > 0) {
+    await chrome.storage.session.set(sessionDefaults);
+  }
+
+  const metaDefaults = {};
+  if (typeof localState[META.QUOTA_EXCEEDED] !== 'boolean') {
+    metaDefaults[META.QUOTA_EXCEEDED] = false;
+  }
+  if (!Number.isFinite(localState[META.UNSAVED_RESPONSES])) {
+    metaDefaults[META.UNSAVED_RESPONSES] = 0;
+  }
+  if (typeof localState[META.LAST_ERROR] !== 'string') {
+    metaDefaults[META.LAST_ERROR] = '';
+  }
+  if (Object.keys(metaDefaults).length > 0) {
+    await chrome.storage.local.set(metaDefaults);
+  }
+}
+
 async function initializeState() {
-  await resetSession();
-  await resetMeta();
+  await ensureStorageAccess();
+  await ensureDefaults();
 }
 
 function buildFilename() {
   const iso = new Date().toISOString().replace(/[:]/g, '-');
   return `fb_posts_${iso}.json`;
+}
+
+function buildDownloadUrl(payload) {
+  if (typeof URL.createObjectURL === 'function') {
+    const blob = new Blob([payload], {type: 'application/json'});
+    return {
+      url: URL.createObjectURL(blob),
+      revoke: true,
+    };
+  }
+
+  return {
+    url: `data:application/json;charset=utf-8,${encodeURIComponent(payload)}`,
+    revoke: false,
+  };
 }
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -54,6 +119,8 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onStartup.addListener(() => {
   void initializeState();
 });
+
+void ensureStorageAccess();
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   switch (msg.type) {
@@ -114,17 +181,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return;
         }
 
-        const blob = new Blob([JSON.stringify(responses, null, 2)], {type: 'application/json'});
-        const objectUrl = URL.createObjectURL(blob);
+        const payload = JSON.stringify(responses, null, 2);
+        const downloadTarget = buildDownloadUrl(payload);
         chrome.downloads.download(
           {
-            url: objectUrl,
+            url: downloadTarget.url,
             filename: buildFilename(),
             saveAs: true,
           },
           (downloadId) => {
             const error = chrome.runtime.lastError?.message;
-            setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+            if (downloadTarget.revoke) {
+              setTimeout(() => URL.revokeObjectURL(downloadTarget.url), 60_000);
+            }
             if (error) {
               sendResponse({ok: false, error});
               return;

@@ -8,7 +8,8 @@ const MSG = {
 };
 
 const POLL_INTERVAL_MS = 1000;
-const FLUSH_WAIT_MS = 400;
+const FLUSH_SETTLE_POLL_MS = 250;
+const FLUSH_SETTLE_MAX_POLLS = 8;
 
 let currentState = {
   capturing: false,
@@ -74,6 +75,34 @@ async function updateUI() {
   }
 }
 
+async function waitForSettledStorage() {
+  let previousSignature = '';
+  let stableReads = 0;
+
+  for (let i = 0; i < FLUSH_SETTLE_MAX_POLLS; i += 1) {
+    await sleep(FLUSH_SETTLE_POLL_MS);
+
+    let state;
+    try {
+      state = await sendMessage({type: MSG.GET_STATE});
+    } catch {
+      return;
+    }
+
+    const signature = `${state.count}:${state.bytesUsed}:${state.unsavedResponses}:${state.lastError}`;
+    if (signature === previousSignature) {
+      stableReads += 1;
+      if (stableReads >= 2) {
+        currentState = state;
+        return;
+      }
+    } else {
+      previousSignature = signature;
+      stableReads = 0;
+    }
+  }
+}
+
 document.getElementById('toggle').addEventListener('click', async () => {
   try {
     await sendMessage({type: MSG.SET_CAPTURING, value: !currentState.capturing});
@@ -91,7 +120,7 @@ document.getElementById('download').addEventListener('click', async () => {
   try {
     if (currentState.capturing) {
       await sendMessage({type: MSG.SET_CAPTURING, value: false});
-      await sleep(FLUSH_WAIT_MS);
+      await waitForSettledStorage();
     }
 
     const result = await sendMessage({type: MSG.DOWNLOAD});

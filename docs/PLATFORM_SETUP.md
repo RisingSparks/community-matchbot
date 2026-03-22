@@ -204,6 +204,7 @@ This is the preferred approach because it does not synthesize scrolls or clicks.
 
 3. Download the capture:
    - Click **Download fb_posts.json**
+   - The extension stops capture before starting the download so the file is less likely to miss the last buffered responses
    - Save the file somewhere local, for example `data/raw/facebook/fb_posts_2026-03-22.json`
    - Only click **Clear Storage** after the download succeeds
 

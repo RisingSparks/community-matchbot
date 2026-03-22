@@ -14,6 +14,18 @@ const STORE = {
 let pendingResponses = [];
 let flushPromise = null;
 
+async function getSessionValues(keys) {
+  try {
+    return await chrome.storage.session.get(keys);
+  } catch (err) {
+    console.error(
+      'FBGC: chrome.storage.session is unavailable in this content-script context. Reload the extension.',
+      err,
+    );
+    return null;
+  }
+}
+
 async function flushResponses() {
   if (flushPromise) {
     return flushPromise;
@@ -24,13 +36,9 @@ async function flushResponses() {
       const batch = pendingResponses;
       pendingResponses = [];
 
-      const result = await chrome.storage.session.get([
-        STORE.RESPONSES,
-        STORE.CAPTURING,
-        STORE.NEXT_SEQ,
-      ]);
-      if (!result[STORE.CAPTURING]) {
-        continue;
+      const result = await getSessionValues([STORE.RESPONSES, STORE.NEXT_SEQ]);
+      if (!result) {
+        return;
       }
 
       const existing = result[STORE.RESPONSES] ?? [];
@@ -71,7 +79,10 @@ async function flushResponses() {
 }
 
 document.addEventListener('_fbgc', async (e) => {
-  const result = await chrome.storage.session.get(STORE.CAPTURING);
+  const result = await getSessionValues(STORE.CAPTURING);
+  if (!result) {
+    return;
+  }
   if (!result[STORE.CAPTURING]) {
     return;
   }
