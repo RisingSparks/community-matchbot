@@ -21,11 +21,16 @@ const META = {
   LAST_ERROR: 'fbgc_last_error',
 };
 
+const log = (...args) => console.info('FBGC[background]:', ...args);
+const warn = (...args) => console.warn('FBGC[background]:', ...args);
+const errorLog = (...args) => console.error('FBGC[background]:', ...args);
+
 async function ensureStorageAccess() {
   if (chrome.storage?.session?.setAccessLevel) {
     await chrome.storage.session.setAccessLevel({
       accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS',
     });
+    log('Enabled session storage access for content scripts');
   }
 }
 
@@ -90,6 +95,7 @@ async function ensureDefaults() {
 async function initializeState() {
   await ensureStorageAccess();
   await ensureDefaults();
+  log('Background state initialized');
 }
 
 function buildFilename() {
@@ -158,6 +164,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           [META.LAST_ERROR]:
             'Capture stopped because extension storage is full. Download now, then clear before continuing.',
         });
+        warn('Capture stopped because storage quota was exceeded');
       })();
       break;
 
@@ -168,6 +175,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (msg.value) {
           await resetMeta();
         }
+        log(`Capture ${msg.value ? 'enabled' : 'disabled'}`);
         sendResponse({ok: true});
       })();
       return true;
@@ -177,12 +185,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const result = await chrome.storage.session.get(STORE.RESPONSES);
         const responses = result[STORE.RESPONSES] ?? [];
         if (responses.length === 0) {
+          warn('Download requested with no captured responses');
           sendResponse({ok: false, error: 'No data captured yet.'});
           return;
         }
 
         const payload = JSON.stringify(responses, null, 2);
         const downloadTarget = buildDownloadUrl(payload);
+        log(`Starting download for ${responses.length} captured response(s)`);
         chrome.downloads.download(
           {
             url: downloadTarget.url,
@@ -195,9 +205,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               setTimeout(() => URL.revokeObjectURL(downloadTarget.url), 60_000);
             }
             if (error) {
+              errorLog('Download failed', error);
               sendResponse({ok: false, error});
               return;
             }
+            log(`Download started (id=${downloadId})`);
             sendResponse({ok: true, downloadId});
           },
         );
@@ -211,6 +223,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           [STORE.NEXT_SEQ]: 1,
         });
         await resetMeta();
+        log('Cleared captured responses');
         sendResponse({ok: true});
       })();
       return true;

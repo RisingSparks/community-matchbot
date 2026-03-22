@@ -11,6 +11,9 @@ const POLL_INTERVAL_MS = 1000;
 const FLUSH_SETTLE_POLL_MS = 250;
 const FLUSH_SETTLE_MAX_POLLS = 8;
 
+const log = (...args) => console.info('FBGC[popup]:', ...args);
+const warn = (...args) => console.warn('FBGC[popup]:', ...args);
+
 let currentState = {
   capturing: false,
   count: 0,
@@ -105,8 +108,10 @@ async function waitForSettledStorage() {
 
 document.getElementById('toggle').addEventListener('click', async () => {
   try {
+    log(`Toggling capture ${currentState.capturing ? 'off' : 'on'}`);
     await sendMessage({type: MSG.SET_CAPTURING, value: !currentState.capturing});
   } catch {
+    warn('Failed to change capture state');
     setStatus('Failed to change capture state.');
     return;
   }
@@ -119,17 +124,21 @@ document.getElementById('download').addEventListener('click', async () => {
 
   try {
     if (currentState.capturing) {
+      log('Stopping capture before download');
       await sendMessage({type: MSG.SET_CAPTURING, value: false});
       await waitForSettledStorage();
     }
 
     const result = await sendMessage({type: MSG.DOWNLOAD});
     if (!result?.ok) {
+      warn('Download failed to start', result?.error || 'unknown error');
       setStatus(result?.error || 'Download failed.');
       return;
     }
+    log('Download started');
     setStatus('Download started. Clear storage after the file is saved.');
   } catch {
+    warn('Download failed');
     setStatus('Download failed.');
     return;
   }
@@ -143,8 +152,10 @@ document.getElementById('clear').addEventListener('click', async () => {
   }
 
   try {
+    log('Clearing captured storage');
     await sendMessage({type: MSG.CLEAR});
   } catch {
+    warn('Failed to clear storage');
     setStatus('Failed to clear storage.');
     return;
   }

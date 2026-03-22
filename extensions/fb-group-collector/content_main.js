@@ -7,9 +7,15 @@
   }
   window.__FBGC_PATCHED__ = true;
 
+  const log = (...args) => console.info('FBGC[main]:', ...args);
+  const warn = (...args) => console.warn('FBGC[main]:', ...args);
+
   if (typeof window.fetch !== 'function' || typeof window.XMLHttpRequest !== 'function') {
+    warn('fetch/XHR unavailable; capture hooks not installed');
     return;
   }
+
+  log('Installing fetch/XHR capture hooks');
 
   const origFetch = window.fetch;
   window.fetch = async function(...args) {
@@ -19,7 +25,7 @@
       response.clone().text().then((text) => {
         document.dispatchEvent(new CustomEvent('_fbgc', {detail: text}));
       }).catch((err) => {
-        console.error('FBGC: error reading fetch response body', err);
+        console.error('FBGC[main]: error reading fetch response body', err);
       });
     }
     return response;
@@ -49,4 +55,5 @@
   window.XMLHttpRequest = CustomXHR;
   window.XMLHttpRequest.prototype = OrigXHR.prototype;
   Object.assign(window.XMLHttpRequest, OrigXHR);
+  log('Capture hooks installed');
 })();
