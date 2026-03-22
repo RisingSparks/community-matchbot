@@ -200,14 +200,18 @@ This is the preferred approach because it does not synthesize scrolls or clicks.
 2. Start a capture session:
    - Open the target Facebook group in the same browser profile you normally use
    - Click the extension icon
+   - Paste one or more Facebook group URLs into **Facebook Group URLs**
+   - Click **Save Groups**
+   - Click **Open Groups** to open each saved group in a background tab and set its feed to **New posts**
    - Click **Start Capturing**
-   - Scroll the group manually to load the posts you want
+   - Scroll the opened group tabs manually to load the posts you want
 
 3. Download the capture:
    - Click **Download fb_posts.json**
    - The extension stops capture before starting the download so the file is less likely to miss the last buffered responses
    - By default it saves into `burning-man-matchbot/data/raw/facebook/` relative to Chrome's download directory
    - The filename includes the Facebook group slug when it can infer one from the current tab
+   - One capture file can include responses from multiple group tabs in the same session
    - Only click **Clear Storage** after the download succeeds
 
 4. Import the capture:

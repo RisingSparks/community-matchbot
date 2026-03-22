@@ -6,9 +6,17 @@
     return;
   }
   window.__FBGC_PATCHED__ = true;
+  window.__FBGC_BRIDGE_ONLINE__ = true;
 
   const log = (...args) => console.info('FBGC[main]:', ...args);
   const warn = (...args) => console.warn('FBGC[main]:', ...args);
+
+  document.addEventListener('_fbgc_bridge_offline', () => {
+    if (window.__FBGC_BRIDGE_ONLINE__) {
+      warn('Relay bridge went offline; reload the extension and refresh the page');
+    }
+    window.__FBGC_BRIDGE_ONLINE__ = false;
+  });
 
   if (typeof window.fetch !== 'function' || typeof window.XMLHttpRequest !== 'function') {
     warn('fetch/XHR unavailable; capture hooks not installed');
@@ -18,12 +26,19 @@
   log('Installing fetch/XHR capture hooks');
 
   const origFetch = window.fetch;
+  function emitCapturedResponse(text) {
+    if (!window.__FBGC_BRIDGE_ONLINE__) {
+      return;
+    }
+    document.dispatchEvent(new CustomEvent('_fbgc', {detail: text}));
+  }
+
   window.fetch = async function(...args) {
     const response = await origFetch.apply(this, args);
     const url = (typeof args[0] === 'string' ? args[0] : args[0]?.url) ?? '';
     if (url.includes('/api/graphql')) {
       response.clone().text().then((text) => {
-        document.dispatchEvent(new CustomEvent('_fbgc', {detail: text}));
+        emitCapturedResponse(text);
       }).catch((err) => {
         console.error('FBGC[main]: error reading fetch response body', err);
       });
@@ -46,7 +61,7 @@
 
     xhr.addEventListener('load', function() {
       if (isGraphQL && xhr.responseText) {
-        document.dispatchEvent(new CustomEvent('_fbgc', {detail: xhr.responseText}));
+        emitCapturedResponse(xhr.responseText);
       }
     });
 

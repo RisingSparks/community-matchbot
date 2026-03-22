@@ -33,6 +33,10 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function notifyBridgeOffline() {
+  document.dispatchEvent(new CustomEvent('_fbgc_bridge_offline'));
+}
+
 function textContentOf(element) {
   return String(element?.textContent ?? '').replace(/\s+/g, ' ').trim();
 }
@@ -107,6 +111,7 @@ async function getSessionValues(keys) {
   } catch (err) {
     if (isContextInvalidated(err)) {
       extensionContextValid = false;
+      notifyBridgeOffline();
       warn('Extension context invalidated; reload the extension and refresh the page');
       return null;
     }
@@ -148,6 +153,7 @@ async function flushResponses() {
       } catch (err) {
         if (isContextInvalidated(err)) {
           extensionContextValid = false;
+          notifyBridgeOffline();
           warn('Extension context invalidated during storage write');
           return;
         }
@@ -161,6 +167,7 @@ async function flushResponses() {
           } catch (sendErr) {
             if (isContextInvalidated(sendErr)) {
               extensionContextValid = false;
+              notifyBridgeOffline();
               warn('Extension context invalidated while notifying background about quota overflow');
               return;
             }
@@ -199,6 +206,7 @@ document.addEventListener('_fbgc', async (e) => {
   void flushResponses().catch((err) => {
     if (isContextInvalidated(err)) {
       extensionContextValid = false;
+      notifyBridgeOffline();
       warn('Extension context invalidated during flush');
       return;
     }

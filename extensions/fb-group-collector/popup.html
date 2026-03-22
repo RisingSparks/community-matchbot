@@ -2,13 +2,15 @@
 <html>
 <head>
   <style>
-    body { width: 300px; padding: 10px; font-family: sans-serif; }
+    body { width: 320px; padding: 10px; font-family: sans-serif; }
     .status { margin-bottom: 10px; font-weight: bold; }
     .warning { color: #d32f2f; font-size: 0.8em; margin: 10px 0; }
+    .info { color: #555; font-size: 0.8em; margin: 6px 0; }
     button { width: 100%; margin: 5px 0; padding: 8px; cursor: pointer; }
     #stats { font-size: 0.9em; color: #666; margin-bottom: 10px; }
     label { display: block; font-size: 0.85em; font-weight: bold; margin: 10px 0 4px; }
-    input { width: 100%; box-sizing: border-box; padding: 6px; }
+    input, textarea { width: 100%; box-sizing: border-box; padding: 6px; }
+    textarea { min-height: 88px; resize: vertical; font-family: monospace; font-size: 12px; }
     .help { color: #666; font-size: 0.8em; margin-top: 4px; }
   </style>
 </head>
@@ -20,6 +22,12 @@
     Storage: <span id="cap_storage">0 KB</span>
   </div>
   <div id="download_status" class="warning" style="display:none"></div>
+  <label for="group_urls">Facebook Group URLs</label>
+  <textarea id="group_urls" placeholder="https://www.facebook.com/groups/1234567890/&#10;https://www.facebook.com/groups/example-group/"></textarea>
+  <div id="groups_help" class="info"></div>
+  <div id="groups_status" class="info"></div>
+  <button id="save_groups">Save Groups</button>
+  <button id="open_groups">Open Groups</button>
   <label for="download_dir">Download Subfolder</label>
   <input id="download_dir" type="text" />
   <div class="help">
@@ -30,6 +38,9 @@
   <button id="clear">Clear Storage</button>
   <div class="warning">
     ⚠ Data is lost if you close the browser without downloading.
+  </div>
+  <div class="info">
+    Batch capture exports one combined file even if you scroll multiple group tabs.
   </div>
   <div id="quota_warn" class="warning" style="display:none">
     ⚠ Storage nearly full (10MB limit) - download and clear!

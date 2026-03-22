@@ -3,6 +3,9 @@
 const MSG = {
   ENSURE_NEW_POSTS_SORT: 'ensure_new_posts_sort',
   GET_STATE: 'get_state',
+  GET_GROUPS: 'get_groups',
+  SAVE_GROUPS: 'save_groups',
+  OPEN_GROUPS: 'open_groups',
   SET_CAPTURING: 'set_capturing',
   DOWNLOAD: 'download',
   CLEAR: 'clear',
@@ -24,12 +27,16 @@ let currentState = {
   unsavedResponses: 0,
   lastError: '',
   downloadDir: '',
+  groupUrls: [],
 };
 
 let activeTabInfo = {
   title: '',
   url: '',
 };
+
+let groupsStatusMessage = '';
+let groupsStatusWarning = false;
 
 function sendMessage(message) {
   return new Promise((resolve, reject) => {
@@ -51,6 +58,14 @@ async function sendTabMessage(tabId, message) {
   return new Promise((resolve, reject) => {
     chrome.tabs.sendMessage(tabId, message, (response) => {
       if (chrome.runtime.lastError) {
+        const runtimeMessage = String(chrome.runtime.lastError.message || '');
+        if (
+          runtimeMessage.includes('Receiving end does not exist')
+          || runtimeMessage.includes('message port closed')
+        ) {
+          reject(new Error('Reload the extension and refresh the Facebook group tab, then try again.'));
+          return;
+        }
         reject(chrome.runtime.lastError);
         return;
       }
@@ -68,6 +83,83 @@ function setStatus(message) {
   }
   el.style.display = 'block';
   el.innerText = message;
+}
+
+function parseGroupLines(value) {
+  return String(value ?? '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function normalizeGroupUrl(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return null;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return null;
+  }
+
+  if (!/(^|\.)facebook\.com$/i.test(parsed.hostname)) {
+    return null;
+  }
+
+  const match = parsed.pathname.match(/^\/groups\/([^/?#]+)/i);
+  if (!match?.[1]) {
+    return null;
+  }
+
+  return `https://www.facebook.com/groups/${match[1]}/`;
+}
+
+function summarizeGroupInput(value) {
+  const lines = parseGroupLines(value);
+  const seen = new Set();
+  let validCount = 0;
+  let invalidCount = 0;
+  let duplicateCount = 0;
+
+  for (const line of lines) {
+    const normalized = normalizeGroupUrl(line);
+    if (!normalized) {
+      invalidCount += 1;
+      continue;
+    }
+    if (seen.has(normalized)) {
+      duplicateCount += 1;
+      continue;
+    }
+    seen.add(normalized);
+    validCount += 1;
+  }
+
+  return {
+    validCount,
+    invalidCount,
+    duplicateCount,
+    lines,
+  };
+}
+
+function setGroupsStatus(message, isWarning = false) {
+  const el = document.getElementById('groups_status');
+  el.className = isWarning ? 'warning' : 'info';
+  el.innerText = message;
+}
+
+function renderGroupsStatus() {
+  setGroupsStatus(groupsStatusMessage, groupsStatusWarning);
+}
+
+function setGroupsOperationStatus(message, isWarning = false) {
+  groupsStatusMessage = message;
+  groupsStatusWarning = isWarning;
+  renderGroupsStatus();
 }
 
 async function updateUI() {
@@ -101,6 +193,12 @@ async function updateUI() {
   if (document.activeElement !== downloadDirInput) {
     downloadDirInput.value = currentState.downloadDir || '';
   }
+
+  const groupUrlsInput = document.getElementById('group_urls');
+  if (document.activeElement !== groupUrlsInput) {
+    groupUrlsInput.value = (currentState.groupUrls || []).join('\n');
+  }
+  updateGroupsSummary();
 }
 
 async function loadActiveTabInfo() {
@@ -122,10 +220,35 @@ async function loadActiveTabInfo() {
 async function getActiveFacebookGroupTab() {
   const tabs = await chrome.tabs.query({active: true, currentWindow: true});
   const tab = tabs[0];
-  if (!tab?.id || !String(tab.url || '').includes('facebook.com/groups/')) {
-    throw new Error('Open a Facebook group page before starting capture.');
+  if (!tab?.id) {
+    return null;
+  }
+  if (!String(tab.url || '').includes('facebook.com/groups/')) {
+    return null;
   }
   return tab;
+}
+
+function updateGroupsSummary() {
+  const groupUrlsInput = document.getElementById('group_urls');
+  const summary = summarizeGroupInput(groupUrlsInput.value);
+  const helpEl = document.getElementById('groups_help');
+
+  if (summary.lines.length === 0) {
+    helpEl.className = 'info';
+    helpEl.innerText = 'Paste one Facebook group URL per line, then save them.';
+    return;
+  }
+
+  const parts = [`${summary.validCount} valid`];
+  if (summary.invalidCount > 0) {
+    parts.push(`${summary.invalidCount} invalid`);
+  }
+  if (summary.duplicateCount > 0) {
+    parts.push(`${summary.duplicateCount} duplicate`);
+  }
+  helpEl.className = summary.invalidCount > 0 ? 'warning' : 'info';
+  helpEl.innerText = parts.join(', ');
 }
 
 async function waitForSettledStorage() {
@@ -156,16 +279,69 @@ async function waitForSettledStorage() {
   }
 }
 
+document.getElementById('group_urls').addEventListener('input', () => {
+  updateGroupsSummary();
+});
+
+document.getElementById('save_groups').addEventListener('click', async () => {
+  const groupUrlsInput = document.getElementById('group_urls');
+  const groupUrls = parseGroupLines(groupUrlsInput.value);
+
+  try {
+    const result = await sendMessage({type: MSG.SAVE_GROUPS, groupUrls});
+    currentState.groupUrls = result.groupUrls || [];
+    groupUrlsInput.value = currentState.groupUrls.join('\n');
+    const notes = [`Saved ${result.savedCount} group${result.savedCount === 1 ? '' : 's'}.`];
+    if (result.invalidCount > 0) {
+      notes.push(`Ignored ${result.invalidCount} invalid entr${result.invalidCount === 1 ? 'y' : 'ies'}.`);
+    }
+    if (result.duplicateCount > 0) {
+      notes.push(`Skipped ${result.duplicateCount} duplicate entr${result.duplicateCount === 1 ? 'y' : 'ies'}.`);
+    }
+    setGroupsOperationStatus(notes.join(' '), result.invalidCount > 0);
+  } catch (err) {
+    warn('Failed to save groups', err);
+    setGroupsOperationStatus('Failed to save groups.', true);
+  }
+});
+
+document.getElementById('open_groups').addEventListener('click', async () => {
+  setStatus('');
+  setGroupsOperationStatus('Opening group tabs and setting each feed to New posts...');
+  try {
+    const result = await sendMessage({type: MSG.OPEN_GROUPS});
+    if (!result?.ok) {
+      setGroupsOperationStatus(result?.error || 'Failed to open the saved groups.', true);
+      return;
+    }
+
+    currentState.groupUrls = result.groupUrls || currentState.groupUrls;
+    const parts = [
+      `Opened ${result.opened}`,
+      `prepared ${result.prepared}`,
+    ];
+    if (result.failed > 0) {
+      parts.push(`failed ${result.failed}`);
+    }
+    setGroupsOperationStatus(parts.join(', ') + '.', result.failed > 0);
+  } catch (err) {
+    warn('Failed to open groups', err);
+    setGroupsOperationStatus(String(err?.message || 'Failed to open groups.'), true);
+  }
+});
+
 document.getElementById('toggle').addEventListener('click', async () => {
   try {
     const enabling = !currentState.capturing;
     log(`Toggling capture ${currentState.capturing ? 'off' : 'on'}`);
     if (enabling) {
       const tab = await getActiveFacebookGroupTab();
-      setStatus('Setting group feed sort to New posts...');
-      const sortResult = await sendTabMessage(tab.id, {type: MSG.ENSURE_NEW_POSTS_SORT});
-      if (!sortResult?.ok) {
-        throw new Error(sortResult?.error || 'Failed to set the feed sort to New posts.');
+      if (tab?.id) {
+        setStatus('Setting group feed sort to New posts...');
+        const sortResult = await sendTabMessage(tab.id, {type: MSG.ENSURE_NEW_POSTS_SORT});
+        if (!sortResult?.ok) {
+          throw new Error(sortResult?.error || 'Failed to set the feed sort to New posts.');
+        }
       }
     }
     await sendMessage({type: MSG.SET_CAPTURING, value: !currentState.capturing});
@@ -238,4 +414,13 @@ document.getElementById('download_dir').addEventListener('change', async (event)
 setInterval(() => {
   void updateUI();
 }, POLL_INTERVAL_MS);
-void Promise.all([updateUI(), loadActiveTabInfo()]);
+void Promise.all([
+  updateUI(),
+  loadActiveTabInfo(),
+  sendMessage({type: MSG.GET_GROUPS}).then((result) => {
+    currentState.groupUrls = result.groupUrls || [];
+  }).catch(() => {}),
+]).finally(() => {
+  renderGroupsStatus();
+  void updateUI();
+});
