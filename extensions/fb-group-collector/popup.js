@@ -1,6 +1,7 @@
 // Handles popup UI logic and communication with the background service worker.
 
 const MSG = {
+  ENSURE_NEW_POSTS_SORT: 'ensure_new_posts_sort',
   GET_STATE: 'get_state',
   SET_CAPTURING: 'set_capturing',
   DOWNLOAD: 'download',
@@ -44,6 +45,18 @@ function sendMessage(message) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function sendTabMessage(tabId, message) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tabId, message, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+        return;
+      }
+      resolve(response);
+    });
+  });
 }
 
 function setStatus(message) {
@@ -106,6 +119,15 @@ async function loadActiveTabInfo() {
   }
 }
 
+async function getActiveFacebookGroupTab() {
+  const tabs = await chrome.tabs.query({active: true, currentWindow: true});
+  const tab = tabs[0];
+  if (!tab?.id || !String(tab.url || '').includes('facebook.com/groups/')) {
+    throw new Error('Open a Facebook group page before starting capture.');
+  }
+  return tab;
+}
+
 async function waitForSettledStorage() {
   let previousSignature = '';
   let stableReads = 0;
@@ -136,11 +158,20 @@ async function waitForSettledStorage() {
 
 document.getElementById('toggle').addEventListener('click', async () => {
   try {
+    const enabling = !currentState.capturing;
     log(`Toggling capture ${currentState.capturing ? 'off' : 'on'}`);
+    if (enabling) {
+      const tab = await getActiveFacebookGroupTab();
+      setStatus('Setting group feed sort to New posts...');
+      const sortResult = await sendTabMessage(tab.id, {type: MSG.ENSURE_NEW_POSTS_SORT});
+      if (!sortResult?.ok) {
+        throw new Error(sortResult?.error || 'Failed to set the feed sort to New posts.');
+      }
+    }
     await sendMessage({type: MSG.SET_CAPTURING, value: !currentState.capturing});
-  } catch {
-    warn('Failed to change capture state');
-    setStatus('Failed to change capture state.');
+  } catch (err) {
+    warn('Failed to change capture state', err);
+    setStatus(String(err?.message || 'Failed to change capture state.'));
     return;
   }
   setStatus('');

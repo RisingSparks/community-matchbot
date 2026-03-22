@@ -2,6 +2,7 @@
 // Listens for CustomEvents dispatched by content_main.js
 
 const MSG = {
+  ENSURE_NEW_POSTS_SORT: 'ensure_new_posts_sort',
   QUOTA_EXCEEDED: 'quota_exceeded',
 };
 
@@ -14,6 +15,9 @@ const STORE = {
 let pendingResponses = [];
 let flushPromise = null;
 let extensionContextValid = true;
+const SORT_CONTROL_TIMEOUT_MS = 10000;
+const SORT_MENU_TIMEOUT_MS = 5000;
+const SORT_POLL_MS = 200;
 
 const log = (...args) => console.info('FBGC[relay]:', ...args);
 const warn = (...args) => console.warn('FBGC[relay]:', ...args);
@@ -23,6 +27,75 @@ function isContextInvalidated(err) {
   const message = String(err?.message ?? err ?? '');
   return message.includes('Extension context invalidated')
     || message.includes('context invalidated');
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function textContentOf(element) {
+  return String(element?.textContent ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function findSortControl() {
+  const buttons = Array.from(document.querySelectorAll('[role="button"]'));
+  return buttons.find((button) => {
+    const text = textContentOf(button).toLowerCase();
+    return text.includes('sort group feed by');
+  }) ?? null;
+}
+
+function isNewPostsSelected(control) {
+  return textContentOf(control).toLowerCase().includes('new posts');
+}
+
+function findNewPostsOption() {
+  const menuItems = Array.from(document.querySelectorAll('[role="menuitem"], [role="option"], [role="button"]'));
+  return menuItems.find((item) => {
+    const text = textContentOf(item).toLowerCase();
+    return text === 'new posts' || text.endsWith(' new posts') || text.includes('\nnew posts');
+  }) ?? null;
+}
+
+async function waitForElement(getter, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const element = getter();
+    if (element) {
+      return element;
+    }
+    await sleep(SORT_POLL_MS);
+  }
+  return null;
+}
+
+async function ensureNewPostsSort() {
+  const sortControl = await waitForElement(findSortControl, SORT_CONTROL_TIMEOUT_MS);
+  if (!sortControl) {
+    throw new Error('Could not find the Facebook group sort control.');
+  }
+
+  if (isNewPostsSelected(sortControl)) {
+    log('Feed sort already set to New posts');
+    return {changed: false};
+  }
+
+  sortControl.click();
+  const option = await waitForElement(findNewPostsOption, SORT_MENU_TIMEOUT_MS);
+  if (!option) {
+    throw new Error('Opened the sort menu, but could not find the New posts option.');
+  }
+
+  option.click();
+  await sleep(750);
+
+  const refreshedControl = findSortControl();
+  if (!refreshedControl || !isNewPostsSelected(refreshedControl)) {
+    throw new Error('Clicked New posts, but the feed sort did not update.');
+  }
+
+  log('Feed sort changed to New posts');
+  return {changed: true};
 }
 
 async function getSessionValues(keys) {
@@ -131,6 +204,24 @@ document.addEventListener('_fbgc', async (e) => {
     }
     errorLog('Flush failed', err);
   });
+});
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type !== MSG.ENSURE_NEW_POSTS_SORT) {
+    return false;
+  }
+
+  void (async () => {
+    try {
+      const result = await ensureNewPostsSort();
+      sendResponse({ok: true, ...result});
+    } catch (err) {
+      warn('Failed to set feed sort to New posts', err);
+      sendResponse({ok: false, error: String(err?.message ?? err)});
+    }
+  })();
+
+  return true;
 });
 
 log('Relay listener installed');
