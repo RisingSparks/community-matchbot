@@ -22,6 +22,81 @@ from matchbot.settings import get_settings
 
 logger = logging.getLogger(__name__)
 _RAW_POST_COMMIT_BATCH_SIZE = 100
+_COMMENT_NODE_KEYS = {
+    "bizweb_comment_info",
+    "comment_action_links",
+    "comment_direct_parent",
+    "comment_menu_tooltip",
+    "community_comment_signal_renderer",
+    "group_comment_info",
+}
+
+
+def _extract_story_message_text(node: dict) -> str:
+    content = node.get("comet_sections")
+    if not isinstance(content, dict):
+        return ""
+
+    content_section = content.get("content")
+    if not isinstance(content_section, dict):
+        return ""
+
+    story = content_section.get("story")
+    if not isinstance(story, dict):
+        return ""
+
+    story_sections = story.get("comet_sections")
+    if not isinstance(story_sections, dict):
+        return ""
+
+    for key in ("message", "message_container"):
+        section = story_sections.get(key)
+        if not isinstance(section, dict):
+            continue
+        section_story = section.get("story")
+        if not isinstance(section_story, dict):
+            continue
+        message = section_story.get("message")
+        if isinstance(message, dict) and isinstance(message.get("text"), str):
+            return message["text"]
+
+    return ""
+
+
+def _extract_story_creation_time(node: dict) -> Any:
+    comet_sections = node.get("comet_sections")
+    if not isinstance(comet_sections, dict):
+        return None
+
+    timestamp_section = comet_sections.get("timestamp")
+    if not isinstance(timestamp_section, dict):
+        return None
+
+    story = timestamp_section.get("story")
+    if not isinstance(story, dict):
+        return None
+
+    return story.get("creation_time")
+
+
+def _extract_story_url(node: dict) -> str:
+    if isinstance(node.get("permalink_url"), str):
+        return node["permalink_url"]
+
+    comet_sections = node.get("comet_sections")
+    if not isinstance(comet_sections, dict):
+        return ""
+
+    timestamp_section = comet_sections.get("timestamp")
+    if not isinstance(timestamp_section, dict):
+        return ""
+
+    story = timestamp_section.get("story")
+    if not isinstance(story, dict):
+        return ""
+
+    url = story.get("url")
+    return url if isinstance(url, str) else ""
 
 
 def _find_post_nodes(obj: Any, depth: int = 0) -> list[dict]:
@@ -47,12 +122,31 @@ def _find_post_nodes(obj: Any, depth: int = 0) -> list[dict]:
 
 def _is_post_node(node: dict) -> bool:
     """Determine if a dictionary node looks like a Facebook post."""
+    platform_id = node.get("post_id") or node.get("id")
+
     # Must have some form of ID
-    if not (node.get("id") or node.get("post_id")):
+    if not platform_id:
+        return False
+
+    # Exclude comment nodes that otherwise look post-like in GraphQL payloads.
+    typename = str(node.get("__typename") or "")
+    if (
+        isinstance(platform_id, str)
+        and (
+            platform_id.startswith("comment:")
+            or platform_id.startswith("Y29tbWVudDo")
+        )
+    ) or "Comment" in typename:
+        return False
+    if any(key in node for key in _COMMENT_NODE_KEYS):
         return False
 
     # Must have some form of timestamp
-    if not (node.get("creation_time") or node.get("created_time")):
+    if not (
+        node.get("creation_time")
+        or node.get("created_time")
+        or _extract_story_creation_time(node)
+    ):
         return False
 
     # Must have some form of text content (even if empty, but usually not)
@@ -60,6 +154,7 @@ def _is_post_node(node: dict) -> bool:
     has_text = (
         isinstance(node.get("message"), (str, dict))
         or (isinstance(node.get("body"), dict) and "text" in node["body"])
+        or bool(_extract_story_message_text(node))
     )
     if not has_text:
         return False
@@ -78,6 +173,8 @@ def parse_facebook_post_fields(node: dict) -> dict | None:
         raw_text = message["text"]
     elif isinstance(node.get("body"), dict) and "text" in node["body"]:
         raw_text = node["body"]["text"]
+    elif story_text := _extract_story_message_text(node):
+        raw_text = story_text
 
     if not raw_text:
         return None
@@ -92,7 +189,11 @@ def parse_facebook_post_fields(node: dict) -> dict | None:
         platform_post_id = platform_post_id.replace("post:", "", 1)
 
     # Timestamp extraction
-    created_ts = node.get("creation_time") or node.get("created_time")
+    created_ts = (
+        node.get("creation_time")
+        or node.get("created_time")
+        or _extract_story_creation_time(node)
+    )
     if not created_ts:
         return None
 
@@ -119,7 +220,7 @@ def parse_facebook_post_fields(node: dict) -> dict | None:
             author_name = sender.get("name", author_id)
 
     # URL extraction
-    source_url = node.get("permalink_url") or node.get("url") or ""
+    source_url = node.get("permalink_url") or node.get("url") or _extract_story_url(node) or ""
 
     return {
         "platform_post_id": str(platform_post_id),

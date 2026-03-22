@@ -61,6 +61,32 @@ def test_find_post_nodes_flat():
     assert nodes[0]["post_id"] == "456"
 
 
+def test_find_post_nodes_rejects_comment_id_shapes():
+    obj = {
+        "data": {
+            "node": {
+                "id": "Y29tbWVudDoxMjM=",
+                "body": {"text": "comment body"},
+                "created_time": 1700000001,
+                "group_comment_info": {},
+            }
+        }
+    }
+    nodes = _find_post_nodes(obj)
+    assert nodes == []
+
+
+def test_find_post_nodes_rejects_comment_typename():
+    obj = {
+        "__typename": "Comment",
+        "id": "123",
+        "body": {"text": "comment body"},
+        "created_time": 1700000001,
+    }
+    nodes = _find_post_nodes(obj)
+    assert nodes == []
+
+
 def test_find_post_nodes_depth_limit():
     # Create a deeply nested object
     obj = {"a": {}}
@@ -121,6 +147,43 @@ def test_parse_facebook_post_fields_body_text():
     }
     fields = parse_facebook_post_fields(node)
     assert fields["raw_text"] == "Body text style"
+
+
+def test_parse_facebook_post_fields_story_shape():
+    node = {
+        "__typename": "Story",
+        "id": "story-node",
+        "post_id": "3040003819540317",
+        "permalink_url": "https://www.facebook.com/groups/252779754929418/posts/3040003819540317/",
+        "actors": [{"id": "633547488", "name": "Andre Mesquita"}],
+        "comet_sections": {
+            "content": {
+                "story": {
+                    "comet_sections": {
+                        "message": {
+                            "story": {
+                                "message": {
+                                    "text": "Looking for a Home at Burning Man 2026?",
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "timestamp": {
+                "story": {
+                    "creation_time": 1773405471,
+                    "url": "https://www.facebook.com/groups/252779754929418/posts/3040003819540317/",
+                }
+            },
+        },
+    }
+    fields = parse_facebook_post_fields(node)
+    assert fields["platform_post_id"] == "3040003819540317"
+    assert fields["platform_author_id"] == "633547488"
+    assert fields["author_display_name"] == "Andre Mesquita"
+    assert fields["raw_text"] == "Looking for a Home at Burning Man 2026?"
+    assert fields["source_url"] == "https://www.facebook.com/groups/252779754929418/posts/3040003819540317/"
 
 
 def test_parse_har_file(tmp_path):
