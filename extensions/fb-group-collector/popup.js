@@ -15,6 +15,10 @@ const MSG = {
 const POLL_INTERVAL_MS = 1000;
 const FLUSH_SETTLE_POLL_MS = 250;
 const FLUSH_SETTLE_MAX_POLLS = 8;
+const URL_FILE_DB_NAME = 'fbgc_popup';
+const URL_FILE_DB_VERSION = 1;
+const URL_FILE_STORE = 'config';
+const URL_FILE_HANDLE_KEY = 'group_urls_file_handle';
 
 const log = (...args) => console.info('FBGC[popup]:', ...args);
 const warn = (...args) => console.warn('FBGC[popup]:', ...args);
@@ -23,7 +27,7 @@ let currentState = {
   capturing: false,
   count: 0,
   bytesUsed: 0,
-  quotaExceeded: false,
+  largeCapture: false,
   unsavedResponses: 0,
   lastError: '',
   downloadDir: '',
@@ -37,6 +41,142 @@ let activeTabInfo = {
 
 let groupsStatusMessage = '';
 let groupsStatusWarning = false;
+let urlFileHandle = null;
+
+function supportsGroupUrlFileAccess() {
+  return typeof window.showSaveFilePicker === 'function';
+}
+
+function openUrlFileDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(URL_FILE_DB_NAME, URL_FILE_DB_VERSION);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(URL_FILE_STORE)) {
+        db.createObjectStore(URL_FILE_STORE);
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('Failed to open the popup config database.'));
+  });
+}
+
+function requestToPromise(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('IndexedDB request failed.'));
+  });
+}
+
+function waitForTransaction(tx) {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted.'));
+    tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed.'));
+  });
+}
+
+async function readStoredUrlFileHandle() {
+  const db = await openUrlFileDb();
+  const tx = db.transaction(URL_FILE_STORE, 'readonly');
+  const handle = await requestToPromise(tx.objectStore(URL_FILE_STORE).get(URL_FILE_HANDLE_KEY));
+  await waitForTransaction(tx);
+  return handle ?? null;
+}
+
+async function writeStoredUrlFileHandle(handle) {
+  const db = await openUrlFileDb();
+  const tx = db.transaction(URL_FILE_STORE, 'readwrite');
+  tx.objectStore(URL_FILE_STORE).put(handle, URL_FILE_HANDLE_KEY);
+  await waitForTransaction(tx);
+}
+
+async function getFilePermissionState(handle, write = false) {
+  if (!handle?.queryPermission) {
+    return 'denied';
+  }
+  return handle.queryPermission({mode: write ? 'readwrite' : 'read'});
+}
+
+async function ensureFilePermission(handle, write = false) {
+  if (!handle?.requestPermission) {
+    return false;
+  }
+  const granted = await handle.requestPermission({mode: write ? 'readwrite' : 'read'});
+  return granted === 'granted';
+}
+
+async function readGroupUrlsFile(handle) {
+  const file = await handle.getFile();
+  return file.text();
+}
+
+async function writeGroupUrlsFile(handle, groupUrls) {
+  const writable = await handle.createWritable();
+  const content = `${groupUrls.join('\n')}${groupUrls.length > 0 ? '\n' : ''}`;
+  await writable.write(content);
+  await writable.close();
+}
+
+async function syncGroupsFromFile(handle) {
+  const content = await readGroupUrlsFile(handle);
+  const result = await sendMessage({
+    type: MSG.SAVE_GROUPS,
+    groupUrls: parseGroupLines(content),
+  });
+  currentState.groupUrls = result.groupUrls || [];
+  document.getElementById('group_urls').value = currentState.groupUrls.join('\n');
+  updateGroupsSummary();
+  const notes = [`Loaded ${result.savedCount} group${result.savedCount === 1 ? '' : 's'} from the URL file.`];
+  if (result.invalidCount > 0) {
+    notes.push(`Ignored ${result.invalidCount} invalid entr${result.invalidCount === 1 ? 'y' : 'ies'}.`);
+  }
+  if (result.duplicateCount > 0) {
+    notes.push(`Skipped ${result.duplicateCount} duplicate entr${result.duplicateCount === 1 ? 'y' : 'ies'}.`);
+  }
+  setGroupsOperationStatus(notes.join(' '), result.invalidCount > 0);
+}
+
+async function maybeLoadGroupsFromFile() {
+  if (!supportsGroupUrlFileAccess()) {
+    return;
+  }
+
+  try {
+    urlFileHandle = await readStoredUrlFileHandle();
+    if (!urlFileHandle) {
+      return;
+    }
+
+    const permission = await getFilePermissionState(urlFileHandle, false);
+    if (permission !== 'granted') {
+      setGroupsOperationStatus('Group URL file is configured, but Chrome needs you to reselect it before auto-loading.', true);
+      return;
+    }
+
+    await syncGroupsFromFile(urlFileHandle);
+  } catch (err) {
+    warn('Failed to auto-load groups from file', err);
+    setGroupsOperationStatus('Configured URL file could not be loaded. Re-select it if needed.', true);
+  }
+}
+
+async function persistGroupsToFile(groupUrls) {
+  if (!urlFileHandle) {
+    return false;
+  }
+
+  const permission = await getFilePermissionState(urlFileHandle, true);
+  const hasAccess = permission === 'granted' || await ensureFilePermission(urlFileHandle, true);
+  if (!hasAccess) {
+    throw new Error('Chrome no longer has write access to the configured URL file.');
+  }
+
+  await writeGroupUrlsFile(urlFileHandle, groupUrls);
+  return true;
+}
 
 function sendMessage(message) {
   return new Promise((resolve, reject) => {
@@ -177,7 +317,7 @@ async function updateUI() {
     ? 'Stop Capturing'
     : 'Start Capturing';
   document.getElementById('quota_warn').style.display =
-    currentState.bytesUsed > 8 * 1024 * 1024 || currentState.quotaExceeded ? 'block' : 'none';
+    currentState.largeCapture ? 'block' : 'none';
 
   const unsavedWarn = document.getElementById('unsaved_warn');
   if (currentState.unsavedResponses > 0 || currentState.lastError) {
@@ -283,6 +423,50 @@ document.getElementById('group_urls').addEventListener('input', () => {
   updateGroupsSummary();
 });
 
+document.getElementById('choose_groups_file').addEventListener('click', async () => {
+  if (!supportsGroupUrlFileAccess()) {
+    setGroupsOperationStatus('This Chrome build does not support choosing a writable URL file from the popup.', true);
+    return;
+  }
+
+  try {
+    const [handle] = await window.showSaveFilePicker({
+      suggestedName: 'fb_group_urls.txt',
+      types: [{
+        description: 'Text files',
+        accept: {'text/plain': ['.txt', '.md']},
+      }],
+    });
+    if (!handle) {
+      return;
+    }
+
+    urlFileHandle = handle;
+    await writeStoredUrlFileHandle(handle);
+
+    const permission = await getFilePermissionState(handle, false);
+    const canRead = permission === 'granted' || await ensureFilePermission(handle, false);
+    if (!canRead) {
+      throw new Error('Chrome could not read the selected URL file.');
+    }
+
+    const existingContent = await readGroupUrlsFile(handle);
+    if (existingContent.trim()) {
+      await syncGroupsFromFile(handle);
+      return;
+    }
+
+    await persistGroupsToFile(currentState.groupUrls || []);
+    setGroupsOperationStatus('Configured the URL file. Future group saves will write to it automatically.');
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      return;
+    }
+    warn('Failed to configure group URL file', err);
+    setGroupsOperationStatus(String(err?.message || 'Failed to configure the URL file.'), true);
+  }
+});
+
 document.getElementById('save_groups').addEventListener('click', async () => {
   const groupUrlsInput = document.getElementById('group_urls');
   const groupUrls = parseGroupLines(groupUrlsInput.value);
@@ -292,16 +476,23 @@ document.getElementById('save_groups').addEventListener('click', async () => {
     currentState.groupUrls = result.groupUrls || [];
     groupUrlsInput.value = currentState.groupUrls.join('\n');
     const notes = [`Saved ${result.savedCount} group${result.savedCount === 1 ? '' : 's'}.`];
+    let savedToFile = false;
+    if (urlFileHandle) {
+      savedToFile = await persistGroupsToFile(currentState.groupUrls);
+    }
     if (result.invalidCount > 0) {
       notes.push(`Ignored ${result.invalidCount} invalid entr${result.invalidCount === 1 ? 'y' : 'ies'}.`);
     }
     if (result.duplicateCount > 0) {
       notes.push(`Skipped ${result.duplicateCount} duplicate entr${result.duplicateCount === 1 ? 'y' : 'ies'}.`);
     }
+    if (savedToFile) {
+      notes.push('Updated the URL file.');
+    }
     setGroupsOperationStatus(notes.join(' '), result.invalidCount > 0);
   } catch (err) {
     warn('Failed to save groups', err);
-    setGroupsOperationStatus('Failed to save groups.', true);
+    setGroupsOperationStatus(String(err?.message || 'Failed to save groups.'), true);
   }
 });
 
@@ -420,6 +611,7 @@ void Promise.all([
   sendMessage({type: MSG.GET_GROUPS}).then((result) => {
     currentState.groupUrls = result.groupUrls || [];
   }).catch(() => {}),
+  maybeLoadGroupsFromFile(),
 ]).finally(() => {
   renderGroupsStatus();
   void updateUI();

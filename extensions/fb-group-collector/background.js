@@ -1,13 +1,14 @@
 // Service worker, handles popup actions and capture state.
-// Response bodies live in chrome.storage.session; small status metadata lives in chrome.storage.local.
+// Response bodies live in IndexedDB; small status metadata lives in extension storage.
 
 const MSG = {
+  APPEND_RESPONSES: 'append_responses',
+  CAPTURE_WRITE_FAILED: 'capture_write_failed',
   ENSURE_NEW_POSTS_SORT: 'ensure_new_posts_sort',
   GET_STATE: 'get_state',
   GET_GROUPS: 'get_groups',
   SAVE_GROUPS: 'save_groups',
   OPEN_GROUPS: 'open_groups',
-  QUOTA_EXCEEDED: 'quota_exceeded',
   SET_CAPTURING: 'set_capturing',
   DOWNLOAD: 'download',
   CLEAR: 'clear',
@@ -16,24 +17,30 @@ const MSG = {
 
 const STORE = {
   CAPTURING: 'fbgc_capturing',
-  RESPONSES: 'fbgc_responses',
-  NEXT_SEQ: 'fbgc_next_seq',
 };
 
 const META = {
-  QUOTA_EXCEEDED: 'fbgc_quota_exceeded',
   UNSAVED_RESPONSES: 'fbgc_unsaved_responses',
   LAST_ERROR: 'fbgc_last_error',
   DOWNLOAD_DIR: 'fbgc_download_dir',
   GROUP_URLS: 'fbgc_group_urls',
+  RESPONSE_COUNT: 'fbgc_response_count',
+  BYTES_USED: 'fbgc_bytes_used',
+  NEXT_SEQ: 'fbgc_next_seq',
 };
 
 const DEFAULT_DOWNLOAD_DIR = 'burning-man-matchbot/data/raw/facebook';
 const TAB_LOAD_TIMEOUT_MS = 20000;
+const DB_NAME = 'fbgc_capture';
+const DB_VERSION = 1;
+const RESPONSES_STORE = 'responses';
+const LARGE_CAPTURE_WARNING_BYTES = 20 * 1024 * 1024;
 
 const log = (...args) => console.info('FBGC[background]:', ...args);
 const warn = (...args) => console.warn('FBGC[background]:', ...args);
 const errorLog = (...args) => console.error('FBGC[background]:', ...args);
+let captureDbPromise = null;
+let appendQueue = Promise.resolve();
 
 async function ensureStorageAccess() {
   if (chrome.storage?.session?.setAccessLevel) {
@@ -46,53 +53,32 @@ async function ensureStorageAccess() {
 
 async function resetMeta() {
   await chrome.storage.local.set({
-    [META.QUOTA_EXCEEDED]: false,
     [META.UNSAVED_RESPONSES]: 0,
     [META.LAST_ERROR]: '',
   });
 }
 
-async function resetSession() {
-  await chrome.storage.session.set({
-    [STORE.CAPTURING]: false,
-    [STORE.RESPONSES]: [],
-    [STORE.NEXT_SEQ]: 1,
-  });
-}
-
 async function ensureDefaults() {
-  const sessionState = await chrome.storage.session.get([
-    STORE.CAPTURING,
-    STORE.RESPONSES,
-    STORE.NEXT_SEQ,
-  ]);
+  const sessionState = await chrome.storage.session.get([STORE.CAPTURING]);
   const localState = await chrome.storage.local.get([
-    META.QUOTA_EXCEEDED,
     META.UNSAVED_RESPONSES,
     META.LAST_ERROR,
     META.DOWNLOAD_DIR,
     META.GROUP_URLS,
+    META.RESPONSE_COUNT,
+    META.BYTES_USED,
+    META.NEXT_SEQ,
   ]);
 
   const sessionDefaults = {};
   if (typeof sessionState[STORE.CAPTURING] !== 'boolean') {
     sessionDefaults[STORE.CAPTURING] = false;
   }
-  if (!Array.isArray(sessionState[STORE.RESPONSES])) {
-    sessionDefaults[STORE.RESPONSES] = [];
-  }
-  if (!Number.isFinite(sessionState[STORE.NEXT_SEQ])) {
-    const existing = Array.isArray(sessionState[STORE.RESPONSES]) ? sessionState[STORE.RESPONSES] : [];
-    sessionDefaults[STORE.NEXT_SEQ] = existing.length + 1;
-  }
   if (Object.keys(sessionDefaults).length > 0) {
     await chrome.storage.session.set(sessionDefaults);
   }
 
   const metaDefaults = {};
-  if (typeof localState[META.QUOTA_EXCEEDED] !== 'boolean') {
-    metaDefaults[META.QUOTA_EXCEEDED] = false;
-  }
   if (!Number.isFinite(localState[META.UNSAVED_RESPONSES])) {
     metaDefaults[META.UNSAVED_RESPONSES] = 0;
   }
@@ -105,14 +91,146 @@ async function ensureDefaults() {
   if (!Array.isArray(localState[META.GROUP_URLS])) {
     metaDefaults[META.GROUP_URLS] = [];
   }
+  if (!Number.isFinite(localState[META.RESPONSE_COUNT])) {
+    metaDefaults[META.RESPONSE_COUNT] = 0;
+  }
+  if (!Number.isFinite(localState[META.BYTES_USED])) {
+    metaDefaults[META.BYTES_USED] = 0;
+  }
+  if (!Number.isFinite(localState[META.NEXT_SEQ])) {
+    metaDefaults[META.NEXT_SEQ] = 1;
+  }
   if (Object.keys(metaDefaults).length > 0) {
     await chrome.storage.local.set(metaDefaults);
   }
 }
 
+function openCaptureDb() {
+  if (captureDbPromise) {
+    return captureDbPromise;
+  }
+
+  captureDbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(RESPONSES_STORE)) {
+        db.createObjectStore(RESPONSES_STORE, {keyPath: 'seq'});
+      }
+    };
+
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+
+    request.onerror = () => {
+      reject(request.error || new Error('Failed to open the capture database.'));
+    };
+  });
+
+  return captureDbPromise;
+}
+
+function waitForTransaction(tx) {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted.'));
+    tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed.'));
+  });
+}
+
+function requestToPromise(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('IndexedDB request failed.'));
+  });
+}
+
+async function readAllResponses() {
+  const db = await openCaptureDb();
+  const tx = db.transaction(RESPONSES_STORE, 'readonly');
+  const store = tx.objectStore(RESPONSES_STORE);
+  const records = await requestToPromise(store.getAll());
+  await waitForTransaction(tx);
+  return records;
+}
+
+async function clearResponses() {
+  const db = await openCaptureDb();
+  const tx = db.transaction(RESPONSES_STORE, 'readwrite');
+  tx.objectStore(RESPONSES_STORE).clear();
+  await waitForTransaction(tx);
+}
+
+function byteSizeOfRecord(record) {
+  return JSON.stringify(record).length;
+}
+
+async function syncCaptureMetaFromDb() {
+  const records = await readAllResponses();
+  const nextSeq = records.reduce((maxSeq, record) => Math.max(maxSeq, Number(record.seq) || 0), 0) + 1;
+  const bytesUsed = records.reduce((sum, record) => sum + byteSizeOfRecord(record), 0);
+  await chrome.storage.local.set({
+    [META.RESPONSE_COUNT]: records.length,
+    [META.BYTES_USED]: bytesUsed,
+    [META.NEXT_SEQ]: nextSeq,
+  });
+}
+
+function enqueueAppend(operation) {
+  const run = appendQueue.then(operation, operation);
+  appendQueue = run.catch(() => {});
+  return run;
+}
+
+async function appendResponses(texts) {
+  const validTexts = texts.filter((text) => typeof text === 'string' && text.length > 0);
+  if (validTexts.length === 0) {
+    return {written: 0};
+  }
+
+  return enqueueAppend(async () => {
+    const meta = await chrome.storage.local.get([
+      META.RESPONSE_COUNT,
+      META.BYTES_USED,
+      META.NEXT_SEQ,
+    ]);
+    const nextSeq = Number.isFinite(meta[META.NEXT_SEQ]) ? meta[META.NEXT_SEQ] : 1;
+    const timestamp = new Date().toISOString();
+    const records = validTexts.map((text, index) => ({
+      seq: nextSeq + index,
+      capturedAt: timestamp,
+      text,
+    }));
+
+    const db = await openCaptureDb();
+    const tx = db.transaction(RESPONSES_STORE, 'readwrite');
+    const store = tx.objectStore(RESPONSES_STORE);
+    for (const record of records) {
+      store.put(record);
+    }
+    await waitForTransaction(tx);
+
+    const bytesAdded = records.reduce((sum, record) => sum + byteSizeOfRecord(record), 0);
+    await chrome.storage.local.set({
+      [META.RESPONSE_COUNT]: (meta[META.RESPONSE_COUNT] ?? 0) + records.length,
+      [META.BYTES_USED]: (meta[META.BYTES_USED] ?? 0) + bytesAdded,
+      [META.NEXT_SEQ]: nextSeq + records.length,
+    });
+
+    return {
+      written: records.length,
+      bytesAdded,
+    };
+  });
+}
+
 async function initializeState() {
   await ensureStorageAccess();
   await ensureDefaults();
+  await openCaptureDb();
+  await syncCaptureMetaFromDb();
   log('Background state initialized');
 }
 
@@ -339,24 +457,40 @@ void ensureStorageAccess();
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   switch (msg.type) {
+    case MSG.APPEND_RESPONSES:
+      void (async () => {
+        try {
+          const sessionState = await chrome.storage.session.get([STORE.CAPTURING]);
+          if (!sessionState[STORE.CAPTURING]) {
+            sendResponse({ok: true, ignored: true, written: 0});
+            return;
+          }
+          const result = await appendResponses(msg.responses ?? []);
+          sendResponse({ok: true, ...result});
+        } catch (err) {
+          sendResponse({ok: false, error: String(err?.message ?? err)});
+        }
+      })();
+      return true;
+
     case MSG.GET_STATE:
       void (async () => {
         const [sessionState, metaState] = await Promise.all([
-          chrome.storage.session.get([STORE.CAPTURING, STORE.RESPONSES]),
+          chrome.storage.session.get([STORE.CAPTURING]),
           chrome.storage.local.get([
-            META.QUOTA_EXCEEDED,
             META.UNSAVED_RESPONSES,
             META.LAST_ERROR,
+            META.DOWNLOAD_DIR,
             META.GROUP_URLS,
+            META.RESPONSE_COUNT,
+            META.BYTES_USED,
           ]),
         ]);
-        const responses = sessionState[STORE.RESPONSES] ?? [];
-        const bytesUsed = JSON.stringify(responses).length;
         sendResponse({
           capturing: !!sessionState[STORE.CAPTURING],
-          count: responses.length,
-          bytesUsed,
-          quotaExceeded: !!metaState[META.QUOTA_EXCEEDED],
+          count: metaState[META.RESPONSE_COUNT] ?? 0,
+          bytesUsed: metaState[META.BYTES_USED] ?? 0,
+          largeCapture: (metaState[META.BYTES_USED] ?? 0) >= LARGE_CAPTURE_WARNING_BYTES,
           unsavedResponses: metaState[META.UNSAVED_RESPONSES] ?? 0,
           lastError: metaState[META.LAST_ERROR] ?? '',
           downloadDir: metaState[META.DOWNLOAD_DIR] ?? DEFAULT_DOWNLOAD_DIR,
@@ -428,18 +562,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       })();
       return true;
 
-    case MSG.QUOTA_EXCEEDED:
+    case MSG.CAPTURE_WRITE_FAILED:
       void (async () => {
         const current = await chrome.storage.local.get(META.UNSAVED_RESPONSES);
         await chrome.storage.session.set({[STORE.CAPTURING]: false});
         await chrome.storage.local.set({
-          [META.QUOTA_EXCEEDED]: true,
           [META.UNSAVED_RESPONSES]:
             (current[META.UNSAVED_RESPONSES] ?? 0) + (msg.unsavedCount ?? 0),
-          [META.LAST_ERROR]:
-            'Capture stopped because extension storage is full. Download now, then clear before continuing.',
+          [META.LAST_ERROR]: msg.error || 'Capture stopped because buffered responses could not be persisted.',
         });
-        warn('Capture stopped because storage quota was exceeded');
+        warn('Capture stopped because buffered responses could not be persisted');
       })();
       break;
 
@@ -458,10 +590,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     case MSG.DOWNLOAD:
       void (async () => {
         const [result, metaState] = await Promise.all([
-          chrome.storage.session.get(STORE.RESPONSES),
+          readAllResponses(),
           chrome.storage.local.get(META.DOWNLOAD_DIR),
         ]);
-        const responses = result[STORE.RESPONSES] ?? [];
+        const responses = result;
         if (responses.length === 0) {
           warn('Download requested with no captured responses');
           sendResponse({ok: false, error: 'No data captured yet.'});
@@ -508,9 +640,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
     case MSG.CLEAR:
       void (async () => {
-        await chrome.storage.session.set({
-          [STORE.RESPONSES]: [],
-          [STORE.NEXT_SEQ]: 1,
+        await clearResponses();
+        await chrome.storage.local.set({
+          [META.RESPONSE_COUNT]: 0,
+          [META.BYTES_USED]: 0,
+          [META.NEXT_SEQ]: 1,
         });
         await resetMeta();
         log('Cleared captured responses');

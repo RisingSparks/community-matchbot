@@ -247,8 +247,8 @@ uv run python scripts/backfill_facebook.py data/raw/facebook/fb_posts_2026-03-22
 Operational notes:
 
 - The extension is passive. It does not automate browsing.
-- Captured data in extension storage is lost if the browser closes before you download it.
-- `chrome.storage.session` has a 10 MB limit. If the popup warns that storage is nearly full, download and clear before continuing.
+- Captured data is buffered in the extension until you download or clear it.
+- The popup warns once the capture grows past 20 MB so you know it is time to download and clear.
 - Extension output contains Facebook post data and user identifiers. Treat it as sensitive local data.
 
 #### Option B: HAR export fallback

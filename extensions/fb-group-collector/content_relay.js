@@ -2,14 +2,13 @@
 // Listens for CustomEvents dispatched by content_main.js
 
 const MSG = {
+  APPEND_RESPONSES: 'append_responses',
+  CAPTURE_WRITE_FAILED: 'capture_write_failed',
   ENSURE_NEW_POSTS_SORT: 'ensure_new_posts_sort',
-  QUOTA_EXCEEDED: 'quota_exceeded',
 };
 
 const STORE = {
   CAPTURING: 'fbgc_capturing',
-  RESPONSES: 'fbgc_responses',
-  NEXT_SEQ: 'fbgc_next_seq',
 };
 
 let pendingResponses = [];
@@ -120,6 +119,32 @@ async function getSessionValues(keys) {
   }
 }
 
+async function sendRuntimeMessage(message) {
+  if (!extensionContextValid) {
+    return null;
+  }
+
+  try {
+    return await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(message, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        resolve(response);
+      });
+    });
+  } catch (err) {
+    if (isContextInvalidated(err)) {
+      extensionContextValid = false;
+      notifyBridgeOffline();
+      warn('Extension context invalidated while messaging the background worker');
+      return null;
+    }
+    throw err;
+  }
+}
+
 async function flushResponses() {
   if (flushPromise) {
     return flushPromise;
@@ -130,53 +155,45 @@ async function flushResponses() {
       const batch = pendingResponses;
       pendingResponses = [];
 
-      const result = await getSessionValues([STORE.RESPONSES, STORE.NEXT_SEQ]);
+      const result = await getSessionValues([STORE.CAPTURING]);
       if (!result) {
         return;
       }
+      if (!result[STORE.CAPTURING]) {
+        return;
+      }
 
-      const existing = result[STORE.RESPONSES] ?? [];
-      const nextSeq = Number.isFinite(result[STORE.NEXT_SEQ])
-        ? result[STORE.NEXT_SEQ]
-        : existing.length + 1;
-      const timestamp = new Date().toISOString();
-      const records = batch.map((text, index) => ({
-        seq: nextSeq + index,
-        capturedAt: timestamp,
-        text,
-      }));
       try {
-        await chrome.storage.session.set({
-          [STORE.RESPONSES]: existing.concat(records),
-          [STORE.NEXT_SEQ]: nextSeq + records.length,
+        const appendResult = await sendRuntimeMessage({
+          type: MSG.APPEND_RESPONSES,
+          responses: batch,
         });
+        if (!appendResult) {
+          return;
+        }
+        if (!appendResult.ok) {
+          await sendRuntimeMessage({
+            type: MSG.CAPTURE_WRITE_FAILED,
+            unsavedCount: batch.length,
+            error: appendResult.error || 'Capture stopped because IndexedDB writes failed.',
+          });
+          warn('Stopping capture because the background worker rejected an append batch');
+          return;
+        }
       } catch (err) {
         if (isContextInvalidated(err)) {
           extensionContextValid = false;
           notifyBridgeOffline();
-          warn('Extension context invalidated during storage write');
+          warn('Extension context invalidated during background append');
           return;
         }
-        // chrome.storage.session is capped at 10 MB. Stop capture immediately so we do not
-        // keep silently discarding subsequent responses while the popup still says "ON".
-        if (err?.name === 'QuotaExceededError' || err?.message?.includes('QuotaExceeded')) {
-          pendingResponses = batch.concat(pendingResponses);
-          warn('Storage quota exceeded; stopping capture with unsaved responses', batch.length);
-          try {
-            chrome.runtime.sendMessage({type: MSG.QUOTA_EXCEEDED, unsavedCount: batch.length});
-          } catch (sendErr) {
-            if (isContextInvalidated(sendErr)) {
-              extensionContextValid = false;
-              notifyBridgeOffline();
-              warn('Extension context invalidated while notifying background about quota overflow');
-              return;
-            }
-            errorLog('Failed to notify background about quota overflow', sendErr);
-          }
-          return;
-        } else {
-          errorLog('Failed to persist captured responses', err);
-        }
+        errorLog('Failed to persist captured responses', err);
+        await sendRuntimeMessage({
+          type: MSG.CAPTURE_WRITE_FAILED,
+          unsavedCount: batch.length,
+          error: 'Capture stopped because IndexedDB writes failed.',
+        });
+        return;
       }
     }
   })().finally(() => {
