@@ -2,7 +2,9 @@
 """Backfill historical Facebook posts from HAR or Extension JSON files."""
 
 import asyncio
+import json
 import logging
+import re
 import sys
 from datetime import UTC, datetime, time
 from pathlib import Path
@@ -24,6 +26,11 @@ from matchbot.settings import get_settings
 logger = logging.getLogger("matchbot.backfill_facebook")
 app = typer.Typer()
 _FORMAT_SNIFF_BYTES = 64 * 1024
+_GROUPS_PATH_RE = re.compile(r"facebook\.com/groups/([^/?#]+)", re.IGNORECASE)
+_EXTENSION_FILENAME_RE = re.compile(
+    r"^(?P<slug>.+)_fb_posts_\d{4}-\d{2}-\d{2}T.*$",
+    re.IGNORECASE,
+)
 
 
 def _detect_format(path: Path) -> str:
@@ -40,12 +47,93 @@ def _detect_format(path: Path) -> str:
     return "unknown"
 
 
+def _extract_group_token_from_url(url: str) -> str | None:
+    match = _GROUPS_PATH_RE.search(url)
+    if not match:
+        return None
+    token = match.group(1).strip()
+    return token or None
+
+
+def _titleize_group_slug(slug: str) -> str:
+    words = re.split(r"[-_]+", slug.strip())
+    return " ".join(word.capitalize() for word in words if word)
+
+
+def _infer_group_name_from_filename(path: Path) -> str | None:
+    match = _EXTENSION_FILENAME_RE.match(path.stem)
+    if not match:
+        return None
+    slug = match.group("slug").strip("-_ ")
+    if not slug:
+        return None
+    return _titleize_group_slug(slug)
+
+
+def _infer_group_name_from_har(path: Path) -> str | None:
+    try:
+        with open(path, "rb") as f:
+            har_data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    pages = har_data.get("log", {}).get("pages", [])
+    for page in pages:
+        title = str(page.get("title") or "").strip()
+        if not title:
+            continue
+        cleaned = re.sub(r"\s*[-|]\s*Facebook\s*$", "", title, flags=re.IGNORECASE).strip()
+        if cleaned:
+            return cleaned
+    return None
+
+
+def _infer_group_metadata(
+    files: list[Path],
+    file_formats: dict[Path, str],
+    posts: list[dict],
+) -> tuple[str | None, str | None]:
+    inferred_name: str | None = None
+    group_tokens = {
+        token
+        for post in posts
+        if (token := _extract_group_token_from_url(str(post.get("source_url") or "")))
+    }
+
+    if len(group_tokens) == 1:
+        token = next(iter(group_tokens))
+        if token.isdigit():
+            inferred_group_id = token
+        else:
+            inferred_group_id = None
+            inferred_name = _titleize_group_slug(token)
+    else:
+        inferred_group_id = None
+
+    for path in files:
+        if inferred_name:
+            break
+        if file_formats.get(path) == "extension":
+            inferred_name = _infer_group_name_from_filename(path)
+        elif file_formats.get(path) == "har":
+            inferred_name = _infer_group_name_from_har(path)
+
+    if not inferred_name and inferred_group_id:
+        inferred_name = f"Facebook Group {inferred_group_id}"
+
+    return inferred_name, inferred_group_id
+
+
 @app.command()
 def main(
     files: list[Path] = typer.Argument(..., help="Path to HAR or Extension JSON file(s)"),
-    group_name: str = typer.Option(..., "--group-name", help="Name of the Facebook group"),
+    group_name: str | None = typer.Option(
+        None,
+        "--group-name",
+        help="Name of the Facebook group (optional override; inferred when possible)",
+    ),
     group_id: str | None = typer.Option(
-        None, "--group-id", help="Numeric Facebook Group ID (optional)"
+        None, "--group-id", help="Numeric Facebook Group ID (optional override)"
     ),
     since_date: str | None = typer.Option(
         None, "--since-date", help="UTC date cutoff (YYYY-MM-DD)"
@@ -79,7 +167,7 @@ def main(
 async def _main_async(
     *,
     files: list[Path],
-    group_name: str,
+    group_name: str | None,
     group_id: str | None,
     since_date: str | None,
     dry_run: bool,
@@ -99,12 +187,14 @@ async def _main_async(
     await create_db_and_tables()
 
     all_parsed_posts = []
+    file_formats: dict[Path, str] = {}
     for path in files:
         if not path.exists():
             logger.error("File not found: %s", path)
             continue
 
         fmt = _detect_format(path)
+        file_formats[path] = fmt
         logger.info("Processing %s (detected format: %s)", path, fmt)
 
         if fmt == "har":
@@ -131,11 +221,26 @@ async def _main_async(
         await dispose_engine()
         return
 
+    inferred_group_name, inferred_group_id = _infer_group_metadata(files, file_formats, unique_posts)
+    resolved_group_name = group_name or inferred_group_name
+    resolved_group_id = group_id or inferred_group_id
+
+    if not resolved_group_name:
+        raise typer.BadParameter(
+            "Could not infer Facebook group name from the input. Pass --group-name to override."
+        )
+
+    logger.info(
+        "Using Facebook group metadata: group_name=%s group_id=%s",
+        resolved_group_name,
+        resolved_group_id or "<unknown>",
+    )
+
     try:
         counts = await backfill_facebook_posts(
             unique_posts,
-            group_name=group_name,
-            group_id=group_id,
+            group_name=resolved_group_name,
+            group_id=resolved_group_id,
             since_datetime=since_datetime,
             dry_run=dry_run,
             sleep_seconds=sleep_seconds,

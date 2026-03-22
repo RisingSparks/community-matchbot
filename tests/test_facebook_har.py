@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from sqlmodel import select
@@ -16,7 +17,11 @@ from matchbot.importers.facebook_har import (
     parse_facebook_post_fields,
     parse_har_file,
 )
-from scripts.backfill_facebook import _detect_format
+from scripts.backfill_facebook import (
+    _detect_format,
+    _infer_group_metadata,
+    _infer_group_name_from_filename,
+)
 
 
 def test_find_post_nodes_graphql_relay_style():
@@ -192,6 +197,45 @@ def test_detect_format_sniffs_extension_json_without_loading_full_json(tmp_path)
     ext_file.write_text('["payload",' + (" " * 1000) + '"more"]')
 
     assert _detect_format(ext_file) == "extension"
+
+
+def test_infer_group_name_from_extension_filename():
+    path = Path("data/raw/facebook/burning-man-theme-camps_fb_posts_2026-03-22T12-00-00.json")
+    assert _infer_group_name_from_filename(path) == "Burning Man Theme Camps"
+
+
+def test_infer_group_metadata_from_post_urls():
+    posts = [
+        {
+            "platform_post_id": "1",
+            "source_url": "https://www.facebook.com/groups/1234567890/posts/1",
+        },
+        {
+            "platform_post_id": "2",
+            "source_url": "https://www.facebook.com/groups/1234567890/posts/2",
+        },
+    ]
+
+    inferred_name, inferred_id = _infer_group_metadata([], {}, posts)
+
+    assert inferred_id == "1234567890"
+    assert inferred_name == "Facebook Group 1234567890"
+
+
+def test_infer_group_metadata_from_har_page_title(tmp_path):
+    har_content = {
+        "log": {
+            "pages": [{"title": "Burning Man Theme Camps | Facebook"}],
+            "entries": [],
+        }
+    }
+    har_file = tmp_path / "session.har"
+    har_file.write_text(json.dumps(har_content))
+
+    inferred_name, inferred_id = _infer_group_metadata([har_file], {har_file: "har"}, [])
+
+    assert inferred_name == "Burning Man Theme Camps"
+    assert inferred_id is None
 
 
 @pytest.mark.asyncio

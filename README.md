@@ -95,15 +95,13 @@ Backfill historical Facebook group posts from a HAR export or the bundled Chrome
 
 ```bash
 uv run python scripts/backfill_facebook.py ./fb_posts.json \
-  --group-name "Burning Man Theme Camps" \
-  --group-id 1234567890 \
   --dry-run
 
 uv run python scripts/backfill_facebook.py ./fb_posts.json \
-  --group-name "Burning Man Theme Camps" \
-  --group-id 1234567890 \
   --no-extract
 ```
+
+Pass `--group-name` and `--group-id` only if you need to override missing or incorrect metadata.
 
 See `docs/PLATFORM_SETUP.md` for the step-by-step Facebook backfill workflow.
 

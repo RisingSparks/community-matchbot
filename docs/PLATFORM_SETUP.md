@@ -195,6 +195,7 @@ This is the preferred approach because it does not synthesize scrolls or clicks.
    - Enable **Developer mode**
    - Click **Load unpacked**
    - Select `extensions/fb-group-collector/`
+   - If you want downloads to land directly in this repo, set Chrome's download directory once so the extension's relative subfolder resolves where you want it
 
 2. Start a capture session:
    - Open the target Facebook group in the same browser profile you normally use
@@ -205,15 +206,14 @@ This is the preferred approach because it does not synthesize scrolls or clicks.
 3. Download the capture:
    - Click **Download fb_posts.json**
    - The extension stops capture before starting the download so the file is less likely to miss the last buffered responses
-   - Save the file somewhere local, for example `data/raw/facebook/fb_posts_2026-03-22.json`
+   - By default it saves into `burning-man-matchbot/data/raw/facebook/` relative to Chrome's download directory
+   - The filename includes the Facebook group slug when it can infer one from the current tab
    - Only click **Clear Storage** after the download succeeds
 
 4. Import the capture:
 
 ```bash
 uv run python scripts/backfill_facebook.py data/raw/facebook/fb_posts_2026-03-22.json \
-  --group-name "Burning Man Theme Camps" \
-  --group-id 1234567890 \
   --dry-run
 ```
 
@@ -221,8 +221,6 @@ If the dry run looks right, import for real:
 
 ```bash
 uv run python scripts/backfill_facebook.py data/raw/facebook/fb_posts_2026-03-22.json \
-  --group-name "Burning Man Theme Camps" \
-  --group-id 1234567890 \
   --no-extract
 ```
 
@@ -232,8 +230,6 @@ Useful options:
 
 ```bash
 uv run python scripts/backfill_facebook.py data/raw/facebook/fb_posts_2026-03-22.json \
-  --group-name "Burning Man Theme Camps" \
-  --group-id 1234567890 \
   --since-date 2026-01-01 \
   --sleep-seconds 0.5
 ```
@@ -242,6 +238,7 @@ uv run python scripts/backfill_facebook.py data/raw/facebook/fb_posts_2026-03-22
 - `--dry-run`: parse and deduplicate only, with no DB writes
 - `--no-extract`: save imported posts as `RAW` without calling the LLM extractor
 - `--sleep-seconds`: pause between extraction calls when extraction is enabled
+- `--group-name`, `--group-id`: optional overrides if the importer cannot infer correct group metadata
 
 Operational notes:
 
@@ -263,8 +260,6 @@ If the extension stops working because Facebook changes its frontend behavior, y
 
 ```bash
 uv run python scripts/backfill_facebook.py data/raw/facebook/session.har \
-  --group-name "Burning Man Theme Camps" \
-  --group-id 1234567890 \
   --dry-run
 ```
 
