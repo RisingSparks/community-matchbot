@@ -7,6 +7,7 @@ const MSG = {
   SET_CAPTURING: 'set_capturing',
   DOWNLOAD: 'download',
   CLEAR: 'clear',
+  SET_DOWNLOAD_CONFIG: 'set_download_config',
 };
 
 const STORE = {
@@ -19,7 +20,10 @@ const META = {
   QUOTA_EXCEEDED: 'fbgc_quota_exceeded',
   UNSAVED_RESPONSES: 'fbgc_unsaved_responses',
   LAST_ERROR: 'fbgc_last_error',
+  DOWNLOAD_DIR: 'fbgc_download_dir',
 };
+
+const DEFAULT_DOWNLOAD_DIR = 'burning-man-matchbot/data/raw/facebook';
 
 const log = (...args) => console.info('FBGC[background]:', ...args);
 const warn = (...args) => console.warn('FBGC[background]:', ...args);
@@ -60,6 +64,7 @@ async function ensureDefaults() {
     META.QUOTA_EXCEEDED,
     META.UNSAVED_RESPONSES,
     META.LAST_ERROR,
+    META.DOWNLOAD_DIR,
   ]);
 
   const sessionDefaults = {};
@@ -87,6 +92,9 @@ async function ensureDefaults() {
   if (typeof localState[META.LAST_ERROR] !== 'string') {
     metaDefaults[META.LAST_ERROR] = '';
   }
+  if (typeof localState[META.DOWNLOAD_DIR] !== 'string' || !localState[META.DOWNLOAD_DIR].trim()) {
+    metaDefaults[META.DOWNLOAD_DIR] = DEFAULT_DOWNLOAD_DIR;
+  }
   if (Object.keys(metaDefaults).length > 0) {
     await chrome.storage.local.set(metaDefaults);
   }
@@ -98,9 +106,53 @@ async function initializeState() {
   log('Background state initialized');
 }
 
-function buildFilename() {
+function sanitizePathSegment(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/https?:\/\//g, '')
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80);
+}
+
+function inferGroupSlug(tabInfo) {
+  const url = String(tabInfo?.url ?? '');
+  const title = String(tabInfo?.title ?? '');
+
+  const groupsMatch = url.match(/facebook\.com\/groups\/([^/?#]+)/i);
+  if (groupsMatch?.[1]) {
+    return sanitizePathSegment(groupsMatch[1]);
+  }
+
+  const cleanedTitle = title
+    .replace(/\s*\|\s*Facebook\s*$/i, '')
+    .replace(/\s*-\s*Facebook\s*$/i, '')
+    .trim();
+  const titleSlug = sanitizePathSegment(cleanedTitle);
+  if (titleSlug) {
+    return titleSlug;
+  }
+
+  return 'facebook-group';
+}
+
+function sanitizeRelativeDir(value) {
+  const normalized = String(value ?? '')
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .split('/')
+    .map((segment) => sanitizePathSegment(segment))
+    .filter(Boolean)
+    .join('/');
+  return normalized || DEFAULT_DOWNLOAD_DIR;
+}
+
+function buildFilename(tabInfo, downloadDir) {
   const iso = new Date().toISOString().replace(/[:]/g, '-');
-  return `fb_posts_${iso}.json`;
+  const groupSlug = inferGroupSlug(tabInfo);
+  const baseDir = sanitizeRelativeDir(downloadDir);
+  return `${baseDir}/${groupSlug}_fb_posts_${iso}.json`;
 }
 
 function buildDownloadUrl(payload) {
@@ -149,6 +201,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           quotaExceeded: !!metaState[META.QUOTA_EXCEEDED],
           unsavedResponses: metaState[META.UNSAVED_RESPONSES] ?? 0,
           lastError: metaState[META.LAST_ERROR] ?? '',
+          downloadDir: metaState[META.DOWNLOAD_DIR] ?? DEFAULT_DOWNLOAD_DIR,
         });
       })();
       return true;
@@ -182,7 +235,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
     case MSG.DOWNLOAD:
       void (async () => {
-        const result = await chrome.storage.session.get(STORE.RESPONSES);
+        const [result, metaState] = await Promise.all([
+          chrome.storage.session.get(STORE.RESPONSES),
+          chrome.storage.local.get(META.DOWNLOAD_DIR),
+        ]);
         const responses = result[STORE.RESPONSES] ?? [];
         if (responses.length === 0) {
           warn('Download requested with no captured responses');
@@ -192,12 +248,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         const payload = JSON.stringify(responses, null, 2);
         const downloadTarget = buildDownloadUrl(payload);
+        const filename = buildFilename(msg.tabInfo, metaState[META.DOWNLOAD_DIR]);
         log(`Starting download for ${responses.length} captured response(s)`);
         chrome.downloads.download(
           {
             url: downloadTarget.url,
-            filename: buildFilename(),
-            saveAs: true,
+            filename,
+            saveAs: false,
           },
           (downloadId) => {
             const error = chrome.runtime.lastError?.message;
@@ -209,10 +266,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               sendResponse({ok: false, error});
               return;
             }
-            log(`Download started (id=${downloadId})`);
-            sendResponse({ok: true, downloadId});
+            log(`Download started (id=${downloadId}, filename=${filename})`);
+            sendResponse({ok: true, downloadId, filename});
           },
         );
+      })();
+      return true;
+
+    case MSG.SET_DOWNLOAD_CONFIG:
+      void (async () => {
+        const dir = sanitizeRelativeDir(msg.downloadDir);
+        await chrome.storage.local.set({
+          [META.DOWNLOAD_DIR]: dir,
+        });
+        log(`Download directory set to ${dir}`);
+        sendResponse({ok: true, downloadDir: dir});
       })();
       return true;
 

@@ -7,6 +7,9 @@
     .warning { color: #d32f2f; font-size: 0.8em; margin: 10px 0; }
     button { width: 100%; margin: 5px 0; padding: 8px; cursor: pointer; }
     #stats { font-size: 0.9em; color: #666; margin-bottom: 10px; }
+    label { display: block; font-size: 0.85em; font-weight: bold; margin: 10px 0 4px; }
+    input { width: 100%; box-sizing: border-box; padding: 6px; }
+    .help { color: #666; font-size: 0.8em; margin-top: 4px; }
   </style>
 </head>
 <body>
@@ -17,6 +20,11 @@
     Storage: <span id="cap_storage">0 KB</span>
   </div>
   <div id="download_status" class="warning" style="display:none"></div>
+  <label for="download_dir">Download Subfolder</label>
+  <input id="download_dir" type="text" />
+  <div class="help">
+    Relative to Chrome's download directory. Set Chrome's base download directory once if you want this to land inside your repo.
+  </div>
   <button id="toggle">Start Capturing</button>
   <button id="download">Download fb_posts.json</button>
   <button id="clear">Clear Storage</button>

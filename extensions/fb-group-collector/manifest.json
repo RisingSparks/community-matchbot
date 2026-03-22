@@ -3,7 +3,7 @@
   "name": "FB Group Post Collector",
   "version": "1.0",
   "description": "Captures Facebook Group GraphQL responses for Burning Man matchbot",
-  "permissions": ["storage", "downloads"],
+  "permissions": ["storage", "downloads", "tabs"],
   "host_permissions": ["*://*.facebook.com/*"],
   "content_scripts": [
     {

@@ -5,6 +5,7 @@ const MSG = {
   SET_CAPTURING: 'set_capturing',
   DOWNLOAD: 'download',
   CLEAR: 'clear',
+  SET_DOWNLOAD_CONFIG: 'set_download_config',
 };
 
 const POLL_INTERVAL_MS = 1000;
@@ -21,6 +22,12 @@ let currentState = {
   quotaExceeded: false,
   unsavedResponses: 0,
   lastError: '',
+  downloadDir: '',
+};
+
+let activeTabInfo = {
+  title: '',
+  url: '',
 };
 
 function sendMessage(message) {
@@ -76,6 +83,27 @@ async function updateUI() {
     unsavedWarn.style.display = 'none';
     unsavedWarn.innerText = '';
   }
+
+  const downloadDirInput = document.getElementById('download_dir');
+  if (document.activeElement !== downloadDirInput) {
+    downloadDirInput.value = currentState.downloadDir || '';
+  }
+}
+
+async function loadActiveTabInfo() {
+  try {
+    const tabs = await chrome.tabs.query({active: true, currentWindow: true});
+    const tab = tabs[0];
+    activeTabInfo = {
+      title: tab?.title || '',
+      url: tab?.url || '',
+    };
+  } catch {
+    activeTabInfo = {
+      title: '',
+      url: '',
+    };
+  }
 }
 
 async function waitForSettledStorage() {
@@ -129,14 +157,14 @@ document.getElementById('download').addEventListener('click', async () => {
       await waitForSettledStorage();
     }
 
-    const result = await sendMessage({type: MSG.DOWNLOAD});
+    const result = await sendMessage({type: MSG.DOWNLOAD, tabInfo: activeTabInfo});
     if (!result?.ok) {
       warn('Download failed to start', result?.error || 'unknown error');
       setStatus(result?.error || 'Download failed.');
       return;
     }
     log('Download started');
-    setStatus('Download started. Clear storage after the file is saved.');
+    setStatus(`Saved to ${result.filename}. Clear storage after the file is saved.`);
   } catch {
     warn('Download failed');
     setStatus('Download failed.');
@@ -163,7 +191,20 @@ document.getElementById('clear').addEventListener('click', async () => {
   await updateUI();
 });
 
+document.getElementById('download_dir').addEventListener('change', async (event) => {
+  const value = event.target.value;
+  try {
+    const result = await sendMessage({type: MSG.SET_DOWNLOAD_CONFIG, downloadDir: value});
+    currentState.downloadDir = result.downloadDir;
+    event.target.value = result.downloadDir;
+    setStatus('');
+  } catch {
+    warn('Failed to save download directory');
+    setStatus('Failed to save download directory.');
+  }
+});
+
 setInterval(() => {
   void updateUI();
 }, POLL_INTERVAL_MS);
-void updateUI();
+void Promise.all([updateUI(), loadActiveTabInfo()]);
