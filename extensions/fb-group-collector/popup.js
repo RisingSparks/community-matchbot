@@ -562,7 +562,9 @@ document.getElementById('download').addEventListener('click', async () => {
       return;
     }
     log('Download started');
-    setStatus(`Saved to ${result.filename}. Clear storage after the file is saved.`);
+    setStatus(
+      `Download started to your browser Downloads folder as ${result.filename}. Clear storage after the file is saved.`,
+    );
   } catch {
     warn('Download failed');
     setStatus('Download failed.');

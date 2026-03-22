@@ -5,6 +5,7 @@ import asyncio
 import json
 import logging
 import re
+import shutil
 import sys
 from datetime import UTC, datetime, time
 from pathlib import Path
@@ -31,6 +32,8 @@ _EXTENSION_FILENAME_RE = re.compile(
     r"^(?P<slug>.+)_fb_posts_\d{4}-\d{2}-\d{2}T.*$",
     re.IGNORECASE,
 )
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_FACEBOOK_RAW_DIR = _REPO_ROOT / "data" / "raw" / "facebook"
 
 
 def _detect_format(path: Path) -> str:
@@ -86,6 +89,33 @@ def _infer_group_name_from_har(path: Path) -> str | None:
         if cleaned:
             return cleaned
     return None
+
+
+def _stage_input_file(path: Path, staging_dir: Path = _FACEBOOK_RAW_DIR) -> Path:
+    """Copy external capture files into the repo-local Facebook raw data directory."""
+    resolved_path = path.expanduser().resolve()
+    resolved_staging_dir = staging_dir.resolve()
+
+    if resolved_path.parent == resolved_staging_dir:
+        return resolved_path
+
+    resolved_staging_dir.mkdir(parents=True, exist_ok=True)
+
+    destination = resolved_staging_dir / resolved_path.name
+    if destination.exists() and destination.resolve() != resolved_path:
+        suffix = 2
+        while True:
+            candidate = destination.with_name(
+                f"{destination.stem}-{suffix}{destination.suffix}"
+            )
+            if not candidate.exists():
+                destination = candidate
+                break
+            suffix += 1
+
+    shutil.copy2(resolved_path, destination)
+    logger.info("Copied %s to repo data dir: %s", resolved_path, destination)
+    return destination
 
 
 def _infer_group_metadata(
@@ -188,10 +218,15 @@ async def _main_async(
 
     all_parsed_posts = []
     file_formats: dict[Path, str] = {}
-    for path in files:
+    staged_files: list[Path] = []
+    for original_path in files:
+        path = original_path.expanduser()
         if not path.exists():
             logger.error("File not found: %s", path)
             continue
+
+        path = _stage_input_file(path)
+        staged_files.append(path)
 
         fmt = _detect_format(path)
         file_formats[path] = fmt
@@ -221,7 +256,9 @@ async def _main_async(
         await dispose_engine()
         return
 
-    inferred_group_name, inferred_group_id = _infer_group_metadata(files, file_formats, unique_posts)
+    inferred_group_name, inferred_group_id = _infer_group_metadata(
+        staged_files, file_formats, unique_posts
+    )
     resolved_group_name = group_name or inferred_group_name
     resolved_group_id = group_id or inferred_group_id
 

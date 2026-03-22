@@ -21,6 +21,7 @@ from scripts.backfill_facebook import (
     _detect_format,
     _infer_group_metadata,
     _infer_group_name_from_filename,
+    _stage_input_file,
 )
 
 
@@ -202,6 +203,29 @@ def test_detect_format_sniffs_extension_json_without_loading_full_json(tmp_path)
 def test_infer_group_name_from_extension_filename():
     path = Path("data/raw/facebook/burning-man-theme-camps_fb_posts_2026-03-22T12-00-00.json")
     assert _infer_group_name_from_filename(path) == "Burning Man Theme Camps"
+
+
+def test_stage_input_file_copies_external_capture(tmp_path):
+    source = tmp_path / "downloads" / "officialburners_fb_posts_2026-03-22T14-19-49.782Z.json"
+    source.parent.mkdir(parents=True)
+    source.write_text("[]")
+
+    staging_dir = tmp_path / "repo" / "data" / "raw" / "facebook"
+    staged = _stage_input_file(source, staging_dir=staging_dir)
+
+    assert staged == staging_dir / source.name
+    assert staged.read_text() == "[]"
+
+
+def test_stage_input_file_keeps_repo_local_capture(tmp_path):
+    staging_dir = tmp_path / "repo" / "data" / "raw" / "facebook"
+    staging_dir.mkdir(parents=True)
+    source = staging_dir / "officialburners_fb_posts_2026-03-22T14-19-49.782Z.json"
+    source.write_text("[]")
+
+    staged = _stage_input_file(source, staging_dir=staging_dir)
+
+    assert staged == source.resolve()
 
 
 def test_infer_group_metadata_from_post_urls():
