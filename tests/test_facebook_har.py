@@ -20,6 +20,7 @@ from matchbot.importers.facebook_har import (
 from scripts.backfill_facebook import (
     _detect_format,
     _infer_group_metadata,
+    _infer_group_name_from_extension_json,
     _infer_group_name_from_filename,
     _stage_input_file,
 )
@@ -266,6 +267,21 @@ def test_detect_format_sniffs_extension_json_without_loading_full_json(tmp_path)
 def test_infer_group_name_from_extension_filename():
     path = Path("data/raw/facebook/burning-man-theme-camps_fb_posts_2026-03-22T12-00-00.json")
     assert _infer_group_name_from_filename(path) == "Burning Man Theme Camps"
+
+
+def test_infer_group_name_from_extension_json(tmp_path):
+    ext_content = [
+        {
+            "seq": 1,
+            "capturedAt": "2026-03-22T12:00:00.000Z",
+            "pageTitle": "Burning Man Theme Camps | Facebook",
+            "text": "{}",
+        }
+    ]
+    ext_file = tmp_path / "sample.json"
+    ext_file.write_text(json.dumps(ext_content))
+
+    assert _infer_group_name_from_extension_json(ext_file) == "Burning Man Theme Camps"
 
 
 def test_stage_input_file_copies_external_capture(tmp_path):

@@ -73,6 +73,29 @@ def _infer_group_name_from_filename(path: Path) -> str | None:
     return _titleize_group_slug(slug)
 
 
+def _infer_group_name_from_extension_json(path: Path) -> str | None:
+    try:
+        with open(path, "rb") as f:
+            responses = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    if not isinstance(responses, list):
+        return None
+
+    for item in responses:
+        if not isinstance(item, dict):
+            continue
+        page_title = str(item.get("pageTitle") or "").strip()
+        if not page_title:
+            continue
+        cleaned = re.sub(r"\s*[-|]\s*Facebook\s*$", "", page_title, flags=re.IGNORECASE).strip()
+        if cleaned:
+            return cleaned
+
+    return None
+
+
 def _infer_group_name_from_har(path: Path) -> str | None:
     try:
         with open(path, "rb") as f:
@@ -144,7 +167,9 @@ def _infer_group_metadata(
         if inferred_name:
             break
         if file_formats.get(path) == "extension":
-            inferred_name = _infer_group_name_from_filename(path)
+            inferred_name = _infer_group_name_from_extension_json(path)
+            if not inferred_name:
+                inferred_name = _infer_group_name_from_filename(path)
         elif file_formats.get(path) == "har":
             inferred_name = _infer_group_name_from_har(path)
 

@@ -30,7 +30,13 @@
     if (!window.__FBGC_BRIDGE_ONLINE__) {
       return;
     }
-    document.dispatchEvent(new CustomEvent('_fbgc', {detail: text}));
+    document.dispatchEvent(new CustomEvent('_fbgc', {
+      detail: {
+        text,
+        pageTitle: document.title || '',
+        pageUrl: window.location.href || '',
+      },
+    }));
   }
 
   window.fetch = async function(...args) {

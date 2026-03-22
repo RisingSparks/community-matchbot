@@ -184,9 +184,26 @@ function enqueueAppend(operation) {
   return run;
 }
 
-async function appendResponses(texts) {
-  const validTexts = texts.filter((text) => typeof text === 'string' && text.length > 0);
-  if (validTexts.length === 0) {
+async function appendResponses(responses) {
+  const validRecords = responses.flatMap((response) => {
+    if (typeof response === 'string' && response.length > 0) {
+      return [{text: response, pageTitle: '', pageUrl: ''}];
+    }
+    if (
+      response
+      && typeof response === 'object'
+      && typeof response.text === 'string'
+      && response.text.length > 0
+    ) {
+      return [{
+        text: response.text,
+        pageTitle: typeof response.pageTitle === 'string' ? response.pageTitle : '',
+        pageUrl: typeof response.pageUrl === 'string' ? response.pageUrl : '',
+      }];
+    }
+    return [];
+  });
+  if (validRecords.length === 0) {
     return {written: 0};
   }
 
@@ -198,10 +215,12 @@ async function appendResponses(texts) {
     ]);
     const nextSeq = Number.isFinite(meta[META.NEXT_SEQ]) ? meta[META.NEXT_SEQ] : 1;
     const timestamp = new Date().toISOString();
-    const records = validTexts.map((text, index) => ({
+    const records = validRecords.map((response, index) => ({
       seq: nextSeq + index,
       capturedAt: timestamp,
-      text,
+      text: response.text,
+      pageTitle: response.pageTitle,
+      pageUrl: response.pageUrl,
     }));
 
     const db = await openCaptureDb();
@@ -244,22 +263,25 @@ function sanitizePathSegment(value) {
     .slice(0, 80);
 }
 
+function cleanTabTitle(value) {
+  return String(value ?? '')
+    .replace(/\s*\|\s*Facebook\s*$/i, '')
+    .replace(/\s*-\s*Facebook\s*$/i, '')
+    .trim();
+}
+
 function inferGroupSlug(tabInfo) {
   const url = String(tabInfo?.url ?? '');
-  const title = String(tabInfo?.title ?? '');
+  const title = cleanTabTitle(tabInfo?.title);
+
+  const titleSlug = sanitizePathSegment(title);
+  if (titleSlug) {
+    return titleSlug;
+  }
 
   const groupsMatch = url.match(/facebook\.com\/groups\/([^/?#]+)/i);
   if (groupsMatch?.[1]) {
     return sanitizePathSegment(groupsMatch[1]);
-  }
-
-  const cleanedTitle = title
-    .replace(/\s*\|\s*Facebook\s*$/i, '')
-    .replace(/\s*-\s*Facebook\s*$/i, '')
-    .trim();
-  const titleSlug = sanitizePathSegment(cleanedTitle);
-  if (titleSlug) {
-    return titleSlug;
   }
 
   return 'facebook-group';
