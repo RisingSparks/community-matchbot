@@ -50,6 +50,12 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert "Build the city" in response.text
         assert "Looking for a camp or project" in response.text
         assert "Gear" in response.text
+        assert "Camp Connections" in response.text
+        assert "Infrastructure Exchange" in response.text
+        assert "A quick read on what this season's signals look like right now." in response.text
+        assert 'href="/community/seekers"' in response.text
+        assert 'href="/community/camps"' in response.text
+        assert 'href="/community/gear"' in response.text
         assert 'rel="icon"' in response.text
         assert "/favicon.svg" in response.text
 

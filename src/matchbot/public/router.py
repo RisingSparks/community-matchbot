@@ -338,15 +338,29 @@ _HOME_EXTRA_CSS = """
 .entry-body span { font-size: 13px; color: #6a6264; line-height: 1.35; }
 .entry-arrow { color: #2d5b4f; font-size: 18px; flex-shrink: 0; }
 .snapshot-section { margin-bottom: 28px; }
-.snapshot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-@media (max-width: 400px) { .snapshot-grid { grid-template-columns: 1fr; } }
+.snapshot-note { margin: 10px 0 0; font-size: 14px; line-height: 1.5; color: #6a6264; max-width: 58ch; }
+.snapshot-groups { display: grid; gap: 14px; margin-top: 14px; }
+.snapshot-group {
+  background: #fffdf8; border: 1px solid rgba(34,30,33,0.12);
+  border-radius: 16px; padding: 16px 14px;
+}
+.snapshot-group h2 { margin: 0 0 6px; font-size: 18px; line-height: 1.2; }
+.snapshot-group p { margin: 0; font-size: 14px; line-height: 1.5; color: #6a6264; }
+.snapshot-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 14px; }
+@media (max-width: 520px) { .snapshot-grid { grid-template-columns: 1fr; } }
 .snapshot-card {
   background: #fffdf8; border: 1px solid rgba(34,30,33,0.12);
   border-radius: 12px; padding: 16px 12px;
-  display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;
+}
+.snapshot-card:hover { border-color: #2d5b4f; transform: translateY(-1px); }
+.snapshot-link {
+  color: inherit; text-decoration: none;
+  transition: border-color 0.15s, transform 0.12s;
 }
 .snapshot-num { font-size: clamp(24px, 4vw, 36px); font-weight: 800; color: #2d5b4f; line-height: 1; }
-.snapshot-lbl { font-size: 11px; color: #6a6264; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+.snapshot-lbl { font-size: 13px; color: #221e21; font-weight: 700; line-height: 1.3; }
+.snapshot-desc { margin: 0; font-size: 12px; line-height: 1.4; color: #6a6264; }
 .recent-section { margin-bottom: 28px; }
 """
 
@@ -355,7 +369,7 @@ _HOME_BODY = """
     <section class="hero">
       <p class="eyebrow">Rising Sparks</p>
       <h1>Find your people.<br>Build the city.</h1>
-      <p>A community matchmaking experiment — surfacing camps, projects, and infrastructure across the ecosystem.</p>
+      <p>A community matchmaking experiment — surfacing participants, camps, projects, and infrastructure across the ecosystem.</p>
     </section>
     <div class="entry-list">
       <a href="/community/camps" class="entry-card">
@@ -384,24 +398,14 @@ _HOME_BODY = """
       </a>
     </div>
     <section class="snapshot-section">
-      <div class="section-label">This season</div>
-      <div class="snapshot-grid">
-        <div class="snapshot-card">
-          <span class="snapshot-num" id="snap-seekers">\u2014</span>
-          <span class="snapshot-lbl">seekers active</span>
-        </div>
-        <div class="snapshot-card">
-          <span class="snapshot-num" id="snap-camps">\u2014</span>
-          <span class="snapshot-lbl">camps &amp; projects</span>
-        </div>
-        <div class="snapshot-card">
-          <span class="snapshot-num" id="snap-intros">\u2014</span>
-          <span class="snapshot-lbl">connections made this season</span>
-        </div>
+      <div class="section-label">In The Pool</div>
+      <p class="snapshot-note">A quick read on what this season's signals look like right now. Each card opens the relevant listings or stats view.</p>
+      <div class="snapshot-groups" id="snapshot-groups">
+        <div class="loading-state">Loading overview\u2026</div>
       </div>
     </section>
     <section class="recent-section">
-      <div class="section-label">Recent listings</div>
+      <div class="section-label">Recent messages</div>
       <div class="card-grid" id="recent-grid">
         <div class="loading-state">Loading\u2026</div>
       </div>
@@ -426,10 +430,45 @@ async function loadHome() {
     ]);
     const metrics = await mRes.json();
     const listings = await lRes.json();
+    const summary = metrics.summary || {};
     const m = metrics.key_metrics || {};
-    document.getElementById('snap-seekers').textContent = fmt(m.active_seekers);
-    document.getElementById('snap-camps').textContent = fmt(m.active_camps);
-    document.getElementById('snap-intros').textContent = fmt(m.intro_sent_total);
+    const indexed = summary.indexed || 0;
+    const campPct = indexed > 0 ? Math.round(((m.active_camps || 0) / indexed) * 100) : 0;
+    const seekerPct = indexed > 0 ? Math.round(((m.active_seekers || 0) / indexed) * 100) : 0;
+    document.getElementById('snapshot-groups').innerHTML = [
+      '<div class="snapshot-group">'
+        + '<h2>Camp Connections</h2>'
+        + '<p>Who has openings, and who is trying to find a place to contribute.</p>'
+        + '<div class="snapshot-grid">'
+          + '<a href="/community/camps" class="snapshot-card snapshot-link" aria-label="Browse camps and art projects">'
+            + '<span class="snapshot-lbl">Camps &amp; Art Projects</span>'
+            + '<span class="snapshot-num">' + fmt(m.active_camps) + '</span>'
+            + '<p class="snapshot-desc">' + fmt(campPct) + '% of indexed posts — groups with openings or offerings</p>'
+          + '</a>'
+          + '<a href="/community/seekers" class="snapshot-card snapshot-link" aria-label="Browse seekers">'
+            + '<span class="snapshot-lbl">Seekers</span>'
+            + '<span class="snapshot-num">' + fmt(m.active_seekers) + '</span>'
+            + '<p class="snapshot-desc">' + fmt(seekerPct) + '% of indexed posts — people looking to join or contribute</p>'
+          + '</a>'
+        + '</div>'
+      + '</div>',
+      '<div class="snapshot-group">'
+        + '<h2>Infrastructure Exchange</h2>'
+        + '<p>Gear, logistics, and support signals that are active in the pool.</p>'
+        + '<div class="snapshot-grid">'
+          + '<a href="/community/gear" class="snapshot-card snapshot-link" aria-label="Browse infrastructure needs">'
+            + '<span class="snapshot-lbl">Infra Needs</span>'
+            + '<span class="snapshot-num">' + fmt(m.active_infra_seeking) + '</span>'
+            + '<p class="snapshot-desc">Indexed or reviewable posts seeking gear, logistics, or support</p>'
+          + '</a>'
+          + '<a href="/community/gear" class="snapshot-card snapshot-link" aria-label="Browse infrastructure offers">'
+            + '<span class="snapshot-lbl">Infra Offers</span>'
+            + '<span class="snapshot-num">' + fmt(m.active_infra_offering) + '</span>'
+            + '<p class="snapshot-desc">Indexed or reviewable posts offering gear, logistics, or support</p>'
+          + '</a>'
+        + '</div>'
+      + '</div>'
+    ].join('');
     const recent = [
       ...(listings.camps || []).slice(0, 2).map(c => ({item: c, type: 'camp'})),
       ...(listings.seekers || []).slice(0, 2).map(s => ({item: s, type: 'seeker'})),
