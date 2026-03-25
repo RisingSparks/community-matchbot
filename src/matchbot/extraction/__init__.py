@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Literal
 
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -23,9 +24,33 @@ from matchbot.taxonomy import (
 
 logger = logging.getLogger(__name__)
 
+_SERVICE_REQUEST_PATTERN = re.compile(
+    r"\b("
+    r"clean(?:ing)?|deep\s+clean|repair|fix(?:ing)?|maintenance|service|servicing|"
+    r"technician|specialist|professional\s+help|restoration|tune[\s-]?up|detail(?:ing)?"
+    r")\b"
+)
+_INFRA_EXCHANGE_PATTERN = re.compile(
+    r"\b("
+    r"borrow|lend|loan|rent|share|swap|sell|give(?:\s+away)?|available|extra|spare|"
+    r"free\s+to\s+a\s+good\s+home"
+    r")\b"
+)
+
 
 def _join_pipe(values: list[str]) -> str:
     return "|".join(values)
+
+
+def _is_service_like_infrastructure_post(title: str, body: str, extracted_post_type: str | None) -> bool:
+    """Reject service/repair asks that drift into infrastructure despite not being gear exchange."""
+    if extracted_post_type != PostType.INFRASTRUCTURE:
+        return False
+
+    text = f"{title}\n{body}".lower()
+    return bool(_SERVICE_REQUEST_PATTERN.search(text)) and not bool(
+        _INFRA_EXCHANGE_PATTERN.search(text)
+    )
 
 
 async def process_post(
@@ -125,6 +150,26 @@ async def process_post(
     condition_other = extracted.condition_other.strip() if extracted.condition_other else None
     if extracted.condition and valid_condition is None:
         condition_other = extracted.condition.strip().lower()
+
+    if _is_service_like_infrastructure_post(post.title, post.raw_text, extracted.post_type):
+        extracted = extracted.model_copy(
+            update={
+                "post_type": None,
+                "infra_role": None,
+                "infra_categories": [],
+                "infra_categories_other": [],
+                "quantity": None,
+                "condition": None,
+                "condition_other": None,
+                "dates_needed": None,
+                "extraction_notes": extracted.extraction_notes
+                or "Service/repair request, not a tangible gear exchange post.",
+            }
+        )
+        valid_infra_categories = []
+        infra_categories_other = []
+        valid_condition = None
+        condition_other = None
 
     # --- 5. Update Post fields ---
     post.post_type = extracted.post_type

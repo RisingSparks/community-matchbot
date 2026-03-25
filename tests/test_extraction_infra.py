@@ -375,3 +375,36 @@ async def test_process_post_infra_creates_event(db_session, mock_extractor):
     payload = json.loads(extracted_events[0].payload)
     assert payload["post_type"] == "infrastructure"
     assert payload["infra_role"] == "seeking"
+
+
+@pytest.mark.asyncio
+async def test_process_post_service_request_with_gear_keyword_is_skipped(
+    db_session, mock_extractor
+):
+    """Service/repair asks should not land in Gear exchange even if they mention gear."""
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="infra_service_001",
+        title="Need help repairing my generator",
+        raw_text=(
+            "Looking for a professional repair service to fix my generator after the playa. "
+            "Not trying to borrow or buy one."
+        ),
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        post_type="infrastructure",
+        infra_role="seeking",
+        infra_categories=["power"],
+        confidence=0.93,
+    )
+
+    result = await process_post(db_session, post, mock_extractor)
+
+    assert result.status == PostStatus.SKIPPED
+    assert result.post_type is None
+    assert result.infra_role is None

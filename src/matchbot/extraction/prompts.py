@@ -15,7 +15,8 @@ Posts fall into three categories:
 1. **mentorship** — someone seeking a theme camp to join, OR a camp looking
    for members/volunteers
 2. **infrastructure** — gear/equipment exchange ("Bitch n Swap"): someone
-   needs or offers gear (generators, shade, tools, etc.)
+   needs or offers tangible gear (generators, shade, tools, etc.), or clearly
+   needs/offers teardown labor
 3. **null** — general discussion, questions, news, rants, ticket help, or
    anything else that does not involve camp-finding or gear exchange
 
@@ -29,6 +30,11 @@ Rules:
   infra_categories, and condition when there is a clear fit
 - If a relevant concept does not fit the allowed labels well, preserve it in the matching
   *_other field instead of dropping it
+- Infrastructure is only for exchanging, borrowing, lending, renting, gifting,
+  selling, or sharing physical gear/items. Requests for services or labor such as
+  cleaning, repair, maintenance, installation, consulting, or professional help
+  are null unless the post is clearly about borrowing/sharing a tangible item or
+  teardown labor
 - Extract year ONLY if explicitly mentioned
 - Set confidence < 0.5 for vague or ambiguous posts
 - availability_notes / dates_needed: use near-verbatim language from the post
@@ -119,13 +125,18 @@ Classify Burning Man community posts and extract structured fields.
 
 The post_type must be one of:
 - mentorship: camp-finding, team-finding, or camps/art teams seeking people
-- infrastructure: gear, equipment, logistics, or "Bitch n Swap" requests/offers
+- infrastructure: "Bitch n Swap" style requests/offers for tangible gear/items,
+  or clear teardown labor requests/offers
 - null: general discussion, questions, news, ticket help, or anything that does
   not involve camp-finding or gear exchange — return null to skip the post
 
 Rules:
 - Map natural-language concepts to the closest allowed taxonomy labels when there is a clear fit
 - If a relevant concept does not fit well, preserve it in the matching *_other field
+- Infrastructure is only for exchanging, borrowing, lending, renting, gifting,
+  selling, or sharing physical gear/items. Service requests/offers like cleaning,
+  repair, maintenance, installation, recommendations, or professional help are null
+  unless the post is clearly about a tangible item exchange or teardown labor
 - Extract year only if explicitly mentioned
 - Use near-verbatim language for availability_notes and dates_needed
 - contact_method should describe how to contact, never personal contact details
