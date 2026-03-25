@@ -284,6 +284,37 @@ def test_infer_group_name_from_extension_json(tmp_path):
     assert _infer_group_name_from_extension_json(ext_file) == "Burning Man Theme Camps"
 
 
+def test_infer_group_name_from_extension_json_payload_group_node(tmp_path):
+    ext_content = [
+        {
+            "seq": 1,
+            "capturedAt": "2026-03-22T12:00:00.000Z",
+            "text": json.dumps(
+                {
+                    "data": {
+                        "node": {
+                            "to": {
+                                "__typename": "Group",
+                                "__isEntity": "Group",
+                                "id": "252779754929418",
+                                "url": "https://www.facebook.com/groups/252779754929418/",
+                                "name": "Camps 4 Campers",
+                            }
+                        }
+                    }
+                }
+            ),
+        }
+    ]
+    ext_file = tmp_path / "sample.json"
+    ext_file.write_text(json.dumps(ext_content))
+
+    assert (
+        _infer_group_name_from_extension_json(ext_file, group_id="252779754929418")
+        == "Camps 4 Campers"
+    )
+
+
 def test_stage_input_file_copies_external_capture(tmp_path):
     source = tmp_path / "downloads" / "officialburners_fb_posts_2026-03-22T14-19-49.782Z.json"
     source.parent.mkdir(parents=True)

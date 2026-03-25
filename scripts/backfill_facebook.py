@@ -73,7 +73,40 @@ def _infer_group_name_from_filename(path: Path) -> str | None:
     return _titleize_group_slug(slug)
 
 
-def _infer_group_name_from_extension_json(path: Path) -> str | None:
+def _extract_group_name_from_payload_obj(
+    obj: object, *, group_id: str | None = None, depth: int = 0
+) -> str | None:
+    if depth > 20:
+        return None
+
+    if isinstance(obj, dict):
+        name = obj.get("name")
+        obj_group_id = str(obj.get("id") or "").strip() or None
+        url = str(obj.get("url") or "").strip()
+        typename = str(obj.get("__typename") or "").strip()
+        is_groupish = typename == "Group" or obj.get("__isEntity") == "Group" or "/groups/" in url
+
+        if isinstance(name, str):
+            cleaned_name = name.strip()
+            if cleaned_name and is_groupish:
+                if group_id is None or obj_group_id == group_id or f"/groups/{group_id}" in url:
+                    return cleaned_name
+
+        for value in obj.values():
+            found = _extract_group_name_from_payload_obj(value, group_id=group_id, depth=depth + 1)
+            if found:
+                return found
+
+    elif isinstance(obj, list):
+        for item in obj:
+            found = _extract_group_name_from_payload_obj(item, group_id=group_id, depth=depth + 1)
+            if found:
+                return found
+
+    return None
+
+
+def _infer_group_name_from_extension_json(path: Path, *, group_id: str | None = None) -> str | None:
     try:
         with open(path, "rb") as f:
             responses = json.load(f)
@@ -88,6 +121,19 @@ def _infer_group_name_from_extension_json(path: Path) -> str | None:
             continue
         page_title = str(item.get("pageTitle") or "").strip()
         if not page_title:
+            text = item.get("text")
+            if not isinstance(text, str):
+                continue
+            for line in text.splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                found = _extract_group_name_from_payload_obj(payload, group_id=group_id)
+                if found:
+                    return found
             continue
         cleaned = re.sub(r"\s*[-|]\s*Facebook\s*$", "", page_title, flags=re.IGNORECASE).strip()
         if cleaned:
@@ -96,7 +142,7 @@ def _infer_group_name_from_extension_json(path: Path) -> str | None:
     return None
 
 
-def _infer_group_name_from_har(path: Path) -> str | None:
+def _infer_group_name_from_har(path: Path, *, group_id: str | None = None) -> str | None:
     try:
         with open(path, "rb") as f:
             har_data = json.load(f)
@@ -111,6 +157,22 @@ def _infer_group_name_from_har(path: Path) -> str | None:
         cleaned = re.sub(r"\s*[-|]\s*Facebook\s*$", "", title, flags=re.IGNORECASE).strip()
         if cleaned:
             return cleaned
+
+    entries = har_data.get("log", {}).get("entries", [])
+    for entry in entries:
+        text = entry.get("response", {}).get("content", {}).get("text")
+        if not isinstance(text, str):
+            continue
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            found = _extract_group_name_from_payload_obj(payload, group_id=group_id)
+            if found:
+                return found
     return None
 
 
@@ -167,11 +229,11 @@ def _infer_group_metadata(
         if inferred_name:
             break
         if file_formats.get(path) == "extension":
-            inferred_name = _infer_group_name_from_extension_json(path)
+            inferred_name = _infer_group_name_from_extension_json(path, group_id=inferred_group_id)
             if not inferred_name:
                 inferred_name = _infer_group_name_from_filename(path)
         elif file_formats.get(path) == "har":
-            inferred_name = _infer_group_name_from_har(path)
+            inferred_name = _infer_group_name_from_har(path, group_id=inferred_group_id)
 
     if not inferred_name and inferred_group_id:
         inferred_name = f"Facebook Group {inferred_group_id}"
