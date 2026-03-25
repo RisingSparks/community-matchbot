@@ -477,6 +477,17 @@ chrome.runtime.onStartup.addListener(() => {
 
 void ensureStorageAccess();
 
+// Keep the service worker alive while any content script has capturing open.
+// content_relay.js connects a port named 'fbgc_keepalive' and pings every 20s.
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'fbgc_keepalive') {
+    return;
+  }
+  port.onMessage.addListener(() => {
+    // ping received — worker stays alive
+  });
+});
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   switch (msg.type) {
     case MSG.APPEND_RESPONSES:
