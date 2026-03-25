@@ -2,7 +2,6 @@
 // Listens for CustomEvents dispatched by content_main.js
 
 const MSG = {
-  APPEND_RESPONSES: 'append_responses',
   CAPTURE_WRITE_FAILED: 'capture_write_failed',
   ENSURE_NEW_POSTS_SORT: 'ensure_new_posts_sort',
 };
@@ -11,9 +10,21 @@ const STORE = {
   CAPTURING: 'fbgc_capturing',
 };
 
+const META = {
+  RESPONSE_COUNT: 'fbgc_response_count',
+  BYTES_USED: 'fbgc_bytes_used',
+  NEXT_SEQ: 'fbgc_next_seq',
+};
+
+const DB_NAME = 'fbgc_capture';
+const DB_VERSION = 1;
+const RESPONSES_STORE = 'responses';
+
 let pendingResponses = [];
 let flushPromise = null;
 let extensionContextValid = true;
+let captureDbPromise = null;
+let appendQueue = Promise.resolve();
 const SORT_CONTROL_TIMEOUT_MS = 10000;
 const SORT_MENU_TIMEOUT_MS = 5000;
 const SORT_POLL_MS = 200;
@@ -119,29 +130,118 @@ async function getSessionValues(keys) {
   }
 }
 
-async function sendRuntimeMessage(message) {
-  if (!extensionContextValid) {
-    return null;
+// Write directly to IndexedDB from the content script, bypassing the background
+// service worker. MV3 service workers are terminated after ~30s of inactivity,
+// which causes "The message port closed before a response was received" when the
+// content script tries to send APPEND_RESPONSES messages.
+function openCaptureDb() {
+  if (captureDbPromise) {
+    return captureDbPromise;
+  }
+  captureDbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(RESPONSES_STORE)) {
+        db.createObjectStore(RESPONSES_STORE, {keyPath: 'seq'});
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('Failed to open capture DB'));
+  });
+  return captureDbPromise;
+}
+
+function waitForTransaction(tx) {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+    tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
+  });
+}
+
+function byteSizeOfRecord(record) {
+  return JSON.stringify(record).length;
+}
+
+function enqueueAppend(operation) {
+  const run = appendQueue.then(operation, operation);
+  appendQueue = run.catch(() => {});
+  return run;
+}
+
+async function appendResponsesDirect(responses) {
+  const validRecords = responses.flatMap((response) => {
+    if (typeof response === 'string' && response.length > 0) {
+      return [{text: response, pageTitle: '', pageUrl: ''}];
+    }
+    if (response && typeof response === 'object' && typeof response.text === 'string' && response.text.length > 0) {
+      return [{
+        text: response.text,
+        pageTitle: typeof response.pageTitle === 'string' ? response.pageTitle : '',
+        pageUrl: typeof response.pageUrl === 'string' ? response.pageUrl : '',
+      }];
+    }
+    return [];
+  });
+  if (validRecords.length === 0) {
+    return {written: 0};
   }
 
-  try {
-    return await new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage(message, (response) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-        resolve(response);
-      });
-    });
-  } catch (err) {
-    if (isContextInvalidated(err)) {
-      extensionContextValid = false;
-      notifyBridgeOffline();
-      warn('Extension context invalidated while messaging the background worker');
-      return null;
+  return enqueueAppend(async () => {
+    const meta = await chrome.storage.local.get([
+      META.RESPONSE_COUNT,
+      META.BYTES_USED,
+      META.NEXT_SEQ,
+    ]);
+    const nextSeq = Number.isFinite(meta[META.NEXT_SEQ]) ? meta[META.NEXT_SEQ] : 1;
+    const timestamp = new Date().toISOString();
+    const records = validRecords.map((response, index) => ({
+      seq: nextSeq + index,
+      capturedAt: timestamp,
+      text: response.text,
+      pageTitle: response.pageTitle,
+      pageUrl: response.pageUrl,
+    }));
+
+    const db = await openCaptureDb();
+    const tx = db.transaction(RESPONSES_STORE, 'readwrite');
+    const store = tx.objectStore(RESPONSES_STORE);
+    for (const record of records) {
+      store.put(record);
     }
-    throw err;
+    await waitForTransaction(tx);
+
+    const bytesAdded = records.reduce((sum, record) => sum + byteSizeOfRecord(record), 0);
+    await chrome.storage.local.set({
+      [META.RESPONSE_COUNT]: (meta[META.RESPONSE_COUNT] ?? 0) + records.length,
+      [META.BYTES_USED]: (meta[META.BYTES_USED] ?? 0) + bytesAdded,
+      [META.NEXT_SEQ]: nextSeq + records.length,
+    });
+
+    return {written: records.length, bytesAdded};
+  });
+}
+
+async function notifyWriteFailed(unsavedCount, error) {
+  if (!extensionContextValid) {
+    return;
+  }
+  try {
+    chrome.runtime.sendMessage({
+      type: MSG.CAPTURE_WRITE_FAILED,
+      unsavedCount,
+      error,
+    });
+  } catch (_err) {
+    // Best-effort; background may be asleep, but the important thing is we stop capturing.
+  }
+  // Stop capture directly via session storage so the UI reflects the error even
+  // if the background worker is unavailable.
+  try {
+    await chrome.storage.session.set({[STORE.CAPTURING]: false});
+  } catch (_err) {
+    // ignore
   }
 }
 
@@ -164,35 +264,16 @@ async function flushResponses() {
       }
 
       try {
-        const appendResult = await sendRuntimeMessage({
-          type: MSG.APPEND_RESPONSES,
-          responses: batch,
-        });
-        if (!appendResult) {
-          return;
-        }
-        if (!appendResult.ok) {
-          await sendRuntimeMessage({
-            type: MSG.CAPTURE_WRITE_FAILED,
-            unsavedCount: batch.length,
-            error: appendResult.error || 'Capture stopped because IndexedDB writes failed.',
-          });
-          warn('Stopping capture because the background worker rejected an append batch');
-          return;
-        }
+        await appendResponsesDirect(batch);
       } catch (err) {
         if (isContextInvalidated(err)) {
           extensionContextValid = false;
           notifyBridgeOffline();
-          warn('Extension context invalidated during background append');
+          warn('Extension context invalidated during direct DB append');
           return;
         }
         errorLog('Failed to persist captured responses', err);
-        await sendRuntimeMessage({
-          type: MSG.CAPTURE_WRITE_FAILED,
-          unsavedCount: batch.length,
-          error: 'Capture stopped because IndexedDB writes failed.',
-        });
+        await notifyWriteFailed(batch.length, 'Capture stopped because IndexedDB writes failed.');
         return;
       }
     }
