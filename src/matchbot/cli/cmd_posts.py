@@ -193,7 +193,12 @@ def posts_re_extract_many(
         extractor = _build_extractor()
         updated = 0
         try:
-            for post in posts:
+            total = len(posts)
+            rprint(f"[cyan]Re-analyzing {total} signal(s)...[/cyan]")
+            for idx, post in enumerate(posts, start=1):
+                rprint(
+                    f"[dim][{idx}/{total}] {post.id[:8]} {post.platform} {post.title[:80]}[/dim]"
+                )
                 post.status = PostStatus.RAW
                 session.add(post)
                 await session.commit()
