@@ -53,16 +53,28 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert "Camp Connections" in response.text
         assert "Infrastructure Exchange" in response.text
         assert "A quick read on what this season's signals look like right now." in response.text
+        assert "Indexed" in response.text
+        assert "Reviewable" in response.text
         assert 'href="/community/seekers"' in response.text
         assert 'href="/community/camps"' in response.text
-        assert 'href="/community/gear"' in response.text
+        assert 'href="/community/gear?view=needs#need-panel"' in response.text
+        assert 'href="/community/gear?view=offers#offer-panel"' in response.text
         assert 'rel="icon"' in response.text
         assert "/favicon.svg" in response.text
+
+        gear = client.get("/community/gear")
+        assert gear.status_code == 200
+        assert 'id="need-panel"' in gear.text
+        assert 'id="offer-panel"' in gear.text
+        assert "Infra Needs" in gear.text
+        assert "Infra Offers" in gear.text
 
         # Full dashboard content lives at /community/transparency
         trans = client.get("/community/transparency")
         assert trans.status_code == 200
         assert "Rising Sparks" in trans.text
+        assert "Potential Matches" in trans.text
+        assert "Introductions Sent" in trans.text
         assert "Live Activity" in trans.text
         assert "Skills" in trans.text
         assert "Vibes" in trans.text

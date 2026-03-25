@@ -229,6 +229,17 @@ body {
 .page-footer a { color: var(--sage); }
 .gear-panels { display: grid; grid-template-columns: 1fr; gap: 28px; }
 @media (min-width: 900px) { .gear-panels { grid-template-columns: 1fr 1fr; gap: 24px; } }
+.gear-panel {
+  padding: 16px;
+  border: 1px solid rgba(34,30,33,0.12);
+  border-radius: 18px;
+  background: rgba(255,253,248,0.7);
+  scroll-margin-top: 84px;
+}
+.gear-panel--active {
+  border-color: #2d5b4f;
+  box-shadow: 0 10px 24px rgba(45,91,79,0.12);
+}
 .gear-panel-head { margin: 0 0 16px; }
 .gear-panel-head h2 { margin: 0 0 4px; font-size: 20px; font-weight: 700; }
 .gear-panel-head p { margin: 0; font-size: 14px; color: var(--muted); }
@@ -361,6 +372,7 @@ _HOME_EXTRA_CSS = """
 .snapshot-num { font-size: clamp(24px, 4vw, 36px); font-weight: 800; color: #2d5b4f; line-height: 1; }
 .snapshot-lbl { font-size: 13px; color: #221e21; font-weight: 700; line-height: 1.3; }
 .snapshot-desc { margin: 0; font-size: 12px; line-height: 1.4; color: #6a6264; }
+.snapshot-gloss { margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: #6a6264; }
 .recent-section { margin-bottom: 28px; }
 """
 
@@ -400,12 +412,13 @@ _HOME_BODY = """
     <section class="snapshot-section">
       <div class="section-label">In The Pool</div>
       <p class="snapshot-note">A quick read on what this season's signals look like right now. Each card opens the relevant listings or stats view.</p>
+      <p class="snapshot-gloss"><strong>Indexed</strong> means the signal has been structured and is live in public browse views. <strong>Reviewable</strong> means it is in the queue for organizer review and may still appear in infra counts.</p>
       <div class="snapshot-groups" id="snapshot-groups">
         <div class="loading-state">Loading overview\u2026</div>
       </div>
     </section>
     <section class="recent-section">
-      <div class="section-label">Recent messages</div>
+      <div class="section-label">Recent Signals</div>
       <div class="card-grid" id="recent-grid">
         <div class="loading-state">Loading\u2026</div>
       </div>
@@ -456,12 +469,12 @@ async function loadHome() {
         + '<h2>Infrastructure Exchange</h2>'
         + '<p>Gear, logistics, and support signals that are active in the pool.</p>'
         + '<div class="snapshot-grid">'
-          + '<a href="/community/gear" class="snapshot-card snapshot-link" aria-label="Browse infrastructure needs">'
+          + '<a href="/community/gear?view=needs#need-panel" class="snapshot-card snapshot-link" aria-label="Browse infrastructure needs">'
             + '<span class="snapshot-lbl">Infra Needs</span>'
             + '<span class="snapshot-num">' + fmt(m.active_infra_seeking) + '</span>'
             + '<p class="snapshot-desc">Indexed or reviewable posts seeking gear, logistics, or support</p>'
           + '</a>'
-          + '<a href="/community/gear" class="snapshot-card snapshot-link" aria-label="Browse infrastructure offers">'
+          + '<a href="/community/gear?view=offers#offer-panel" class="snapshot-card snapshot-link" aria-label="Browse infrastructure offers">'
             + '<span class="snapshot-lbl">Infra Offers</span>'
             + '<span class="snapshot-num">' + fmt(m.active_infra_offering) + '</span>'
             + '<p class="snapshot-desc">Indexed or reviewable posts offering gear, logistics, or support</p>'
@@ -660,16 +673,18 @@ loadSeekers();
 
 _GEAR_BODY = """
   <div class="gear-panels">
-    <div>
+    <div class="gear-panel" id="need-panel">
       <div class="gear-panel-head">
+        <div class="section-label">Infra Needs</div>
         <h2>What people need</h2>
         <p>Camps and crews looking for gear, structures, or logistics support.</p>
       </div>
       <div class="filter-row" id="need-filters" role="group" aria-label="Filter gear needs by category"></div>
       <div id="need-grid"><div class="loading-state">Loading needs\u2026</div></div>
     </div>
-    <div>
+    <div class="gear-panel" id="offer-panel">
       <div class="gear-panel-head">
+        <div class="section-label">Infra Offers</div>
         <h2>What people have</h2>
         <p>Available gear, structures, and equipment to lend, share, or give.</p>
       </div>
@@ -677,6 +692,7 @@ _GEAR_BODY = """
       <div id="offer-grid"><div class="loading-state">Loading offers\u2026</div></div>
     </div>
   </div>
+  <p class="page-footer" style="margin-top:12px"><strong>Indexed</strong> means structured and live in browse views. <strong>Reviewable</strong> means a signal is captured and waiting for organizer review.</p>
   <div class="page-cta">
     <p><strong>Have gear to share, or need something?</strong>Post your signal to the exchange.</p>
     <a href="/forms/infra">Post to exchange \u2192</a>
@@ -688,6 +704,16 @@ _GEAR_BODY = """
 """
 
 _GEAR_JS = """
+function setGearFocus(view) {
+  const panels = {
+    needs: document.getElementById('need-panel'),
+    offers: document.getElementById('offer-panel'),
+  };
+  Object.values(panels).forEach(panel => panel.classList.remove('gear-panel--active'));
+  if (!view || !panels[view]) return;
+  panels[view].classList.add('gear-panel--active');
+}
+
 function buildGearCard(item) {
   const cats = item.categories || [];
   return '<article class="listing-card">'
@@ -738,6 +764,9 @@ function setupGearPanel(items, filterId, gridId) {
 
 async function loadGear() {
   try {
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get('view');
+    setGearFocus(view);
     const res = await fetch('/community/api/listings');
     const data = await res.json();
     const seeking = data.gear_seeking || [], offering = data.gear_offering || [];
@@ -1219,7 +1248,9 @@ _COMMUNITY_HTML = """
       <h2 class="section-title">Metrics Summary</h2>
       <p class="group-desc">
         A live, anonymized view of how signals become connections across camps,
-        art projects, and seekers looking to participate.
+        art projects, and seekers looking to participate. We use
+        <strong>indexed</strong> for signals that are structured and live, and
+        <strong>reviewable</strong> for signals still waiting on organizer review.
       </p>
       <div id="summary-funnel" class="funnel-flow"></div>
     </section>
@@ -1763,7 +1794,7 @@ _COMMUNITY_HTML = """
         ),
         funnelConnector(analyzed, matched),
         funnelStep(
-          "Connections Found",
+          "Potential Matches",
           matched,
           `Seeker↔camp pairs the algorithm flagged as a potential fit — ${
             fmt(weekly.matches_7d || 0)
@@ -1771,7 +1802,7 @@ _COMMUNITY_HTML = """
         ),
         funnelConnector(matched, introduced),
         funnelStep(
-          "Connections Made",
+          "Introductions Sent",
           introduced,
           `Human confirmed the match and notified both parties — ${
             fmt(weekly.intros_7d || 0)
