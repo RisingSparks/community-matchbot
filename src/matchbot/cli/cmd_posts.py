@@ -154,7 +154,7 @@ def posts_re_extract_many(
     role: Annotated[str | None, typer.Option("--role", help="Filter by current role")] = None,
     platform: Annotated[str | None, typer.Option("--platform")] = None,
     status: Annotated[str, typer.Option("--status")] = PostStatus.INDEXED,
-    post_type: Annotated[str, typer.Option("--type", help="mentorship|infrastructure")] = PostType.MENTORSHIP,
+    post_type: Annotated[str | None, typer.Option("--type", help="mentorship|infrastructure")] = None,
     author: Annotated[str | None, typer.Option("--author", help="Filter by author_display_name")] = None,
     limit: Annotated[int, typer.Option("--limit")] = 50,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show matching posts without re-extracting")] = False,
@@ -164,7 +164,7 @@ def posts_re_extract_many(
     async def _run(session):
         q = (
             select(Post)
-            .where(Post.status == status, Post.post_type == post_type)
+            .where(Post.status == status)
             .order_by(Post.detected_at.desc())
             .limit(limit)
         )
@@ -172,6 +172,8 @@ def posts_re_extract_many(
             q = q.where(Post.role == role)
         if platform:
             q = q.where(Post.platform == platform)
+        if post_type:
+            q = q.where(Post.post_type == post_type)
         if author:
             q = q.where(Post.author_display_name == author)
 

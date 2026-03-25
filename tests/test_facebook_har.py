@@ -187,6 +187,17 @@ def test_parse_facebook_post_fields_story_shape():
     assert fields["source_url"] == "https://www.facebook.com/groups/252779754929418/posts/3040003819540317/"
 
 
+def test_parse_facebook_post_fields_filters_member_welcome_noise():
+    node = {
+        "id": "post:welcome-1",
+        "message": {"text": "Let's welcome our new members!\nChris Henderson"},
+        "creation_time": 1700000000,
+        "actors": [{"id": "group1", "name": "Camps 4 Campers"}],
+    }
+
+    assert parse_facebook_post_fields(node) is None
+
+
 def test_parse_har_file(tmp_path):
     har_content = {
         "log": {
@@ -228,6 +239,31 @@ def test_parse_extension_json(tmp_path):
     posts = parse_extension_json(ext_file)
     assert len(posts) == 1
     assert posts[0]["platform_post_id"] == "e1"
+
+
+def test_parse_extension_json_filters_member_welcome_noise(tmp_path):
+    ext_content = [
+        json.dumps(
+            {
+                "id": "e-noise",
+                "message": "Let's welcome our new members!\nMaxime Coupey",
+                "creation_time": 1700000020,
+            }
+        ),
+        json.dumps(
+            {
+                "id": "e-real",
+                "message": "Who’s looking for a Burning Man Camp?",
+                "creation_time": 1700000030,
+            }
+        ),
+    ]
+    ext_file = tmp_path / "test.json"
+    ext_file.write_text(json.dumps(ext_content))
+
+    posts = parse_extension_json(ext_file)
+    assert len(posts) == 1
+    assert posts[0]["platform_post_id"] == "e-real"
 
 
 def test_parse_extension_json_with_record_objects(tmp_path):

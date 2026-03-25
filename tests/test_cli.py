@@ -458,6 +458,69 @@ def test_posts_re_extract_many(cli_env):
     ]
 
 
+def test_posts_re_extract_many_raw_facebook_without_type_filter(cli_env):
+    session, factory, loop = cli_env
+
+    async def seed():
+        raw_post = Post(
+            platform=Platform.FACEBOOK,
+            platform_post_id="fb-raw-1",
+            platform_author_id="camper1",
+            author_display_name="camper1",
+            title="Looking for camp",
+            raw_text="Need camp placement for this year.",
+            status=PostStatus.RAW,
+            post_type=None,
+            role=None,
+        )
+        session.add(raw_post)
+        await session.commit()
+
+    run_in(loop, seed())
+
+    async def fake_process_post(db_session, post, extractor):
+        post.status = PostStatus.INDEXED
+        post.post_type = PostType.MENTORSHIP
+        post.role = "seeker"
+        db_session.add(post)
+        await db_session.commit()
+        await db_session.refresh(post)
+        return post
+
+    extractor = MagicMock()
+    extractor.aclose = AsyncMock(return_value=None)
+
+    with (
+        patch("matchbot.cli._db.get_session", factory),
+        patch("matchbot.cli.cmd_posts._build_extractor", return_value=extractor),
+        patch("matchbot.extraction.process_post", side_effect=fake_process_post),
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "posts",
+                "re-extract-many",
+                "--platform",
+                "facebook",
+                "--status",
+                "raw",
+                "--limit",
+                "10",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert "Re-analyzed 1 signal(s)." in result.output
+
+    async def check():
+        row = (
+            await session.exec(select(Post).where(Post.platform_post_id == "fb-raw-1"))
+        ).one()
+        return row.status, row.post_type, row.role
+
+    assert run_in(loop, check()) == (PostStatus.INDEXED, PostType.MENTORSHIP, "seeker")
+
+
 # ---------------------------------------------------------------------------
 # Report tests
 # ---------------------------------------------------------------------------

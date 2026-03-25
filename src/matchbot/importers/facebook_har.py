@@ -30,6 +30,18 @@ _COMMENT_NODE_KEYS = {
     "community_comment_signal_renderer",
     "group_comment_info",
 }
+_NOISE_PATTERNS = (
+    "let's welcome our new members",
+    "lets welcome our new members",
+    "welcome our new members",
+    "welcome our newest members",
+    "please welcome our new members",
+)
+
+
+def _looks_like_noise_post(text: str) -> bool:
+    normalized = " ".join(text.lower().split())
+    return any(pattern in normalized for pattern in _NOISE_PATTERNS)
 
 
 def _extract_story_message_text(node: dict) -> str:
@@ -177,6 +189,9 @@ def parse_facebook_post_fields(node: dict) -> dict | None:
         raw_text = story_text
 
     if not raw_text:
+        return None
+
+    if _looks_like_noise_post(raw_text):
         return None
 
     # ID extraction
