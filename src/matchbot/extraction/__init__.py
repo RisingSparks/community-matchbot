@@ -13,6 +13,7 @@ from matchbot.db.models import Event, Post, PostStatus, PostType
 from matchbot.db.profiles import sync_profile_from_post
 from matchbot.extraction.base import LLMExtractor
 from matchbot.extraction.keywords import keyword_filter
+from matchbot.extraction.schemas import ExtractedPost
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
 from matchbot.taxonomy import (
@@ -42,7 +43,9 @@ def _join_pipe(values: list[str]) -> str:
     return "|".join(values)
 
 
-def _is_service_like_infrastructure_post(title: str, body: str, extracted_post_type: str | None) -> bool:
+def _is_service_like_infrastructure_post(
+    title: str, body: str, extracted_post_type: str | None
+) -> bool:
     """Reject service/repair asks that drift into infrastructure despite not being gear exchange."""
     if extracted_post_type != PostType.INFRASTRUCTURE:
         return False
@@ -51,6 +54,54 @@ def _is_service_like_infrastructure_post(title: str, body: str, extracted_post_t
     return bool(_SERVICE_REQUEST_PATTERN.search(text)) and not bool(
         _INFRA_EXCHANGE_PATTERN.search(text)
     )
+
+
+def _infer_post_type_from_extraction(post: Post, extracted: ExtractedPost) -> str | None:
+    if extracted.post_type is not None:
+        return extracted.post_type
+
+    mentorship_signal = (
+        extracted.role in {"seeker", "camp"}
+        or extracted.seeker_intent is not None
+        or bool(extracted.vibes or extracted.vibes_other)
+        or bool(extracted.contribution_types or extracted.contribution_types_other)
+        or any(
+            value is not None
+            for value in (
+                extracted.camp_name,
+                extracted.camp_size_min,
+                extracted.camp_size_max,
+                extracted.year,
+                extracted.location_preference,
+                extracted.origin_location_raw,
+                extracted.origin_location_city,
+                extracted.origin_location_state,
+                extracted.origin_location_county,
+                extracted.origin_location_zip,
+                extracted.availability_notes,
+                extracted.contact_method,
+            )
+        )
+    )
+    infra_signal = (
+        extracted.infra_role is not None
+        or bool(extracted.infra_categories or extracted.infra_categories_other)
+        or any(
+            value is not None
+            for value in (
+                extracted.quantity,
+                extracted.condition,
+                extracted.condition_other,
+                extracted.dates_needed,
+            )
+        )
+    )
+
+    if post.post_type == PostType.MENTORSHIP and mentorship_signal:
+        return PostType.MENTORSHIP
+    if post.post_type == PostType.INFRASTRUCTURE and infra_signal:
+        return PostType.INFRASTRUCTURE
+    return None
 
 
 async def process_post(
@@ -139,6 +190,10 @@ async def process_post(
         return post
 
     # --- 4. Normalize against taxonomy ---
+    extracted = extracted.model_copy(
+        update={"post_type": _infer_post_type_from_extraction(post, extracted)}
+    )
+
     valid_vibes, vibe_other = split_vibes(extracted.vibes + extracted.vibes_other)
     valid_contributions, contribution_other = split_contribution_types(
         extracted.contribution_types + extracted.contribution_types_other

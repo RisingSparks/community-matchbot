@@ -39,9 +39,10 @@ Rules:
 - Set confidence < 0.5 for vague or ambiguous posts
 - availability_notes / dates_needed: use near-verbatim language from the post
 - contact_method: describe HOW to contact — NEVER include actual personal info
-- origin_location_*: the author's real-world home location (city, state, etc.), NOT their playa placement.
-  Set origin_location_raw to the verbatim phrase from the post (e.g. "Oklahoma", "Portland, OR").
-  Parse city/state/county/zip from that phrase when possible; use 2-letter state codes (e.g. "OR", "TX").
+- origin_location_*: the author's real-world home location (city, state, etc.),
+  NOT their playa placement. Set origin_location_raw to the verbatim phrase from
+  the post (e.g. "Oklahoma", "Portland, OR"). Parse city/state/county/zip from
+  that phrase when possible; use 2-letter state codes (e.g. "OR", "TX").
   Leave all origin_location fields null if the post contains no geographic origin information.
 - Never invent information not in the post
 - Respond ONLY with valid JSON — no markdown, no explanation
@@ -147,11 +148,14 @@ Rules:
 - Confidence should be below 0.5 when the post is vague or ambiguous
 
 Role guidance for mentorship posts:
-- role="seeker": the author is an individual seeking a camp, art team, mentor, or place to contribute
+- role="seeker": the author is an individual seeking a camp, art team, mentor,
+  or place to contribute
 - role="camp": the author represents a camp, art project, or team seeking people to join or help
 - role="unknown": only when the author's side is truly unclear
-- Posts saying "we're looking for people", "join our camp", "we need builders", or similar recruitment language should be role="camp"
-- Posts saying "I'm looking for a camp", "first burn and happy to help", or similar joiner language should be role="seeker"
+- Posts saying "we're looking for people", "join our camp", "we need builders",
+  or similar recruitment language should be role="camp"
+- Posts saying "I'm looking for a camp", "first burn and happy to help", or
+  similar joiner language should be role="seeker"
 
 Allowed vibes: {vibes}
 Allowed contribution_types: {contribution_types}

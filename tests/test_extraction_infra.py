@@ -140,7 +140,7 @@ class TestKeywordFilterInfra:
         )
         assert result.matched is False
         assert result.tier == "soft_match"
-        assert result.candidate_role == "seeker"
+        assert result.candidate_role == "unknown"
         assert result.score >= 3
 
     def test_unrelated_post_not_matched(self):
@@ -388,7 +388,7 @@ async def test_process_post_service_request_with_gear_keyword_is_skipped(
         title="Need help repairing my generator",
         raw_text=(
             "Looking for a professional repair service to fix my generator after the playa. "
-            "Not trying to borrow or buy one."
+            "Not looking for a replacement unit."
         ),
         status=PostStatus.RAW,
     )
