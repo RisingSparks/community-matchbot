@@ -444,7 +444,7 @@ async function loadHome() {
         ? esc(item.name || 'Camp or Project')
         : (item.contributions && item.contributions.length ? humanLabel(CONTRIB_LABELS, item.contributions[0]) : 'Seeker');
       return '<article class="listing-card">'
-        + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.detected_at) + '</span></div>'
+        + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
         + '<h3 class="listing-card__title">' + title + '</h3>'
         + '<div class="tag-row">' + vibeTags(item.vibes, 2) + contribTags(item.contributions, 2) + '</div>'
         + '<p class="listing-card__snippet">' + esc(item.snippet || '') + '</p>'
@@ -479,7 +479,7 @@ let allCamps = [], activeCampFilters = new Set();
 function buildCampCard(item) {
   const vibes = item.vibes || [], contribs = item.contributions || [];
   return '<article class="listing-card">'
-    + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.detected_at) + '</span></div>'
+    + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
     + '<h3 class="listing-card__title">' + esc(item.name || 'Camp or Project') + '</h3>'
     + '<div class="tag-row">' + vibeTags(vibes, 3) + contribTags(contribs, 2) + '</div>'
     + '<p class="listing-card__snippet">' + esc(item.snippet || '') + '</p>'
@@ -560,7 +560,7 @@ function buildSeekerCard(item) {
   const vibes = item.vibes || [], contribs = item.contributions || [];
   const lead = contribs.length ? humanLabel(CONTRIB_LABELS, contribs[0]) : 'Seeker';
   return '<article class="listing-card">'
-    + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.detected_at) + '</span></div>'
+    + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
     + '<h3 class="listing-card__title">' + lead + '</h3>'
     + '<div class="tag-row">' + vibeTags(vibes, 3) + contribTags(contribs, 2) + '</div>'
     + '<p class="listing-card__snippet">' + esc(item.snippet || '') + '</p>'
@@ -652,7 +652,7 @@ _GEAR_JS = """
 function buildGearCard(item) {
   const cats = item.categories || [];
   return '<article class="listing-card">'
-    + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.detected_at) + '</span></div>'
+    + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
     + '<div class="tag-row">' + infraTags(cats, 3) + conditionTag(item.condition) + '</div>'
     + (item.quantity ? '<p style="margin:0;font-size:13px;color:#6a6264">Qty: ' + esc(item.quantity) + '</p>' : '')
     + '<p class="listing-card__snippet">' + esc(item.snippet || '') + '</p>'
@@ -2096,6 +2096,7 @@ async def community_api_listings() -> dict[str, Any]:
 
 async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
     now = datetime.now(UTC)
+    occurred_at_expr = func.coalesce(Post.source_created_at, Post.detected_at)
 
     try:
         camps_rows = (
@@ -2106,7 +2107,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
                     Post.role == PostRole.CAMP,
                     Post.post_type == PostType.MENTORSHIP,
                 )
-                .order_by(Post.detected_at.desc())
+                .order_by(occurred_at_expr.desc(), Post.detected_at.desc())
                 .limit(60)
             )
         ).all()
@@ -2119,7 +2120,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
                     Post.role == PostRole.SEEKER,
                     Post.post_type == PostType.MENTORSHIP,
                 )
-                .order_by(Post.detected_at.desc())
+                .order_by(occurred_at_expr.desc(), Post.detected_at.desc())
                 .limit(60)
             )
         ).all()
@@ -2132,7 +2133,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
                     Post.post_type == PostType.INFRASTRUCTURE,
                     Post.infra_role == InfraRole.SEEKING,
                 )
-                .order_by(Post.detected_at.desc())
+                .order_by(occurred_at_expr.desc(), Post.detected_at.desc())
                 .limit(60)
             )
         ).all()
@@ -2145,7 +2146,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
                     Post.post_type == PostType.INFRASTRUCTURE,
                     Post.infra_role == InfraRole.OFFERING,
                 )
-                .order_by(Post.detected_at.desc())
+                .order_by(occurred_at_expr.desc(), Post.detected_at.desc())
                 .limit(60)
             )
         ).all()
@@ -2162,6 +2163,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
         }
 
     def _camp_card(post: Post) -> dict[str, Any]:
+        occurred_at = (post.source_created_at or post.detected_at).replace(tzinfo=UTC).isoformat()
         return {
             "id": post.id,
             "name": post.camp_name or post.author_display_name or "Camp or Project",
@@ -2170,10 +2172,12 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "snippet": _sanitize_text(post.raw_text or post.title or "", max_len=220),
             "platform": post.platform,
             "source_url": post.source_url or "",
+            "occurred_at": occurred_at,
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
         }
 
     def _seeker_card(post: Post) -> dict[str, Any]:
+        occurred_at = (post.source_created_at or post.detected_at).replace(tzinfo=UTC).isoformat()
         return {
             "id": post.id,
             "vibes": post.vibes_list(),
@@ -2181,10 +2185,12 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "snippet": _sanitize_text(post.raw_text or post.title or "", max_len=220),
             "platform": post.platform,
             "source_url": post.source_url or "",
+            "occurred_at": occurred_at,
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
         }
 
     def _gear_card(post: Post) -> dict[str, Any]:
+        occurred_at = (post.source_created_at or post.detected_at).replace(tzinfo=UTC).isoformat()
         return {
             "id": post.id,
             "infra_role": post.infra_role or "",
@@ -2194,6 +2200,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "snippet": _sanitize_text(post.raw_text or post.title or "", max_len=220),
             "platform": post.platform,
             "source_url": post.source_url or "",
+            "occurred_at": occurred_at,
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
         }
 

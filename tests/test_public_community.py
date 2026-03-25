@@ -995,6 +995,80 @@ def test_community_discovery_api_returns_camps_and_seekers(monkeypatch, tmp_path
         _reset_engine()
 
 
+def test_community_listings_prefers_source_created_at_for_order_and_age(
+    monkeypatch, tmp_path
+) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_listings_source_created_at.db")
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    async def _seed() -> None:
+        async with get_session() as session:
+            session.add_all(
+                [
+                    Post(
+                        platform=Platform.FACEBOOK,
+                        platform_post_id="fb_new_import_old_post",
+                        platform_author_id="camp_old",
+                        title="Older source post imported late",
+                        raw_text="Imported today, posted days ago.",
+                        role=PostRole.CAMP,
+                        post_type=PostType.MENTORSHIP,
+                        status=PostStatus.INDEXED,
+                        source_created_at=now - timedelta(days=5),
+                        detected_at=now - timedelta(minutes=10),
+                    ),
+                    Post(
+                        platform=Platform.REDDIT,
+                        platform_post_id="reddit_recent_post",
+                        platform_author_id="camp_recent",
+                        title="More recent source post",
+                        raw_text="Posted more recently, even if imported earlier.",
+                        role=PostRole.CAMP,
+                        post_type=PostType.MENTORSHIP,
+                        status=PostStatus.INDEXED,
+                        source_created_at=now - timedelta(days=1),
+                        detected_at=now - timedelta(hours=3),
+                    ),
+                    Post(
+                        platform=Platform.DISCORD,
+                        platform_post_id="discord_no_source_timestamp",
+                        platform_author_id="seeker_detected_only",
+                        title="Detected-only seeker post",
+                        raw_text="No source timestamp available.",
+                        role=PostRole.SEEKER,
+                        post_type=PostType.MENTORSHIP,
+                        status=PostStatus.INDEXED,
+                        detected_at=now - timedelta(hours=2),
+                    ),
+                ]
+            )
+            await session.commit()
+
+    try:
+        asyncio.run(_seed())
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get("/community/api/listings")
+        assert response.status_code == 200
+        payload = response.json()
+
+        camps = payload["camps"]
+        assert [item["snippet"] for item in camps[:2]] == [
+            "Posted more recently, even if imported earlier.",
+            "Imported today, posted days ago.",
+        ]
+        assert camps[0]["occurred_at"] == (now - timedelta(days=1)).replace(tzinfo=UTC).isoformat()
+        assert camps[0]["detected_at"] == (now - timedelta(hours=3)).replace(tzinfo=UTC).isoformat()
+        assert camps[1]["occurred_at"] == (now - timedelta(days=5)).replace(tzinfo=UTC).isoformat()
+        assert camps[1]["detected_at"] == (now - timedelta(minutes=10)).replace(tzinfo=UTC).isoformat()
+
+        seekers = payload["seekers"]
+        assert seekers[0]["occurred_at"] == (now - timedelta(hours=2)).replace(tzinfo=UTC).isoformat()
+        assert seekers[0]["detected_at"] == (now - timedelta(hours=2)).replace(tzinfo=UTC).isoformat()
+    finally:
+        _reset_engine()
+
+
 def test_community_discovery_api_blocks_javascript_source_urls(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_discovery_js_url.db")
 
