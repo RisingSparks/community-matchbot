@@ -115,6 +115,63 @@ def _extract_group_name_from_payload_obj(
     return None
 
 
+def _extract_group_candidates_from_payload_obj(
+    obj: object, *, depth: int = 0
+) -> list[tuple[str | None, str | None]]:
+    if depth > 20:
+        return []
+
+    candidates: list[tuple[str | None, str | None]] = []
+    if isinstance(obj, dict):
+        obj_group_id = str(obj.get("id") or "").strip() or None
+        name = obj.get("name")
+        cleaned_name = name.strip() if isinstance(name, str) and name.strip() else None
+        url = str(obj.get("url") or "").strip()
+        typename = str(obj.get("__typename") or "").strip()
+        is_groupish = typename == "Group" or obj.get("__isEntity") == "Group" or "/groups/" in url
+
+        if is_groupish and (obj_group_id or cleaned_name):
+            candidates.append((cleaned_name, obj_group_id))
+
+        for value in obj.values():
+            candidates.extend(_extract_group_candidates_from_payload_obj(value, depth=depth + 1))
+    elif isinstance(obj, list):
+        for item in obj:
+            candidates.extend(_extract_group_candidates_from_payload_obj(item, depth=depth + 1))
+
+    return candidates
+
+
+def _select_group_candidate(
+    candidates: list[tuple[str | None, str | None]],
+    *,
+    preferred_name: str | None = None,
+) -> tuple[str | None, str | None]:
+    if not candidates:
+        return None, None
+
+    if preferred_name:
+        preferred_key = preferred_name.casefold()
+        for candidate_name, candidate_id in candidates:
+            if candidate_name and candidate_name.casefold() == preferred_key:
+                return candidate_name, candidate_id
+
+    unique_candidates = {
+        (candidate_name, candidate_id) for candidate_name, candidate_id in candidates
+    }
+    if len(unique_candidates) == 1:
+        return next(iter(unique_candidates))
+
+    unique_ids = {candidate_id for _, candidate_id in candidates if candidate_id}
+    if len(unique_ids) == 1:
+        matched_id = next(iter(unique_ids))
+        for candidate_name, candidate_id in candidates:
+            if candidate_id == matched_id:
+                return candidate_name, candidate_id
+
+    return None, None
+
+
 def _infer_group_name_from_extension_json(path: Path, *, group_id: str | None = None) -> str | None:
     try:
         with open(path, "rb") as f:
@@ -151,6 +208,37 @@ def _infer_group_name_from_extension_json(path: Path, *, group_id: str | None = 
     return None
 
 
+def _infer_group_candidate_from_extension_json(
+    path: Path, *, preferred_name: str | None = None
+) -> tuple[str | None, str | None]:
+    try:
+        with open(path, "rb") as f:
+            responses = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None, None
+
+    if not isinstance(responses, list):
+        return None, None
+
+    candidates: list[tuple[str | None, str | None]] = []
+    for item in responses:
+        if not isinstance(item, dict):
+            continue
+        text = item.get("text")
+        if not isinstance(text, str):
+            continue
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            candidates.extend(_extract_group_candidates_from_payload_obj(payload))
+
+    return _select_group_candidate(candidates, preferred_name=preferred_name)
+
+
 def _infer_group_name_from_har(path: Path, *, group_id: str | None = None) -> str | None:
     try:
         with open(path, "rb") as f:
@@ -183,6 +271,33 @@ def _infer_group_name_from_har(path: Path, *, group_id: str | None = None) -> st
             if found:
                 return found
     return None
+
+
+def _infer_group_candidate_from_har(
+    path: Path, *, preferred_name: str | None = None
+) -> tuple[str | None, str | None]:
+    try:
+        with open(path, "rb") as f:
+            har_data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None, None
+
+    candidates: list[tuple[str | None, str | None]] = []
+    entries = har_data.get("log", {}).get("entries", [])
+    for entry in entries:
+        text = entry.get("response", {}).get("content", {}).get("text")
+        if not isinstance(text, str):
+            continue
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            candidates.extend(_extract_group_candidates_from_payload_obj(payload))
+
+    return _select_group_candidate(candidates, preferred_name=preferred_name)
 
 
 def _stage_input_file(path: Path, staging_dir: Path = _FACEBOOK_RAW_DIR) -> Path:
@@ -235,14 +350,28 @@ def _infer_group_metadata(
         inferred_group_id = None
 
     for path in files:
-        if inferred_name:
-            break
         if file_formats.get(path) == "extension":
-            inferred_name = _infer_group_name_from_extension_json(path, group_id=inferred_group_id)
             if not inferred_name:
-                inferred_name = _infer_group_name_from_filename(path)
+                inferred_name = _infer_group_name_from_extension_json(
+                    path, group_id=inferred_group_id
+                )
+            candidate_name, candidate_id = _infer_group_candidate_from_extension_json(
+                path, preferred_name=inferred_name
+            )
+            if not inferred_name:
+                inferred_name = candidate_name or _infer_group_name_from_filename(path)
+            if not inferred_group_id:
+                inferred_group_id = candidate_id
         elif file_formats.get(path) == "har":
-            inferred_name = _infer_group_name_from_har(path, group_id=inferred_group_id)
+            if not inferred_name:
+                inferred_name = _infer_group_name_from_har(path, group_id=inferred_group_id)
+            candidate_name, candidate_id = _infer_group_candidate_from_har(
+                path, preferred_name=inferred_name
+            )
+            if not inferred_name:
+                inferred_name = candidate_name
+            if not inferred_group_id:
+                inferred_group_id = candidate_id
 
     if not inferred_name and inferred_group_id:
         inferred_name = f"Facebook Group {inferred_group_id}"
@@ -297,8 +426,8 @@ def _build_group_batches(
                 if not inferred_group_name:
                     inferred_group_name = f"Facebook Group {token}"
             elif token:
-                inferred_group_id = None
-                inferred_group_name = _titleize_group_slug(token)
+                inferred_group_id = file_group_id
+                inferred_group_name = file_group_name or _titleize_group_slug(token)
             else:
                 inferred_group_id = file_group_id
                 inferred_group_name = file_group_name

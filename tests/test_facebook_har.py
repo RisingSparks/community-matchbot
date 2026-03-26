@@ -21,6 +21,7 @@ from scripts.backfill_facebook import (
     _build_group_batches,
     _clean_group_title,
     _detect_format,
+    _infer_group_candidate_from_extension_json,
     _infer_group_metadata,
     _infer_group_name_from_extension_json,
     _infer_group_name_from_filename,
@@ -366,6 +367,36 @@ def test_infer_group_name_from_extension_json_payload_group_node(tmp_path):
     )
 
 
+def test_infer_group_candidate_from_extension_json_matches_preferred_name(tmp_path):
+    ext_content = [
+        {
+            "seq": 1,
+            "capturedAt": "2026-03-22T12:00:00.000Z",
+            "text": json.dumps(
+                {
+                    "data": {
+                        "node": {
+                            "to": {
+                                "__typename": "Group",
+                                "__isEntity": "Group",
+                                "id": "9876543210",
+                                "url": "https://www.facebook.com/groups/9876543210/",
+                                "name": "Burning Man Theme Camp Organizers",
+                            }
+                        }
+                    }
+                }
+            ),
+        }
+    ]
+    ext_file = tmp_path / "sample.json"
+    ext_file.write_text(json.dumps(ext_content))
+
+    assert _infer_group_candidate_from_extension_json(
+        ext_file, preferred_name="Burning Man Theme Camp Organizers"
+    ) == ("Burning Man Theme Camp Organizers", "9876543210")
+
+
 def test_stage_input_file_copies_external_capture(tmp_path):
     source = tmp_path / "downloads" / "officialburners_fb_posts_2026-03-22T14-19-49.782Z.json"
     source.parent.mkdir(parents=True)
@@ -421,6 +452,45 @@ def test_infer_group_metadata_from_har_page_title(tmp_path):
 
     assert inferred_name == "Burning Man Theme Camps"
     assert inferred_id is None
+
+
+def test_infer_group_metadata_recovers_numeric_id_from_payload_when_url_uses_slug(tmp_path):
+    ext_content = [
+        {
+            "seq": 1,
+            "capturedAt": "2026-03-22T12:00:00.000Z",
+            "pageTitle": "Burning Man Theme Camp Organizers | Facebook",
+            "text": json.dumps(
+                {
+                    "data": {
+                        "node": {
+                            "to": {
+                                "__typename": "Group",
+                                "__isEntity": "Group",
+                                "id": "9876543210",
+                                "url": "https://www.facebook.com/groups/9876543210/",
+                                "name": "Burning Man Theme Camp Organizers",
+                            }
+                        }
+                    }
+                }
+            ),
+        }
+    ]
+    ext_file = tmp_path / "sample.json"
+    ext_file.write_text(json.dumps(ext_content))
+
+    posts = [
+        {
+            "platform_post_id": "1",
+            "source_url": "https://www.facebook.com/groups/burning-man-theme-camp-organizers/posts/1",
+        }
+    ]
+
+    inferred_name, inferred_id = _infer_group_metadata([ext_file], {ext_file: "extension"}, posts)
+
+    assert inferred_name == "Burning Man Theme Camp Organizers"
+    assert inferred_id == "9876543210"
 
 
 def test_build_group_batches_splits_multiple_group_files(tmp_path):
