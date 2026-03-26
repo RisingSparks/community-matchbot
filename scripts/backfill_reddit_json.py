@@ -45,7 +45,7 @@ async def _backfill_from_cache(
     all_ids: list[str], *, dry_run: bool, since_datetime: datetime
 ) -> None:
     """Replay raw Reddit payloads from disk without hitting the Reddit API."""
-    from matchbot.cli.cmd_data import _post_exists_async, _replay_one
+    from matchbot.cli.cmd_data import _post_status_async, _replay_one
     from matchbot.listeners.reddit_json import _source_created_at_from_json
     from matchbot.settings import get_settings
     from matchbot.storage.raw_store import RawStore
@@ -53,11 +53,12 @@ async def _backfill_from_cache(
     settings = get_settings()
     store = RawStore(base_dir=settings.raw_data_dir)
     # Use the async helper directly — we're already inside a running event loop.
-    exists_map = await _post_exists_async("reddit", all_ids)
+    status_map = await _post_status_async("reddit", all_ids)
 
     processed = skipped = errors = 0
     for post_id in all_ids:
-        if exists_map.get(post_id):
+        existing_status = status_map.get(post_id)
+        if existing_status is not None and existing_status != "raw":
             logger.debug("Cache replay: skipping %s (already in DB)", post_id)
             skipped += 1
             continue

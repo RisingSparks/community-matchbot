@@ -545,7 +545,7 @@ async def test_backfill_reddit_json_dedupes_and_runs_same_pipeline(
             source_community="BurningMan",
             title="Existing post",
             raw_text="already here",
-            status=PostStatus.RAW,
+            status=PostStatus.INDEXED,
         )
         session.add(existing)
         await session.commit()
@@ -626,9 +626,192 @@ async def test_backfill_reddit_json_dedupes_and_runs_same_pipeline(
         rows = (await session.exec(select(Post).order_by(Post.platform_post_id))).all()
 
     status_by_id = {row.platform_post_id: row.status for row in rows}
-    assert status_by_id["dup01"] == PostStatus.RAW
+    assert status_by_id["dup01"] == PostStatus.INDEXED
     assert status_by_id["new_match"] == PostStatus.INDEXED
     assert status_by_id["new_skip"] == PostStatus.SKIPPED
+    engine_module._engine = None
+
+
+@pytest.mark.asyncio
+async def test_backfill_reddit_json_retries_existing_raw_post(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    mock_extractor,
+) -> None:
+    db_path = tmp_path / "reddit_json_backfill_retry_raw.db"
+    monkeypatch.setenv("DATABASE_BACKEND", "sqlite")
+    monkeypatch.setenv("DB_PATH", str(db_path))
+    monkeypatch.setenv("REDDIT_JSON_MAX_CONCURRENT_EXTRACTIONS", "1")
+    get_settings.cache_clear()
+    engine_module._engine = None
+
+    await create_db_and_tables()
+
+    async with get_session() as session:
+        existing = Post(
+            platform=Platform.REDDIT,
+            platform_post_id="raw01",
+            platform_author_id="author_raw",
+            author_display_name="author_raw",
+            source_url="https://reddit.com/r/BurningMan/comments/raw01/",
+            source_community="BurningMan",
+            title="Existing raw post",
+            raw_text="still needs extraction",
+            status=PostStatus.RAW,
+        )
+        session.add(existing)
+        await session.commit()
+
+    response = MagicMock()
+    response.status_code = 200
+    response.raise_for_status.return_value = None
+    response.json.return_value = {
+        "data": {
+            "after": None,
+            "children": [
+                {
+                    "data": {
+                        "id": "raw01",
+                        "title": "Existing raw post",
+                        "selftext": "still needs extraction",
+                        "author": "author_raw",
+                        "author_fullname": "t2_author_raw",
+                        "permalink": "/r/BurningMan/comments/raw01/post/",
+                        "created_utc": 220,
+                    }
+                }
+            ],
+        }
+    }
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=response)
+
+    retried_ids: list[str] = []
+
+    async def fake_process_post(session, post, extractor, on_extraction_error="error"):
+        retried_ids.append(post.platform_post_id)
+        post.status = PostStatus.INDEXED
+        session.add(post)
+        await session.commit()
+        await session.refresh(post)
+        return post
+
+    monkeypatch.setattr(reddit_json, "_get_extractor", lambda: mock_extractor)
+    monkeypatch.setattr(reddit_json, "process_post", fake_process_post)
+
+    counts = await reddit_json.backfill_reddit_json(
+        datetime.fromtimestamp(200, UTC).replace(tzinfo=None),
+        fetch_limit=100,
+        sleep_seconds=0,
+        max_pages=5,
+        dry_run=False,
+        client=client,
+    )
+
+    assert retried_ids == ["raw01"]
+    assert counts["deduped"] == 0
+    assert counts["matched"] == 1
+    assert counts["extracted"] == 1
+
+    async with get_session() as session:
+        row = (
+            await session.exec(select(Post).where(Post.platform_post_id == "raw01"))
+        ).one()
+
+    assert row.status == PostStatus.INDEXED
+    engine_module._engine = None
+
+
+@pytest.mark.asyncio
+async def test_backfill_reddit_json_retries_transient_db_disconnect(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    mock_extractor,
+) -> None:
+    db_path = tmp_path / "reddit_json_backfill_retry_disconnect.db"
+    monkeypatch.setenv("DATABASE_BACKEND", "sqlite")
+    monkeypatch.setenv("DB_PATH", str(db_path))
+    monkeypatch.setenv("REDDIT_JSON_MAX_CONCURRENT_EXTRACTIONS", "1")
+    get_settings.cache_clear()
+    engine_module._engine = None
+
+    await create_db_and_tables()
+
+    response = MagicMock()
+    response.status_code = 200
+    response.raise_for_status.return_value = None
+    response.json.return_value = {
+        "data": {
+            "after": None,
+            "children": [
+                {
+                    "data": {
+                        "id": "disconnect01",
+                        "title": "Looking for camp",
+                        "selftext": "Can help with build.",
+                        "author": "disconnect_author",
+                        "author_fullname": "t2_disconnect_author",
+                        "permalink": "/r/BurningMan/comments/disconnect01/post/",
+                        "created_utc": 220,
+                    }
+                }
+            ],
+        }
+    }
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=response)
+
+    class FakeDisconnectError(RuntimeError):
+        pass
+
+    process_attempts = 0
+    dispose_calls = 0
+
+    async def fake_process_post(session, post, extractor, on_extraction_error="error"):
+        nonlocal process_attempts
+        process_attempts += 1
+        if process_attempts == 1:
+            raise FakeDisconnectError("connection is closed")
+        post.status = PostStatus.INDEXED
+        session.add(post)
+        await session.commit()
+        await session.refresh(post)
+        return post
+
+    async def fake_dispose_engine() -> None:
+        nonlocal dispose_calls
+        dispose_calls += 1
+
+    monkeypatch.setattr(reddit_json, "_get_extractor", lambda: mock_extractor)
+    monkeypatch.setattr(reddit_json, "process_post", fake_process_post)
+    monkeypatch.setattr(
+        reddit_json,
+        "is_disconnect_error",
+        lambda exc: isinstance(exc, FakeDisconnectError),
+    )
+    monkeypatch.setattr(reddit_json, "dispose_engine", fake_dispose_engine)
+
+    counts = await reddit_json.backfill_reddit_json(
+        datetime.fromtimestamp(200, UTC).replace(tzinfo=None),
+        fetch_limit=100,
+        sleep_seconds=0,
+        max_pages=5,
+        dry_run=False,
+        client=client,
+    )
+
+    assert process_attempts == 2
+    assert dispose_calls == 1
+    assert counts["matched"] == 1
+    assert counts["extracted"] == 1
+    assert counts["raw_after_error"] == 0
+
+    async with get_session() as session:
+        row = (
+            await session.exec(select(Post).where(Post.platform_post_id == "disconnect01"))
+        ).one()
+
+    assert row.status == PostStatus.INDEXED
     engine_module._engine = None
 
 

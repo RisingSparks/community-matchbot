@@ -29,6 +29,7 @@ from matchbot.storage.raw_store import RawStore
 logger = logging.getLogger(__name__)
 
 _raw_store: RawStore | None = None
+_REDDIT_DB_RETRY_ATTEMPTS = 3
 
 
 def _get_raw_store() -> RawStore:
@@ -87,32 +88,67 @@ def _source_created_at_from_json(data: dict[str, Any]) -> datetime | None:
 
 
 async def _latest_reddit_post_id() -> str | None:
-    async with get_session() as session:
-        row = (
-            await session.exec(
-                select(Post.platform_post_id)
-                .where(
-                    Post.platform == Platform.REDDIT,
-                    Post.source_community == _REDDIT_COMMUNITY,
+    async def _load_latest() -> str | None:
+        async with get_session() as session:
+            row = (
+                await session.exec(
+                    select(Post.platform_post_id)
+                    .where(
+                        Post.platform == Platform.REDDIT,
+                        Post.source_community == _REDDIT_COMMUNITY,
+                    )
+                    .order_by(Post.detected_at.desc())
+                    .limit(1)
                 )
-                .order_by(Post.detected_at.desc())
-                .limit(1)
-            )
-        ).first()
-    return row if row else None
+            ).first()
+        return row if row else None
+
+    return await _run_reddit_db_retry("latest checkpoint", _load_latest)
+
+
+async def _get_existing_post(platform_post_id: str) -> Post | None:
+    async def _load_existing() -> Post | None:
+        async with get_session() as session:
+            return (
+                await session.exec(
+                    select(Post).where(
+                        Post.platform == Platform.REDDIT,
+                        Post.platform_post_id == platform_post_id,
+                    )
+                )
+            ).first()
+
+    return await _run_reddit_db_retry(f"load post {platform_post_id}", _load_existing)
 
 
 async def _post_exists(platform_post_id: str) -> bool:
-    async with get_session() as session:
-        existing = (
-            await session.exec(
-                select(Post.id).where(
-                    Post.platform == Platform.REDDIT,
-                    Post.platform_post_id == platform_post_id,
-                )
+    return await _get_existing_post(platform_post_id) is not None
+
+
+async def _run_reddit_db_retry[T](
+    operation_name: str,
+    callback,
+    *,
+    max_attempts: int = _REDDIT_DB_RETRY_ATTEMPTS,
+) -> T:
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return await callback()
+        except Exception as exc:
+            if attempt >= max_attempts or not is_disconnect_error(exc):
+                raise
+            backoff_seconds = 0.2 * attempt
+            logger.warning(
+                "Transient DB disconnect during Reddit %s (attempt %d/%d). Retrying in %.1fs.",
+                operation_name,
+                attempt,
+                max_attempts,
+                backoff_seconds,
             )
-        ).first()
-    return existing is not None
+            await dispose_engine()
+            await asyncio.sleep(backoff_seconds)
+
+    raise RuntimeError(f"Unreachable retry termination for Reddit {operation_name}.")
 
 
 def _new_counts() -> dict[str, int]:
@@ -243,9 +279,6 @@ async def _ingest_reddit_json_item(
     if not post_id:
         return "ignored", extractor
 
-    if await _post_exists(post_id):
-        return "deduped", extractor
-
     # Persist the raw API payload before any transformation or truncation.
     _get_raw_store().save("reddit", datetime.now(UTC).date().isoformat(), post_id, data)
 
@@ -264,8 +297,48 @@ async def _ingest_reddit_json_item(
         or data.get("url")
     )
 
-    async with get_session() as session:
-        if kw_result.tier == "no_match":
+    if extractor is None:
+        extractor = _get_extractor()
+
+    async def _ingest_once() -> _IngestOutcome:
+        existing = await _get_existing_post(post_id)
+        if existing is not None:
+            if existing.status == PostStatus.RAW:
+                async with get_session() as session:
+                    post = await session.get(Post, existing.id)
+                    assert post is not None
+                    before_status = post.status
+                    post = await process_post(
+                        session,
+                        post,
+                        extractor,
+                        on_extraction_error="raw",
+                    )
+                    if post.status == PostStatus.RAW and before_status == PostStatus.RAW:
+                        return "matched_raw_after_error"
+                    return "matched_extracted"
+            return "deduped"
+
+        async with get_session() as session:
+            if kw_result.tier == "no_match":
+                post = Post(
+                    platform=Platform.REDDIT,
+                    platform_post_id=post_id,
+                    platform_author_id=author_id,
+                    author_display_name=author_display,
+                    source_url=source_url,
+                    source_community=_REDDIT_COMMUNITY,
+                    title=title,
+                    raw_text=body,
+                    source_created_at=_source_created_at_from_json(data),
+                    status=PostStatus.SKIPPED,
+                    extraction_method="keyword",
+                )
+                post.post_type = None
+                session.add(post)
+                await session.commit()
+                return "skipped"
+
             post = Post(
                 platform=Platform.REDDIT,
                 platform_post_id=post_id,
@@ -276,43 +349,25 @@ async def _ingest_reddit_json_item(
                 title=title,
                 raw_text=body,
                 source_created_at=_source_created_at_from_json(data),
-                status=PostStatus.SKIPPED,
-                extraction_method="keyword",
+                status=PostStatus.RAW,
             )
-            post.post_type = None
             session.add(post)
             await session.commit()
-            return "skipped", extractor
+            await session.refresh(post)
 
-        post = Post(
-            platform=Platform.REDDIT,
-            platform_post_id=post_id,
-            platform_author_id=author_id,
-            author_display_name=author_display,
-            source_url=source_url,
-            source_community=_REDDIT_COMMUNITY,
-            title=title,
-            raw_text=body,
-            source_created_at=_source_created_at_from_json(data),
-            status=PostStatus.RAW,
-        )
-        session.add(post)
-        await session.commit()
-        await session.refresh(post)
+            before_status = post.status
+            post = await process_post(
+                session,
+                post,
+                extractor,
+                on_extraction_error="raw",
+            )
+            if post.status == PostStatus.RAW and before_status == PostStatus.RAW:
+                return "matched_raw_after_error"
+            return "matched_extracted"
 
-        if extractor is None:
-            extractor = _get_extractor()
-
-        before_status = post.status
-        post = await process_post(
-            session,
-            post,
-            extractor,
-            on_extraction_error="raw",
-        )
-        if post.status == PostStatus.RAW and before_status == PostStatus.RAW:
-            return "matched_raw_after_error", extractor
-        return "matched_extracted", extractor
+    outcome = await _run_reddit_db_retry(f"ingest post {post_id}", _ingest_once)
+    return outcome, extractor
 
 
 async def _ingest_reddit_json_batch(
@@ -506,7 +561,11 @@ async def backfill_reddit_json(
                 break
 
             if sleep_seconds > 0:
-                logger.debug("Page %d done; sleeping %.1fs before next page.", counts["pages"], sleep_seconds)
+                logger.debug(
+                    "Page %d done; sleeping %.1fs before next page.",
+                    counts["pages"],
+                    sleep_seconds,
+                )
                 await asyncio.sleep(sleep_seconds)
 
         return counts

@@ -12,6 +12,7 @@ from matchbot.storage.raw_store import RawStore
 
 app = typer.Typer(help="Raw data management commands.")
 logger = logging.getLogger(__name__)
+_REPLAY_DB_RETRY_ATTEMPTS = 3
 
 _PLATFORM_MAP = {
     "reddit": "reddit",
@@ -24,8 +25,8 @@ def _get_raw_store() -> RawStore:
     return RawStore(base_dir=get_settings().raw_data_dir)
 
 
-async def _post_exists_async(platform: str, post_ids: list[str]) -> dict[str, bool]:
-    """Return a mapping of post_id → True if already in DB."""
+async def _post_status_async(platform: str, post_ids: list[str]) -> dict[str, str | None]:
+    """Return a mapping of post_id → current DB status, if present."""
     if not post_ids:
         return {}
     from sqlmodel import select
@@ -36,14 +37,20 @@ async def _post_exists_async(platform: str, post_ids: list[str]) -> dict[str, bo
     async with get_session() as session:
         rows = (
             await session.exec(
-                select(Post.platform_post_id).where(
+                select(Post.platform_post_id, Post.status).where(
                     Post.platform == platform,
                     Post.platform_post_id.in_(post_ids),
                 )
             )
         ).all()
-    existing = set(rows)
-    return {pid: pid in existing for pid in post_ids}
+    status_map = {platform_post_id: status for platform_post_id, status in rows}
+    return {pid: status_map.get(pid) for pid in post_ids}
+
+
+async def _post_exists_async(platform: str, post_ids: list[str]) -> dict[str, bool]:
+    """Return a mapping of post_id → True if already in DB."""
+    status_map = await _post_status_async(platform, post_ids)
+    return {pid: status_map.get(pid) is not None for pid in post_ids}
 
 
 def _post_exists_batch(platform: str, post_ids: list[str]) -> dict[str, bool]:
@@ -53,7 +60,9 @@ def _post_exists_batch(platform: str, post_ids: list[str]) -> dict[str, bool]:
 
 async def _replay_one(platform: str, post_id: str, payload: dict) -> None:
     """Reconstruct a Post from a raw payload and run extraction."""
-    from matchbot.db.engine import get_session
+    from sqlmodel import select
+
+    from matchbot.db.engine import dispose_engine, get_session, is_disconnect_error
     from matchbot.db.models import Post, PostStatus
     from matchbot.extraction import process_post
     from matchbot.extraction.anthropic_extractor import AnthropicExtractor
@@ -93,26 +102,59 @@ async def _replay_one(platform: str, post_id: str, payload: dict) -> None:
         source_community = f"Facebook Group: {payload.get('group_id') or ''}"
         source_created_at = None
 
-    post = Post(
-        platform=platform,
-        platform_post_id=post_id,
-        platform_author_id=author_id,
-        author_display_name=author_display,
-        source_url=source_url,
-        source_community=source_community,
-        title=title,
-        raw_text=raw_text,
-        source_created_at=source_created_at,
-        status=PostStatus.RAW,
-    )
-
     extractor = AnthropicExtractor() if settings.llm_provider != "openai" else OpenAIExtractor()
     try:
-        async with get_session() as session:
-            session.add(post)
-            await session.commit()
-            await session.refresh(post)
-            await process_post(session, post, extractor, on_extraction_error="raw")
+        for attempt in range(1, _REPLAY_DB_RETRY_ATTEMPTS + 1):
+            try:
+                async with get_session() as session:
+                    existing = (
+                        await session.exec(
+                            select(Post).where(
+                                Post.platform == platform,
+                                Post.platform_post_id == post_id,
+                            )
+                        )
+                    ).first()
+                    if existing is not None:
+                        if existing.status != PostStatus.RAW:
+                            return
+                        post = existing
+                    else:
+                        post = Post(
+                            platform=platform,
+                            platform_post_id=post_id,
+                            platform_author_id=author_id,
+                            author_display_name=author_display,
+                            source_url=source_url,
+                            source_community=source_community,
+                            title=title,
+                            raw_text=raw_text,
+                            source_created_at=source_created_at,
+                            status=PostStatus.RAW,
+                        )
+                        session.add(post)
+                        await session.commit()
+                        await session.refresh(post)
+
+                    await process_post(session, post, extractor, on_extraction_error="raw")
+                    return
+            except Exception as exc:
+                if attempt >= _REPLAY_DB_RETRY_ATTEMPTS or not is_disconnect_error(exc):
+                    raise
+                backoff_seconds = 0.2 * attempt
+                logger.warning(
+                    (
+                        "Transient DB disconnect while replaying %s/%s "
+                        "(attempt %d/%d). Retrying in %.1fs."
+                    ),
+                    platform,
+                    post_id,
+                    attempt,
+                    _REPLAY_DB_RETRY_ATTEMPTS,
+                    backoff_seconds,
+                )
+                await dispose_engine()
+                await asyncio.sleep(backoff_seconds)
     finally:
         await extractor.aclose()
 
