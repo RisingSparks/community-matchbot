@@ -8,7 +8,8 @@ from matchbot.db.models import Post
 from matchbot.extraction.base import ExtractionError, LLMExtractor
 
 TRIAGE_SYSTEM_PROMPT = """\
-You are helping a human moderator review potential matches between Burning Man camp seekers and camps with openings.
+You are helping a human moderator review potential matches between Burning Man
+camp seekers and camps with openings.
 
 Given summaries of two posts (one seeker, one camp), assess whether an introduction would be useful.
 
@@ -106,7 +107,7 @@ async def _call_triage(extractor: LLMExtractor, user_content: str) -> dict:
         from matchbot.extraction.openai_extractor import OpenAIExtractor, get_openai_refusal
 
         assert isinstance(extractor, OpenAIExtractor)
-        openai_response = await extractor._client.responses.parse(
+        openai_response = await extractor._responses_parse_with_retry(
             model=extractor._model,
             max_output_tokens=512,
             instructions=TRIAGE_SYSTEM_PROMPT,

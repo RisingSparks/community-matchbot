@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
 from sqlmodel import select
 
@@ -570,6 +571,47 @@ async def test_openai_extractor_raises_on_refusal():
     extractor = OpenAIExtractor(client=mock_client)
     with pytest.raises(ExtractionError, match="refused extraction"):
         await extractor.extract("title", "body", "reddit", "BurningMan")
+
+
+@pytest.mark.asyncio
+async def test_openai_extractor_retries_rate_limit(monkeypatch):
+    from matchbot.extraction.openai_extractor import OpenAIExtractor
+
+    mock_response = MagicMock()
+    mock_response.output = []
+    mock_response.output_parsed = ExtractedPost(
+        post_type="mentorship",
+        role="seeker",
+        confidence=0.82,
+    )
+
+    request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+    rate_limited_response = httpx.Response(
+        429,
+        headers={"Retry-After": "0.01"},
+        request=request,
+    )
+    rate_limit_error = __import__("openai").RateLimitError(
+        "Too many requests",
+        response=rate_limited_response,
+        body={"error": {"code": "rate_limit_exceeded"}},
+    )
+
+    sleep_calls: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleep_calls.append(delay)
+
+    mock_client = AsyncMock()
+    mock_client.responses.parse = AsyncMock(side_effect=[rate_limit_error, mock_response])
+    monkeypatch.setattr("matchbot.extraction.openai_extractor.asyncio.sleep", fake_sleep)
+
+    extractor = OpenAIExtractor(client=mock_client)
+    result = await extractor.extract("title", "body", "reddit", "BurningMan")
+
+    assert result.role == "seeker"
+    assert mock_client.responses.parse.await_count == 2
+    assert sleep_calls == [0.01]
 
 
 @pytest.mark.asyncio
