@@ -18,6 +18,8 @@ from matchbot.importers.facebook_har import (
     parse_har_file,
 )
 from scripts.backfill_facebook import (
+    _build_group_batches,
+    _clean_group_title,
     _detect_format,
     _infer_group_metadata,
     _infer_group_name_from_extension_json,
@@ -305,12 +307,19 @@ def test_infer_group_name_from_extension_filename():
     assert _infer_group_name_from_filename(path) == "Burning Man Theme Camps"
 
 
+def test_infer_group_name_from_extension_filename_with_dots():
+    path = Path(
+        "data/raw/facebook/burning.man.theme.camp.organizers_fb_posts_2026-03-22T12-00-00.json"
+    )
+    assert _infer_group_name_from_filename(path) == "Burning Man Theme Camp Organizers"
+
+
 def test_infer_group_name_from_extension_json(tmp_path):
     ext_content = [
         {
             "seq": 1,
             "capturedAt": "2026-03-22T12:00:00.000Z",
-            "pageTitle": "Burning Man Theme Camps | Facebook",
+            "pageTitle": "(20+) Burning Man Theme Camps | Facebook",
             "text": "{}",
         }
     ]
@@ -318,6 +327,12 @@ def test_infer_group_name_from_extension_json(tmp_path):
     ext_file.write_text(json.dumps(ext_content))
 
     assert _infer_group_name_from_extension_json(ext_file) == "Burning Man Theme Camps"
+
+
+def test_clean_group_title_strips_facebook_suffix_and_member_count():
+    assert _clean_group_title("(20+) Burning Man: Campers 4 Camps | Facebook") == (
+        "Burning Man: Campers 4 Camps"
+    )
 
 
 def test_infer_group_name_from_extension_json_payload_group_node(tmp_path):
@@ -406,6 +421,80 @@ def test_infer_group_metadata_from_har_page_title(tmp_path):
 
     assert inferred_name == "Burning Man Theme Camps"
     assert inferred_id is None
+
+
+def test_build_group_batches_splits_multiple_group_files(tmp_path):
+    campers = tmp_path / "20-burning-man-campers-4-camps_fb_posts_2026-03-25T19-14-10.289Z.json"
+    campers.write_text("[]")
+    organizers = (
+        tmp_path / "20-burning-man-theme-camp-organizers_fb_posts_2026-03-25T19-11-05.669Z.json"
+    )
+    organizers.write_text("[]")
+
+    parsed_files = [
+        {
+            "path": campers,
+            "format": "extension",
+            "posts": [
+                {
+                    "platform_post_id": "1",
+                    "source_url": "https://www.facebook.com/groups/252779754929418/posts/1/",
+                }
+            ],
+        },
+        {
+            "path": organizers,
+            "format": "extension",
+            "posts": [
+                {
+                    "platform_post_id": "2",
+                    "source_url": "https://www.facebook.com/groups/burning-man-theme-camp-organizers/posts/2/",
+                }
+            ],
+        },
+    ]
+
+    batches = _build_group_batches(
+        parsed_files, group_name_override=None, group_id_override=None
+    )
+
+    assert len(batches) == 2
+    assert {(batch["group_name"], batch["group_id"]) for batch in batches} == {
+        ("20 Burning Man Campers 4 Camps", "252779754929418"),
+        ("Burning Man Theme Camp Organizers", None),
+    }
+
+
+def test_build_group_batches_splits_mixed_capture_by_group_token(tmp_path):
+    mixed = tmp_path / "fb_posts_2026-03-22T13-22-39.397Z.json"
+    mixed.write_text("[]")
+
+    parsed_files = [
+        {
+            "path": mixed,
+            "format": "extension",
+            "posts": [
+                {
+                    "platform_post_id": "1",
+                    "source_url": "https://www.facebook.com/groups/1234567890/posts/1/",
+                },
+                {
+                    "platform_post_id": "2",
+                    "source_url": "https://www.facebook.com/groups/burning-man-theme-camp-organizers/posts/2/",
+                },
+            ],
+        }
+    ]
+
+    batches = _build_group_batches(
+        parsed_files, group_name_override=None, group_id_override=None
+    )
+
+    assert len(batches) == 2
+    assert {(batch["group_name"], batch["group_id"], len(batch["posts"])) for batch in batches} == {
+        ("Facebook Group 1234567890", "1234567890", 1),
+        ("Burning Man Theme Camp Organizers", None, 1),
+    }
 
 
 @pytest.mark.asyncio

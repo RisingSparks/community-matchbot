@@ -7,8 +7,10 @@ import logging
 import re
 import shutil
 import sys
+from collections import defaultdict
 from datetime import UTC, datetime, time
 from pathlib import Path
+from typing import Any
 
 import typer
 
@@ -32,6 +34,7 @@ _EXTENSION_FILENAME_RE = re.compile(
     r"^(?P<slug>.+)_fb_posts_\d{4}-\d{2}-\d{2}T.*$",
     re.IGNORECASE,
 )
+_TITLE_MEMBER_COUNT_RE = re.compile(r"^\(\d+\+\)\s*")
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _FACEBOOK_RAW_DIR = _REPO_ROOT / "data" / "raw" / "facebook"
 
@@ -59,8 +62,14 @@ def _extract_group_token_from_url(url: str) -> str | None:
 
 
 def _titleize_group_slug(slug: str) -> str:
-    words = re.split(r"[-_]+", slug.strip())
+    words = re.split(r"[-_.]+", slug.strip())
     return " ".join(word.capitalize() for word in words if word)
+
+
+def _clean_group_title(title: str) -> str:
+    cleaned = re.sub(r"\s*[-|]\s*Facebook\s*$", "", title, flags=re.IGNORECASE).strip()
+    cleaned = _TITLE_MEMBER_COUNT_RE.sub("", cleaned).strip()
+    return cleaned
 
 
 def _infer_group_name_from_filename(path: Path) -> str | None:
@@ -135,7 +144,7 @@ def _infer_group_name_from_extension_json(path: Path, *, group_id: str | None = 
                 if found:
                     return found
             continue
-        cleaned = re.sub(r"\s*[-|]\s*Facebook\s*$", "", page_title, flags=re.IGNORECASE).strip()
+        cleaned = _clean_group_title(page_title)
         if cleaned:
             return cleaned
 
@@ -154,7 +163,7 @@ def _infer_group_name_from_har(path: Path, *, group_id: str | None = None) -> st
         title = str(page.get("title") or "").strip()
         if not title:
             continue
-        cleaned = re.sub(r"\s*[-|]\s*Facebook\s*$", "", title, flags=re.IGNORECASE).strip()
+        cleaned = _clean_group_title(title)
         if cleaned:
             return cleaned
 
@@ -241,6 +250,90 @@ def _infer_group_metadata(
     return inferred_name, inferred_group_id
 
 
+def _empty_counts() -> dict[str, int]:
+    return {
+        "parsed": 0,
+        "new_candidates": 0,
+        "deduped": 0,
+        "before_cutoff": 0,
+        "matched": 0,
+        "skipped": 0,
+        "extracted": 0,
+        "raw_after_error": 0,
+    }
+
+
+def _accumulate_counts(total: dict[str, int], batch_counts: dict[str, int]) -> None:
+    for key in total:
+        total[key] += batch_counts.get(key, 0)
+
+
+def _build_group_batches(
+    parsed_files: list[dict[str, Any]],
+    *,
+    group_name_override: str | None,
+    group_id_override: str | None,
+) -> list[dict[str, Any]]:
+    grouped_posts: dict[tuple[str, str], dict[str, Any]] = {}
+    seen_post_ids: set[str] = set()
+
+    for parsed_file in parsed_files:
+        path = parsed_file["path"]
+        fmt = parsed_file["format"]
+        posts = parsed_file["posts"]
+        file_group_name, file_group_id = _infer_group_metadata([path], {path: fmt}, posts)
+
+        token_groups: dict[str | None, list[dict]] = defaultdict(list)
+        for post in posts:
+            token = _extract_group_token_from_url(str(post.get("source_url") or ""))
+            token_groups[token].append(post)
+
+        for token, token_posts in token_groups.items():
+            if token and token.isdigit():
+                inferred_group_id = token
+                inferred_group_name = (
+                    file_group_name if file_group_id == token and file_group_name else None
+                )
+                if not inferred_group_name:
+                    inferred_group_name = f"Facebook Group {token}"
+            elif token:
+                inferred_group_id = None
+                inferred_group_name = _titleize_group_slug(token)
+            else:
+                inferred_group_id = file_group_id
+                inferred_group_name = file_group_name
+
+            resolved_group_id = group_id_override or inferred_group_id
+            resolved_group_name = group_name_override or inferred_group_name
+            if not resolved_group_name:
+                raise typer.BadParameter(
+                    "Could not infer Facebook group name for "
+                    f"{path}. Pass --group-name to override."
+                )
+
+            batch_key = (
+                resolved_group_id or f"name:{resolved_group_name.casefold()}",
+                resolved_group_name,
+            )
+            batch = grouped_posts.setdefault(
+                batch_key,
+                {
+                    "group_name": resolved_group_name,
+                    "group_id": resolved_group_id,
+                    "posts": [],
+                },
+            )
+
+            for post in token_posts:
+                post_id = str(post["platform_post_id"])
+                if post_id in seen_post_ids:
+                    continue
+                seen_post_ids.add(post_id)
+                batch["posts"].append(post)
+
+    return [batch for batch in grouped_posts.values() if batch["posts"]]
+
+
 @app.command()
 def main(
     files: list[Path] = typer.Argument(..., help="Path to HAR or Extension JSON file(s)"),
@@ -303,9 +396,7 @@ async def _main_async(
 
     await create_db_and_tables()
 
-    all_parsed_posts = []
-    file_formats: dict[Path, str] = {}
-    staged_files: list[Path] = []
+    parsed_files: list[dict[str, Any]] = []
     for original_path in files:
         path = original_path.expanduser()
         if not path.exists():
@@ -313,10 +404,8 @@ async def _main_async(
             continue
 
         path = _stage_input_file(path)
-        staged_files.append(path)
 
         fmt = _detect_format(path)
-        file_formats[path] = fmt
         logger.info("Processing %s (detected format: %s)", path, fmt)
 
         if fmt == "har":
@@ -328,48 +417,40 @@ async def _main_async(
             continue
 
         logger.info("Found %d post-like nodes in %s", len(posts), path)
-        all_parsed_posts.extend(posts)
+        parsed_files.append({"path": path, "format": fmt, "posts": posts})
 
-    # Global dedup across files (in case multiple files overlap)
-    unique_posts_map = {}
-    for p in all_parsed_posts:
-        unique_posts_map[p["platform_post_id"]] = p
+    group_batches = _build_group_batches(
+        parsed_files,
+        group_name_override=group_name,
+        group_id_override=group_id,
+    )
+    total_unique_posts = sum(len(batch["posts"]) for batch in group_batches)
+    logger.info("Total unique posts found across all files: %d", total_unique_posts)
 
-    unique_posts = list(unique_posts_map.values())
-    logger.info("Total unique posts found across all files: %d", len(unique_posts))
-
-    if not unique_posts:
+    if total_unique_posts == 0:
         logger.info("No posts to process.")
         await dispose_engine()
         return
 
-    inferred_group_name, inferred_group_id = _infer_group_metadata(
-        staged_files, file_formats, unique_posts
-    )
-    resolved_group_name = group_name or inferred_group_name
-    resolved_group_id = group_id or inferred_group_id
-
-    if not resolved_group_name:
-        raise typer.BadParameter(
-            "Could not infer Facebook group name from the input. Pass --group-name to override."
-        )
-
-    logger.info(
-        "Using Facebook group metadata: group_name=%s group_id=%s",
-        resolved_group_name,
-        resolved_group_id or "<unknown>",
-    )
-
+    counts = _empty_counts()
     try:
-        counts = await backfill_facebook_posts(
-            unique_posts,
-            group_name=resolved_group_name,
-            group_id=resolved_group_id,
-            since_datetime=since_datetime,
-            dry_run=dry_run,
-            sleep_seconds=sleep_seconds,
-            no_extract=no_extract,
-        )
+        for batch in group_batches:
+            logger.info(
+                "Processing batch: group_name=%s group_id=%s posts=%d",
+                batch["group_name"],
+                batch["group_id"] or "<unknown>",
+                len(batch["posts"]),
+            )
+            batch_counts = await backfill_facebook_posts(
+                batch["posts"],
+                group_name=batch["group_name"],
+                group_id=batch["group_id"],
+                since_datetime=since_datetime,
+                dry_run=dry_run,
+                sleep_seconds=sleep_seconds,
+                no_extract=no_extract,
+            )
+            _accumulate_counts(counts, batch_counts)
     finally:
         await dispose_engine()
 
