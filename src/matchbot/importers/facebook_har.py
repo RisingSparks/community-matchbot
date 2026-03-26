@@ -389,7 +389,7 @@ async def backfill_facebook_posts(
                 # 2. DB Dedup
                 existing = (
                     await session.exec(
-                        select(Post.id).where(
+                        select(Post).where(
                             Post.platform == Platform.FACEBOOK,
                             Post.platform_post_id == fields["platform_post_id"],
                         )
@@ -397,6 +397,37 @@ async def backfill_facebook_posts(
                 ).first()
 
                 if existing:
+                    if (
+                        existing.status == PostStatus.RAW
+                        and not dry_run
+                        and not no_extract
+                    ):
+                        try:
+                            await process_post(
+                                session,
+                                existing,
+                                extractor,
+                                on_extraction_error="raw",
+                            )
+                            if existing.status == PostStatus.INDEXED:
+                                counts["matched"] += 1
+                                counts["extracted"] += 1
+                            elif existing.status == PostStatus.SKIPPED:
+                                counts["skipped"] += 1
+                            elif existing.status == PostStatus.RAW:
+                                counts["raw_after_error"] += 1
+                        except Exception as exc:
+                            logger.error(
+                                "Extraction retry error for existing post %s: %s",
+                                existing.platform_post_id,
+                                exc,
+                            )
+                            counts["raw_after_error"] += 1
+
+                        if sleep_seconds > 0:
+                            await asyncio.sleep(sleep_seconds)
+                        continue
+
                     counts["deduped"] += 1
                     continue
 

@@ -742,3 +742,86 @@ async def test_backfill_facebook_posts_keeps_raw_on_extraction_error(monkeypatch
     assert post.status == PostStatus.RAW
 
     engine_module._engine = None
+
+
+@pytest.mark.asyncio
+async def test_backfill_facebook_posts_retries_existing_raw_post(monkeypatch, tmp_path):
+    db_path = tmp_path / "test_facebook_retry_existing_raw.db"
+    monkeypatch.setenv("DATABASE_BACKEND", "sqlite")
+    monkeypatch.setenv("DB_PATH", str(db_path))
+
+    engine_module._engine = None
+    await create_db_and_tables()
+
+    async with get_internal_session() as session:
+        existing_post = Post(
+            platform=Platform.FACEBOOK,
+            platform_post_id="raw-existing-1",
+            platform_author_id="u1",
+            author_display_name="User",
+            source_url="",
+            source_community="Facebook Group: Test Group",
+            source_created_at=datetime.now(),
+            title="Need camp",
+            raw_text="Looking for camp",
+            status=PostStatus.RAW,
+        )
+        session.add(existing_post)
+        await session.commit()
+
+    class FakeExtractor:
+        async def aclose(self):
+            return None
+
+    retried_post_ids: list[str] = []
+
+    async def fake_process_post(session, post, extractor, on_extraction_error="error"):
+        assert on_extraction_error == "raw"
+        retried_post_ids.append(post.platform_post_id)
+        post.status = PostStatus.INDEXED
+        session.add(post)
+        await session.commit()
+        await session.refresh(post)
+        return post
+
+    monkeypatch.setattr(facebook_har_module, "process_post", fake_process_post)
+    monkeypatch.setattr(facebook_har_module, "_get_extractor", lambda: FakeExtractor())
+
+    fields_list = [
+        {
+            "platform_post_id": "raw-existing-1",
+            "platform_author_id": "u1",
+            "author_display_name": "User",
+            "source_url": "",
+            "raw_text": "Looking for camp",
+            "source_created_at": datetime.now(),
+        }
+    ]
+
+    counts = await backfill_facebook_posts(
+        fields_list,
+        group_name="Test Group",
+        no_extract=False,
+        sleep_seconds=0,
+    )
+
+    assert retried_post_ids == ["raw-existing-1"]
+    assert counts["deduped"] == 0
+    assert counts["new_candidates"] == 0
+    assert counts["matched"] == 1
+    assert counts["extracted"] == 1
+
+    async with get_internal_session() as session:
+        posts = (
+            await session.exec(
+                select(Post).where(
+                    Post.platform == Platform.FACEBOOK,
+                    Post.platform_post_id == "raw-existing-1",
+                )
+            )
+        ).all()
+
+    assert len(posts) == 1
+    assert posts[0].status == PostStatus.INDEXED
+
+    engine_module._engine = None
