@@ -11,6 +11,10 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+import matchbot.listeners.discord_bot as _discord_bot_module
+import matchbot.listeners.facebook as _facebook_module
+import matchbot.listeners.reddit as _reddit_module
+import matchbot.listeners.reddit_json as _reddit_json_module
 from matchbot.db.models import Platform, Post, PostRole, PostStatus, PostType
 from matchbot.extraction.schemas import ExtractedPost
 from matchbot.public.router import clear_community_cache
@@ -19,6 +23,16 @@ from matchbot.settings import get_settings
 # ---------------------------------------------------------------------------
 # Settings isolation
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def isolate_raw_store(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    """Redirect all raw store writes to a temp directory so tests never pollute data/raw/."""
+    from matchbot.storage.raw_store import RawStore
+
+    store = RawStore(base_dir=tmp_path / "raw")
+    for module in (_reddit_module, _reddit_json_module, _discord_bot_module, _facebook_module):
+        monkeypatch.setattr(module, "_raw_store", store)
 
 
 @pytest.fixture(autouse=True)
