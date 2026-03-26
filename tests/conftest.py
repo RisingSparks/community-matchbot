@@ -11,6 +11,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+import matchbot.db.engine as _engine_module
 import matchbot.listeners.discord_bot as _discord_bot_module
 import matchbot.listeners.facebook as _facebook_module
 import matchbot.listeners.reddit as _reddit_module
@@ -23,6 +24,20 @@ from matchbot.settings import get_settings
 # ---------------------------------------------------------------------------
 # Settings isolation
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def isolate_app_db(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    """Ensure TestClient-based tests use an isolated SQLite DB, not the real matchbot.db."""
+    import asyncio
+
+    from matchbot.db.engine import create_db_and_tables
+
+    monkeypatch.setenv("DATABASE_BACKEND", "sqlite")
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "test.db"))
+    monkeypatch.setattr(_engine_module, "_engine", None)
+    get_settings.cache_clear()
+    asyncio.run(create_db_and_tables())
 
 
 @pytest.fixture(autouse=True)

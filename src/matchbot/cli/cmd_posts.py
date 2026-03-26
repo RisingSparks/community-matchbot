@@ -35,7 +35,7 @@ def posts_list(
     platform: Annotated[str | None, typer.Option("--platform")] = None,
     status: Annotated[str | None, typer.Option("--status")] = None,
     post_type: Annotated[str | None, typer.Option("--type", help="mentorship|infrastructure")] = None,
-    limit: Annotated[int, typer.Option("--limit")] = 20,
+    limit: Annotated[int, typer.Option("--limit")] = 100,
 ) -> None:
     """List community signals (seekers and groups)."""
 
@@ -49,7 +49,9 @@ def posts_list(
             q = q.where(Post.status == status)
         if post_type:
             q = q.where(Post.post_type == post_type)
-        q = q.order_by(Post.detected_at.desc()).limit(limit)  # type: ignore[arg-type]
+        q = q.order_by(Post.detected_at.desc())
+        if limit:
+            q = q.limit(limit)
 
         posts = (await session.exec(q)).all()
         if not posts:
@@ -70,7 +72,7 @@ def posts_list(
                 p.id[:8],
                 p.platform,
                 p.post_type,
-                p.role or "?",
+                p.role or "",
                 p.status,
                 p.title[:50],
                 p.detected_at.strftime("%Y-%m-%d"),
@@ -92,7 +94,7 @@ def posts_show(post_id: str) -> None:
 
         if post.post_type == PostType.INFRASTRUCTURE:
             type_detail = (
-                f"[bold]Infra Role:[/bold] {post.infra_role or '?'}  |  "
+                f"[bold]Infra Role:[/bold] {post.infra_role or ''}  |  "
                 f"[bold]Categories:[/bold] {post.infra_categories or '—'}\n"
                 f"[bold]Quantity:[/bold] {post.quantity or '—'}  |  "
                 f"[bold]Condition:[/bold] {post.condition or '—'}  |  "
@@ -185,7 +187,7 @@ def posts_re_extract_many(
         if dry_run:
             rprint(f"[cyan]Would re-extract {len(posts)} signal(s):[/cyan]")
             for post in posts:
-                rprint(f"  {post.id[:8]}  {post.platform}  {post.role or '?'}  {post.title[:80]}")
+                rprint(f"  {post.id[:8]}  {post.platform}  {post.role or ''}  {post.title[:80]}")
             return
 
         from matchbot.extraction import process_post
