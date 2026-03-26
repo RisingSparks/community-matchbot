@@ -147,13 +147,14 @@ def main(
     """Backfill Reddit posts on/after a UTC date cutoff."""
     settings = get_settings()
     configure_logging(verbose=verbose or settings.verbose)
-    logger.info("Loaded REDDIT_JSON_USER_AGENT=%r", settings.reddit_json_user_agent)
-    logger.info(
-        "Loaded REDDIT_JSON_EMULATE_BROWSER=%s REDDIT_JSON_COOKIE_PRESENT=%s",
-        settings.reddit_json_emulate_browser,
-        bool(settings.reddit_json_cookie),
-    )
-    logger.info("Effective Reddit JSON headers=%r", _build_reddit_json_headers())
+    if live:
+        logger.info("Loaded REDDIT_JSON_USER_AGENT=%r", settings.reddit_json_user_agent)
+        logger.info(
+            "Loaded REDDIT_JSON_EMULATE_BROWSER=%s REDDIT_JSON_COOKIE_PRESENT=%s",
+            settings.reddit_json_emulate_browser,
+            bool(settings.reddit_json_cookie),
+        )
+        logger.info("Effective Reddit JSON headers=%r", _build_reddit_json_headers())
     asyncio.run(
         _main_async(
             since_date=since_date,

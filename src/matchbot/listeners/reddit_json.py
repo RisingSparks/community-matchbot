@@ -471,6 +471,7 @@ async def backfill_reddit_json(
                     await asyncio.sleep(delay)
                     fetch_backoff = min(delay * 2, 600.0)
             counts["pages"] += 1
+            logger.debug("Fetched page %d (after=%r).", counts["pages"], after)
 
             children = payload.get("data", {}).get("children", [])
             counts["fetched"] += len(children)
@@ -505,6 +506,7 @@ async def backfill_reddit_json(
                 break
 
             if sleep_seconds > 0:
+                logger.debug("Page %d done; sleeping %.1fs before next page.", counts["pages"], sleep_seconds)
                 await asyncio.sleep(sleep_seconds)
 
         return counts
