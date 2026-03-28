@@ -227,14 +227,15 @@ body {
 }
 .page-footer { margin-top: 24px; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.5; }
 .page-footer a { color: var(--sage); }
-.gear-panels { display: grid; grid-template-columns: 1fr; gap: 28px; }
-@media (min-width: 900px) { .gear-panels { grid-template-columns: 1fr 1fr; gap: 24px; } }
+.gear-panels { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
+@media (min-width: 900px) { .gear-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; } }
 .gear-panel {
   padding: 16px;
   border: 1px solid rgba(34,30,33,0.12);
   border-radius: 18px;
   background: rgba(255,253,248,0.7);
   scroll-margin-top: 84px;
+  min-width: 0;
 }
 .gear-panel--active {
   border-color: #2d5b4f;
