@@ -412,7 +412,6 @@ _HOME_BODY = """
     <section class="snapshot-section">
       <div class="section-label">In The Pool</div>
       <p class="snapshot-note">A quick read on what this season's signals look like right now. Each card opens the relevant listings or stats view.</p>
-      <p class="snapshot-gloss"><strong>Indexed</strong> means the signal has been structured and is live in public browse views. <strong>Reviewable</strong> means it is in the queue for organizer review and may still appear in infra counts.</p>
       <div class="snapshot-groups" id="snapshot-groups">
         <div class="loading-state">Loading overview\u2026</div>
       </div>
@@ -692,7 +691,6 @@ _GEAR_BODY = """
       <div id="offer-grid"><div class="loading-state">Loading offers\u2026</div></div>
     </div>
   </div>
-  <p class="page-footer" style="margin-top:12px"><strong>Indexed</strong> means structured and live in browse views. <strong>Reviewable</strong> means a signal is captured and waiting for organizer review.</p>
   <div class="page-cta">
     <p><strong>Have gear to share, or need something?</strong>Post your signal to the exchange.</p>
     <a href="/forms/infra">Post to exchange \u2192</a>
@@ -2160,7 +2158,7 @@ async def _build_discovery_payload(
 
 @router.get("/api/listings")
 async def community_api_listings() -> dict[str, Any]:
-    """Return active indexed listings for the browse pages (camps, seekers, gear)."""
+    """Return active listings for the browse pages (camps, seekers, gear)."""
     return await _run_with_db_retry("community_api_listings", _build_listings_payload)
 
 
@@ -2195,29 +2193,15 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             )
         ).all()
 
-        gear_seeking_rows = (
+        active_infra_rows = (
             await session.exec(
                 select(Post)
                 .where(
-                    Post.status == PostStatus.INDEXED,
+                    Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}),
                     Post.post_type == PostType.INFRASTRUCTURE,
-                    Post.infra_role == InfraRole.SEEKING,
                 )
                 .order_by(occurred_at_expr.desc(), Post.detected_at.desc())
-                .limit(60)
-            )
-        ).all()
-
-        gear_offering_rows = (
-            await session.exec(
-                select(Post)
-                .where(
-                    Post.status == PostStatus.INDEXED,
-                    Post.post_type == PostType.INFRASTRUCTURE,
-                    Post.infra_role == InfraRole.OFFERING,
-                )
-                .order_by(occurred_at_expr.desc(), Post.detected_at.desc())
-                .limit(60)
+                .limit(200)
             )
         ).all()
 
@@ -2273,6 +2257,22 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "occurred_at": occurred_at,
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
         }
+
+    gear_seeking_rows: list[Post] = []
+    gear_offering_rows: list[Post] = []
+    for post in active_infra_rows:
+        effective_infra_role = _infer_infra_role(
+            post.post_type,
+            post.infra_role,
+            post.title,
+            post.raw_text,
+        )
+        if effective_infra_role == InfraRole.SEEKING and len(gear_seeking_rows) < 60:
+            gear_seeking_rows.append(post)
+        elif effective_infra_role == InfraRole.OFFERING and len(gear_offering_rows) < 60:
+            gear_offering_rows.append(post)
+        if len(gear_seeking_rows) >= 60 and len(gear_offering_rows) >= 60:
+            break
 
     return {
         "camps": [_camp_card(p) for p in camps_rows],

@@ -53,8 +53,6 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert "Camp Connections" in response.text
         assert "Infrastructure Exchange" in response.text
         assert "A quick read on what this season's signals look like right now." in response.text
-        assert "Indexed" in response.text
-        assert "Reviewable" in response.text
         assert 'href="/community/seekers"' in response.text
         assert 'href="/community/camps"' in response.text
         assert 'href="/community/gear?view=needs#need-panel"' in response.text
@@ -1083,6 +1081,67 @@ def test_community_listings_prefers_source_created_at_for_order_and_age(
         seekers = payload["seekers"]
         assert seekers[0]["occurred_at"] == (now - timedelta(hours=2)).replace(tzinfo=UTC).isoformat()
         assert seekers[0]["detected_at"] == (now - timedelta(hours=2)).replace(tzinfo=UTC).isoformat()
+    finally:
+        _reset_engine()
+
+
+def test_community_listings_include_active_infra_needs_review_and_inferred_roles(
+    monkeypatch, tmp_path
+) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_listings_infra_active.db")
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    async def _seed() -> None:
+        async with get_session() as session:
+            session.add_all(
+                [
+                    Post(
+                        platform=Platform.REDDIT,
+                        platform_post_id="gear_need_inferred",
+                        platform_author_id="needer",
+                        source_url="https://reddit.com/gear_need_inferred",
+                        title="Need a generator and power cables",
+                        raw_text="Looking to borrow a generator for camp build.",
+                        post_type=PostType.INFRASTRUCTURE,
+                        status=PostStatus.INDEXED,
+                        infra_categories="power",
+                        detected_at=now - timedelta(hours=3),
+                    ),
+                    Post(
+                        platform=Platform.DISCORD,
+                        platform_post_id="gear_offer_review",
+                        platform_author_id="offerer",
+                        source_url="https://discord.com/channels/test/gear_offer_review",
+                        title="Offering shade cloth and spare tools",
+                        raw_text="We can lend shade hardware and tools this week.",
+                        post_type=PostType.INFRASTRUCTURE,
+                        status=PostStatus.NEEDS_REVIEW,
+                        infra_role="offering",
+                        infra_categories="shade|tools",
+                        condition="good",
+                        detected_at=now - timedelta(hours=2),
+                    ),
+                ]
+            )
+            await session.commit()
+
+    try:
+        asyncio.run(_seed())
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get("/community/api/listings")
+        assert response.status_code == 200
+        payload = response.json()
+
+        assert payload["gear_seeking"]
+        assert payload["gear_offering"]
+        assert payload["gear_seeking"][0]["source_url"] == "https://reddit.com/gear_need_inferred"
+        assert "power" in payload["gear_seeking"][0]["categories"]
+        assert payload["gear_offering"][0]["source_url"] == (
+            "https://discord.com/channels/test/gear_offer_review"
+        )
+        assert "shade" in payload["gear_offering"][0]["categories"]
+        assert payload["gear_offering"][0]["condition"] == "good"
     finally:
         _reset_engine()
 
