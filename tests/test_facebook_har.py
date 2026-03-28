@@ -825,3 +825,85 @@ async def test_backfill_facebook_posts_retries_existing_raw_post(monkeypatch, tm
     assert posts[0].status == PostStatus.INDEXED
 
     engine_module._engine = None
+
+
+@pytest.mark.asyncio
+async def test_backfill_facebook_posts_retries_transient_db_disconnect(monkeypatch, tmp_path):
+    db_path = tmp_path / "test_facebook_retry_disconnect.db"
+    monkeypatch.setenv("DATABASE_BACKEND", "sqlite")
+    monkeypatch.setenv("DB_PATH", str(db_path))
+
+    engine_module._engine = None
+    await create_db_and_tables()
+
+    class FakeExtractor:
+        async def aclose(self):
+            return None
+
+    class FakeDisconnectError(RuntimeError):
+        pass
+
+    process_attempts = 0
+    dispose_calls = 0
+
+    async def fake_process_post(session, post, extractor, on_extraction_error="error"):
+        nonlocal process_attempts
+        process_attempts += 1
+        if process_attempts == 1:
+            raise FakeDisconnectError("connection is closed")
+        post.status = PostStatus.INDEXED
+        session.add(post)
+        await session.commit()
+        await session.refresh(post)
+        return post
+
+    async def fake_dispose_engine():
+        nonlocal dispose_calls
+        dispose_calls += 1
+
+    monkeypatch.setattr(facebook_har_module, "process_post", fake_process_post)
+    monkeypatch.setattr(facebook_har_module, "_get_extractor", lambda: FakeExtractor())
+    monkeypatch.setattr(
+        facebook_har_module,
+        "is_disconnect_error",
+        lambda exc: isinstance(exc, FakeDisconnectError),
+    )
+    monkeypatch.setattr(facebook_har_module, "dispose_engine", fake_dispose_engine)
+
+    fields_list = [
+        {
+            "platform_post_id": "disconnect-1",
+            "platform_author_id": "u1",
+            "author_display_name": "User",
+            "source_url": "",
+            "raw_text": "Looking for camp",
+            "source_created_at": datetime.now(),
+        }
+    ]
+
+    counts = await backfill_facebook_posts(
+        fields_list,
+        group_name="Test Group",
+        no_extract=False,
+        sleep_seconds=0,
+    )
+
+    assert process_attempts == 2
+    assert dispose_calls == 1
+    assert counts["matched"] == 1
+    assert counts["raw_after_error"] == 0
+
+    async with get_internal_session() as session:
+        posts = (
+            await session.exec(
+                select(Post).where(
+                    Post.platform == Platform.FACEBOOK,
+                    Post.platform_post_id == "disconnect-1",
+                )
+            )
+        ).all()
+
+    assert len(posts) == 1
+    assert posts[0].status == PostStatus.INDEXED
+
+    engine_module._engine = None

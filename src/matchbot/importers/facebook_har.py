@@ -13,7 +13,7 @@ from typing import Any
 
 from sqlmodel import select
 
-from matchbot.db.engine import get_session
+from matchbot.db.engine import dispose_engine, get_session, is_disconnect_error
 from matchbot.db.models import Platform, Post, PostStatus
 from matchbot.extraction import process_post
 from matchbot.extraction.anthropic_extractor import AnthropicExtractor
@@ -21,7 +21,7 @@ from matchbot.extraction.openai_extractor import OpenAIExtractor
 from matchbot.settings import get_settings
 
 logger = logging.getLogger(__name__)
-_RAW_POST_COMMIT_BATCH_SIZE = 100
+_FACEBOOK_BACKFILL_DB_RETRY_ATTEMPTS = 3
 _COMMENT_NODE_KEYS = {
     "bizweb_comment_info",
     "comment_action_links",
@@ -351,6 +351,116 @@ def _get_extractor():
     return AnthropicExtractor()
 
 
+async def _run_facebook_backfill_db_op[T](
+    platform_post_id: str,
+    callback,
+    *,
+    max_attempts: int = _FACEBOOK_BACKFILL_DB_RETRY_ATTEMPTS,
+) -> T:
+    for attempt in range(1, max_attempts + 1):
+        try:
+            async with get_session() as session:
+                return await callback(session)
+        except Exception as exc:
+            if attempt >= max_attempts or not is_disconnect_error(exc):
+                raise
+            backoff_seconds = 0.2 * attempt
+            logger.warning(
+                (
+                    "Transient DB disconnect while processing Facebook post %s "
+                    "(attempt %d/%d). Retrying in %.1fs."
+                ),
+                platform_post_id,
+                attempt,
+                max_attempts,
+                backoff_seconds,
+            )
+            await dispose_engine()
+            await asyncio.sleep(backoff_seconds)
+
+    raise RuntimeError(f"Unreachable retry termination for Facebook post {platform_post_id}.")
+
+
+async def _process_existing_or_new_facebook_post(
+    session,
+    *,
+    fields: dict,
+    group_name: str,
+    group_id: str | None,
+    dry_run: bool,
+    no_extract: bool,
+    extractor,
+) -> str:
+    existing = (
+        await session.exec(
+            select(Post).where(
+                Post.platform == Platform.FACEBOOK,
+                Post.platform_post_id == fields["platform_post_id"],
+            )
+        )
+    ).first()
+
+    if existing:
+        if existing.status == PostStatus.RAW and not dry_run and not no_extract:
+            try:
+                await process_post(session, existing, extractor, on_extraction_error="raw")
+                if existing.status == PostStatus.INDEXED:
+                    return "matched_extracted"
+                if existing.status == PostStatus.SKIPPED:
+                    return "skipped"
+                if existing.status == PostStatus.RAW:
+                    return "raw_after_error"
+                return "deduped"
+            except Exception:
+                await session.rollback()
+                raise
+        return "deduped"
+
+    if dry_run:
+        return "new_candidate"
+
+    source_community = f"Facebook Group: {group_name}"
+    if group_id:
+        source_community += f" ({group_id})"
+
+    source_url = fields["source_url"]
+    if not source_url and group_id:
+        source_url = f"https://www.facebook.com/groups/{group_id}/posts/{fields['platform_post_id']}"
+
+    post = Post(
+        platform=Platform.FACEBOOK,
+        platform_post_id=fields["platform_post_id"],
+        platform_author_id=fields["platform_author_id"],
+        author_display_name=fields["author_display_name"],
+        source_url=source_url,
+        source_community=source_community,
+        source_created_at=fields["source_created_at"],
+        title=fields["raw_text"][:80],
+        raw_text=fields["raw_text"][:2000],
+        status=PostStatus.RAW,
+    )
+
+    session.add(post)
+    await session.flush()
+
+    if no_extract:
+        await session.commit()
+        return "new_candidate"
+
+    try:
+        await process_post(session, post, extractor, on_extraction_error="raw")
+        if post.status == PostStatus.INDEXED:
+            return "matched_extracted"
+        if post.status == PostStatus.SKIPPED:
+            return "skipped"
+        if post.status == PostStatus.RAW:
+            return "raw_after_error"
+        return "new_candidate"
+    except Exception:
+        await session.rollback()
+        raise
+
+
 async def backfill_facebook_posts(
     post_fields_list: list[dict],
     *,
@@ -378,118 +488,45 @@ async def backfill_facebook_posts(
         extractor = _get_extractor()
 
     try:
-        async with get_session() as session:
-            pending_raw_commits = 0
-            for fields in post_fields_list:
-                # 1. Filter by date
-                if since_datetime and fields["source_created_at"] < since_datetime:
-                    counts["before_cutoff"] += 1
-                    continue
+        for fields in post_fields_list:
+            if since_datetime and fields["source_created_at"] < since_datetime:
+                counts["before_cutoff"] += 1
+                continue
 
-                # 2. DB Dedup
-                existing = (
-                    await session.exec(
-                        select(Post).where(
-                            Post.platform == Platform.FACEBOOK,
-                            Post.platform_post_id == fields["platform_post_id"],
-                        )
-                    )
-                ).first()
-
-                if existing:
-                    if (
-                        existing.status == PostStatus.RAW
-                        and not dry_run
-                        and not no_extract
-                    ):
-                        try:
-                            await process_post(
-                                session,
-                                existing,
-                                extractor,
-                                on_extraction_error="raw",
-                            )
-                            if existing.status == PostStatus.INDEXED:
-                                counts["matched"] += 1
-                                counts["extracted"] += 1
-                            elif existing.status == PostStatus.SKIPPED:
-                                counts["skipped"] += 1
-                            elif existing.status == PostStatus.RAW:
-                                counts["raw_after_error"] += 1
-                        except Exception as exc:
-                            logger.error(
-                                "Extraction retry error for existing post %s: %s",
-                                existing.platform_post_id,
-                                exc,
-                            )
-                            counts["raw_after_error"] += 1
-
-                        if sleep_seconds > 0:
-                            await asyncio.sleep(sleep_seconds)
-                        continue
-
-                    counts["deduped"] += 1
-                    continue
-
-                counts["new_candidates"] += 1
-
-                if dry_run:
-                    continue
-
-                # Prepare Post object
-                source_community = f"Facebook Group: {group_name}"
-                if group_id:
-                    source_community += f" ({group_id})"
-
-                # Fallback URL if missing
-                source_url = fields["source_url"]
-                if not source_url and group_id:
-                    source_url = f"https://www.facebook.com/groups/{group_id}/posts/{fields['platform_post_id']}"
-
-                post = Post(
-                    platform=Platform.FACEBOOK,
-                    platform_post_id=fields["platform_post_id"],
-                    platform_author_id=fields["platform_author_id"],
-                    author_display_name=fields["author_display_name"],
-                    source_url=source_url,
-                    source_community=source_community,
-                    source_created_at=fields["source_created_at"],
-                    title=fields["raw_text"][:80],
-                    raw_text=fields["raw_text"][:2000],
-                    status=PostStatus.RAW,
+            try:
+                outcome = await _run_facebook_backfill_db_op(
+                    fields["platform_post_id"],
+                    lambda session: _process_existing_or_new_facebook_post(
+                        session,
+                        fields=fields,
+                        group_name=group_name,
+                        group_id=group_id,
+                        dry_run=dry_run,
+                        no_extract=no_extract,
+                        extractor=extractor,
+                    ),
                 )
-
-                session.add(post)
-                await session.flush()
-
-                if no_extract:
-                    pending_raw_commits += 1
-                    if pending_raw_commits >= _RAW_POST_COMMIT_BATCH_SIZE:
-                        await session.commit()
-                        pending_raw_commits = 0
-                    continue
-
-                # 3. Process (classify + extract)
-                try:
-                    # process_post handles keyword filtering (SKIPPED vs INDEXED)
-                    await process_post(session, post, extractor, on_extraction_error="raw")
-                    if post.status == PostStatus.INDEXED:
-                        counts["matched"] += 1
-                        counts["extracted"] += 1
-                    elif post.status == PostStatus.SKIPPED:
-                        counts["skipped"] += 1
-                    elif post.status == PostStatus.RAW:
-                        counts["raw_after_error"] += 1
-                except Exception as exc:
-                    logger.error("Extraction error for post %s: %s", post.platform_post_id, exc)
-                    counts["raw_after_error"] += 1
-                    # Keep as RAW for manual retry later
-
+            except Exception as exc:
+                logger.error("Extraction error for post %s: %s", fields["platform_post_id"], exc)
+                counts["raw_after_error"] += 1
                 if sleep_seconds > 0:
                     await asyncio.sleep(sleep_seconds)
+                continue
 
-            if pending_raw_commits > 0:
-                await session.commit()
+            if outcome == "deduped":
+                counts["deduped"] += 1
+            elif outcome == "new_candidate":
+                counts["new_candidates"] += 1
+            elif outcome == "matched_extracted":
+                counts["matched"] += 1
+                counts["extracted"] += 1
+            elif outcome == "skipped":
+                counts["skipped"] += 1
+            elif outcome == "raw_after_error":
+                counts["raw_after_error"] += 1
+
+            if sleep_seconds > 0:
+                await asyncio.sleep(sleep_seconds)
 
     finally:
         if extractor:
