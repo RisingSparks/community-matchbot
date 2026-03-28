@@ -17,6 +17,7 @@ import typer
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from matchbot.backfill import accumulate_counts, new_backfill_counts
 from matchbot.db.engine import create_db_and_tables, dispose_engine
 from matchbot.importers.facebook_har import (
     backfill_facebook_posts,
@@ -378,25 +379,6 @@ def _infer_group_metadata(
 
     return inferred_name, inferred_group_id
 
-
-def _empty_counts() -> dict[str, int]:
-    return {
-        "parsed": 0,
-        "new_candidates": 0,
-        "deduped": 0,
-        "before_cutoff": 0,
-        "matched": 0,
-        "skipped": 0,
-        "extracted": 0,
-        "raw_after_error": 0,
-    }
-
-
-def _accumulate_counts(total: dict[str, int], batch_counts: dict[str, int]) -> None:
-    for key in total:
-        total[key] += batch_counts.get(key, 0)
-
-
 def _build_group_batches(
     parsed_files: list[dict[str, Any]],
     *,
@@ -561,7 +543,8 @@ async def _main_async(
         await dispose_engine()
         return
 
-    counts = _empty_counts()
+    counts = new_backfill_counts()
+    counts["parsed"] = 0
     try:
         for batch in group_batches:
             logger.info(
@@ -579,7 +562,7 @@ async def _main_async(
                 sleep_seconds=sleep_seconds,
                 no_extract=no_extract,
             )
-            _accumulate_counts(counts, batch_counts)
+            accumulate_counts(counts, batch_counts)
     finally:
         await dispose_engine()
 

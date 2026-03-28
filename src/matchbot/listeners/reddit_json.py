@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import UTC, datetime
 from typing import Any, Literal
 
@@ -11,6 +12,7 @@ import httpx
 from sqlalchemy.exc import ProgrammingError
 from sqlmodel import select
 
+from matchbot.backfill import log_backfill_progress, new_backfill_counts
 from matchbot.db.engine import (
     create_db_and_tables,
     dispose_engine,
@@ -149,18 +151,6 @@ async def _run_reddit_db_retry[T](
             await asyncio.sleep(backoff_seconds)
 
     raise RuntimeError(f"Unreachable retry termination for Reddit {operation_name}.")
-
-
-def _new_counts() -> dict[str, int]:
-    return {
-        "fetched": 0,
-        "new_candidates": 0,
-        "deduped": 0,
-        "skipped": 0,
-        "matched": 0,
-        "extracted": 0,
-        "raw_after_error": 0,
-    }
 
 
 def _build_reddit_json_headers() -> dict[str, str]:
@@ -426,7 +416,7 @@ async def poll_reddit_json_once(client: httpx.AsyncClient | None = None) -> dict
             headers=_build_reddit_json_headers(),
         )
 
-    counts = _new_counts()
+    counts = new_backfill_counts()
 
     try:
         checkpoint_id = await _latest_reddit_post_id()
@@ -488,8 +478,9 @@ async def backfill_reddit_json(
             headers=_build_reddit_json_headers(),
         )
 
-    counts = _new_counts()
+    counts = new_backfill_counts(extra_keys=("pages",))
     counts["pages"] = 0
+    started_at = time.monotonic()
 
     after: str | None = None
     reached_cutoff = False
@@ -552,6 +543,14 @@ async def backfill_reddit_json(
             )
             for outcome in outcomes:
                 _apply_outcome(counts, outcome)
+
+            log_backfill_progress(
+                logger,
+                label="Reddit JSON backfill",
+                counts=counts,
+                started_at=started_at,
+                extra={"after": after, "reached_cutoff": reached_cutoff},
+            )
 
             if reached_cutoff:
                 break

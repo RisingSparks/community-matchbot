@@ -7,12 +7,14 @@ import base64
 import binascii
 import json
 import logging
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from sqlmodel import select
 
+from matchbot.backfill import log_backfill_progress, new_backfill_counts, should_log_progress
 from matchbot.db.engine import dispose_engine, get_session, is_disconnect_error
 from matchbot.db.models import Platform, Post, PostStatus
 from matchbot.extraction import process_post
@@ -22,6 +24,7 @@ from matchbot.settings import get_settings
 
 logger = logging.getLogger(__name__)
 _FACEBOOK_BACKFILL_DB_RETRY_ATTEMPTS = 3
+_FACEBOOK_BACKFILL_PROGRESS_EVERY = 10
 _COMMENT_NODE_KEYS = {
     "bizweb_comment_info",
     "comment_action_links",
@@ -472,25 +475,33 @@ async def backfill_facebook_posts(
     no_extract: bool = False,
 ) -> dict[str, int]:
     """Ingest a list of Facebook post fields into the database."""
-    counts = {
-        "parsed": len(post_fields_list),
-        "new_candidates": 0,
-        "deduped": 0,
-        "before_cutoff": 0,
-        "matched": 0,
-        "skipped": 0,
-        "extracted": 0,
-        "raw_after_error": 0,
-    }
+    counts = new_backfill_counts()
+    counts["parsed"] = len(post_fields_list)
 
     extractor = None
     if not dry_run and not no_extract:
         extractor = _get_extractor()
 
+    started_at = time.monotonic()
+    processed = 0
+    total = len(post_fields_list)
+
     try:
         for fields in post_fields_list:
+            processed += 1
             if since_datetime and fields["source_created_at"] < since_datetime:
                 counts["before_cutoff"] += 1
+                if should_log_progress(
+                    processed, total, every=_FACEBOOK_BACKFILL_PROGRESS_EVERY
+                ):
+                    log_backfill_progress(
+                        logger,
+                        label=f"Facebook backfill for {group_name}",
+                        counts=counts,
+                        started_at=started_at,
+                        processed=processed,
+                        total=total,
+                    )
                 continue
 
             try:
@@ -524,6 +535,16 @@ async def backfill_facebook_posts(
                 counts["skipped"] += 1
             elif outcome == "raw_after_error":
                 counts["raw_after_error"] += 1
+
+            if should_log_progress(processed, total, every=_FACEBOOK_BACKFILL_PROGRESS_EVERY):
+                log_backfill_progress(
+                    logger,
+                    label=f"Facebook backfill for {group_name}",
+                    counts=counts,
+                    started_at=started_at,
+                    processed=processed,
+                    total=total,
+                )
 
             if sleep_seconds > 0:
                 await asyncio.sleep(sleep_seconds)
