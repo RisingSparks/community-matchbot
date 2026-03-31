@@ -7,36 +7,12 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 FAVICON_PATH = "/favicon.svg"
-BRAND_LOGO_PATH = "/brand/rising-sparks-logo.png"
+BRAND_LOGO_PATH = "/brand/rising-sparks-logo.svg"
 BRAND_FONT_STYLESHEET = (
     "https://fonts.googleapis.com/css2?family=Anton&family=Merriweather:"
     "ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap"
 )
-BRAND_LOGO_FILE = Path(__file__).resolve().parents[2] / "media" / "Rising Sparks Logo.png"
-BRAND_LOGO_FALLBACK_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 180" role="img" aria-labelledby="title desc">
-  <title id="title">Rising Sparks</title>
-  <desc id="desc">Rising Sparks brand lockup with spark mark and wordmark.</desc>
-  <defs>
-    <linearGradient id="sparkGlow" x1="0%" x2="100%" y1="0%" y2="100%">
-      <stop offset="0%" stop-color="#ffb347"/>
-      <stop offset="100%" stop-color="#ff9200"/>
-    </linearGradient>
-  </defs>
-  <rect width="560" height="180" rx="28" fill="#f7f3e9"/>
-  <g transform="translate(34 26)">
-    <rect x="0" y="0" width="128" height="128" rx="28" fill="#000"/>
-    <circle cx="64" cy="64" r="42" fill="#4a4a4a"/>
-    <path d="M73 14 46 69h19l-4 45 29-53H69z" fill="url(#sparkGlow)" stroke="#f7f3e9" stroke-width="4" stroke-linejoin="round"/>
-    <circle cx="34" cy="34" r="5" fill="#ffb347" opacity="0.9"/>
-    <circle cx="96" cy="34" r="4" fill="#ffb347" opacity="0.75"/>
-    <circle cx="102" cy="95" r="5" fill="#ff9200" opacity="0.85"/>
-  </g>
-  <g fill="#000">
-    <text x="194" y="82" font-size="54" font-family="Impact, Anton, Arial Black, sans-serif" letter-spacing="1">RISING</text>
-    <text x="194" y="136" font-size="54" font-family="Impact, Anton, Arial Black, sans-serif" letter-spacing="1">SPARKS</text>
-  </g>
-</svg>
-"""
+BRAND_LOGO_FILE = Path(__file__).resolve().parent / "assets" / "rising-sparks-logo.svg"
 
 FAVICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>

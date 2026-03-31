@@ -423,7 +423,7 @@ _HOME_BODY = """
   <main class="page-wrap">
     <section class="hero">
       <a href="/community/" class="hero-lockup" aria-label="Rising Sparks home">
-        <img src="/brand/rising-sparks-logo.png" alt="Rising Sparks" class="hero-lockup__image">
+        <img src="/brand/rising-sparks-logo.svg" alt="Rising Sparks" class="hero-lockup__image">
       </a>
       <h1>Find your people.<br>Build the city.</h1>
       <p>A community matchmaking experiment — surfacing participants, camps, projects, and infrastructure across the ecosystem.</p>

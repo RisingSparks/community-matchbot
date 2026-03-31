@@ -39,7 +39,6 @@ COPY --from=builder /app/scripts /app/scripts
 COPY --from=builder /app/alembic /app/alembic
 COPY --from=builder /app/alembic.ini /app/alembic.ini
 COPY --from=builder /app/entrypoint.sh /app/entrypoint.sh
-COPY --from=builder /app/media /app/media
 
 # Security: Run as non-root user
 RUN groupadd -r matchbot && useradd -r -g matchbot matchbot && \

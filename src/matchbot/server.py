@@ -9,7 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, Response
 
 from matchbot.branding import (
-    BRAND_LOGO_FALLBACK_SVG,
     BRAND_LOGO_FILE,
     BRAND_LOGO_PATH,
     FAVICON_PATH,
@@ -73,9 +72,7 @@ def create_app(enable_scheduler: bool = True, run_migrations_on_startup: bool = 
 
     @app.get(BRAND_LOGO_PATH, include_in_schema=False)
     async def brand_logo() -> Response:
-        if not BRAND_LOGO_FILE.exists():
-            return Response(content=BRAND_LOGO_FALLBACK_SVG, media_type="image/svg+xml")
-        return FileResponse(BRAND_LOGO_FILE, media_type="image/png")
+        return FileResponse(BRAND_LOGO_FILE, media_type="image/svg+xml")
 
     @app.get("/health")
     @app.get("/status")

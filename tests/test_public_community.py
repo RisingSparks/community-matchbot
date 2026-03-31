@@ -57,7 +57,7 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert 'href="/community/camps"' in response.text
         assert 'href="/community/gear?view=needs#need-panel"' in response.text
         assert 'href="/community/gear?view=offers#offer-panel"' in response.text
-        assert '/brand/rising-sparks-logo.png' in response.text
+        assert '/brand/rising-sparks-logo.svg' in response.text
         assert 'rel="icon"' in response.text
         assert "/favicon.svg" in response.text
 
@@ -151,18 +151,14 @@ def test_favicon_route_serves_svg(monkeypatch, tmp_path) -> None:
         _reset_engine()
 
 
-def test_brand_logo_route_serves_png(monkeypatch, tmp_path) -> None:
+def test_brand_logo_route_serves_svg(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_logo.db")
     try:
         client = TestClient(create_app(enable_scheduler=False))
-        response = client.get("/brand/rising-sparks-logo.png")
+        response = client.get("/brand/rising-sparks-logo.svg")
         assert response.status_code == 200
-        content_type = response.headers["content-type"]
-        assert content_type.startswith("image/png") or content_type.startswith("image/svg+xml")
-        if content_type.startswith("image/png"):
-            assert response.content.startswith(b"\x89PNG\r\n\x1a\n")
-        else:
-            assert "<svg" in response.text
+        assert response.headers["content-type"].startswith("image/svg+xml")
+        assert "<svg" in response.text
     finally:
         _reset_engine()
 
