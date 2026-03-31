@@ -88,6 +88,7 @@ _NAV_CSS = """
 }
 .site-nav__inner { display: flex; height: 64px; max-width: 700px; margin: 0 auto; }
 .site-nav__logo { display: none; }
+.site-nav__cta { display: none; }
 .nav-tab {
   flex: 1; display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 3px; text-decoration: none; color: #4a4a4a;
@@ -111,6 +112,20 @@ body { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom)); }
   }
   .site-nav__logo-mark { width: 32px; height: auto; display: block; }
   .site-nav__logo-text { font-family: "Anton", Impact, sans-serif; font-size: 20px; line-height: 1; }
+  .site-nav__cta {
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-left: 10px; padding: 10px 16px; border-radius: 999px;
+    background: #ff9200; color: #000; text-decoration: none;
+    font-family: "Anton", Impact, sans-serif; font-size: 14px; line-height: 1;
+    letter-spacing: 0.02em; white-space: nowrap;
+    box-shadow: 0 10px 24px rgba(255,146,0,0.24);
+    transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+  }
+  .site-nav__cta:hover {
+    background: #ff9e19;
+    transform: translateY(-1px);
+    box-shadow: 0 12px 28px rgba(255,146,0,0.3);
+  }
 }
 """
 
@@ -141,9 +156,10 @@ def _nav_html(active: str) -> str:
         image_class="site-nav__logo-mark",
         text_class="site-nav__logo-text",
     )
+    cta = '<a href="/forms/" class="site-nav__cta">Submit your signal</a>'
     return (
         '<nav class="site-nav" aria-label="Site navigation">'
-        f'<div class="site-nav__inner">{logo}{"".join(items)}</div>'
+        f'<div class="site-nav__inner">{logo}{"".join(items)}{cta}</div>'
         "</nav>"
     )
 
