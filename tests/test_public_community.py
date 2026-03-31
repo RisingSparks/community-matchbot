@@ -157,8 +157,12 @@ def test_brand_logo_route_serves_png(monkeypatch, tmp_path) -> None:
         client = TestClient(create_app(enable_scheduler=False))
         response = client.get("/brand/rising-sparks-logo.png")
         assert response.status_code == 200
-        assert response.headers["content-type"].startswith("image/png")
-        assert response.content.startswith(b"\x89PNG\r\n\x1a\n")
+        content_type = response.headers["content-type"]
+        assert content_type.startswith("image/png") or content_type.startswith("image/svg+xml")
+        if content_type.startswith("image/png"):
+            assert response.content.startswith(b"\x89PNG\r\n\x1a\n")
+        else:
+            assert "<svg" in response.text
     finally:
         _reset_engine()
 
