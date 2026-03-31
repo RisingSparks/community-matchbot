@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, Response
 
@@ -67,6 +67,8 @@ def create_app(enable_scheduler: bool = True, run_migrations_on_startup: bool = 
 
     @app.get(BRAND_LOGO_PATH, include_in_schema=False)
     async def brand_logo() -> FileResponse:
+        if not BRAND_LOGO_FILE.exists():
+            raise HTTPException(status_code=404, detail="Brand logo not found.")
         return FileResponse(BRAND_LOGO_FILE, media_type="image/png")
 
     @app.get("/health")
