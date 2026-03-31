@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 from html import escape
+from pathlib import Path
 from urllib.parse import urljoin
 
 FAVICON_PATH = "/favicon.svg"
+BRAND_LOGO_PATH = "/brand/rising-sparks-logo.png"
+BRAND_FONT_STYLESHEET = (
+    "https://fonts.googleapis.com/css2?family=Anton&family=Merriweather:"
+    "ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap"
+)
+BRAND_LOGO_FILE = Path(__file__).resolve().parents[2] / "media" / "Rising Sparks Logo.png"
 
 FAVICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
@@ -39,6 +46,29 @@ FAVICON_LINK_TAGS = (
 )
 
 
+def build_brand_logo_link(
+    href: str,
+    *,
+    link_class: str = "brand-logo",
+    image_class: str = "brand-logo__image",
+    text_class: str = "brand-logo__text",
+    text: str = "Rising Sparks",
+) -> str:
+    """Build a linked logo lockup using the shared wordmark asset."""
+    safe_href = escape(href, quote=True)
+    safe_link_class = escape(link_class, quote=True)
+    safe_image_class = escape(image_class, quote=True)
+    safe_text_class = escape(text_class, quote=True)
+    safe_text = escape(text)
+    safe_alt = escape(text, quote=True)
+    return (
+        f'<a href="{safe_href}" class="{safe_link_class}">'
+        f'<img src="{BRAND_LOGO_PATH}" alt="{safe_alt}" class="{safe_image_class}">'
+        f'<span class="{safe_text_class}">{safe_text}</span>'
+        "</a>"
+    )
+
+
 def build_meta_tags(
     *,
     title: str,
@@ -48,8 +78,8 @@ def build_meta_tags(
     robots: str = "index,follow",
     og_type: str = "website",
     site_name: str = "Rising Sparks",
-    image_path: str = FAVICON_PATH,
-    theme_color: str = "#21483f",
+    image_path: str = BRAND_LOGO_PATH,
+    theme_color: str = "#ff9200",
 ) -> str:
     """Build a compact set of SEO and sharing tags for public HTML pages."""
     escaped_title = escape(title)

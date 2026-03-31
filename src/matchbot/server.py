@@ -6,9 +6,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 
-from matchbot.branding import FAVICON_PATH, FAVICON_SVG
+from matchbot.branding import BRAND_LOGO_FILE, BRAND_LOGO_PATH, FAVICON_PATH, FAVICON_SVG
 from matchbot.forms.router import router as forms_router
 from matchbot.listeners.facebook import router as facebook_router
 from matchbot.log_config import configure_logging
@@ -64,6 +64,10 @@ def create_app(enable_scheduler: bool = True, run_migrations_on_startup: bool = 
     @app.get(FAVICON_PATH, include_in_schema=False)
     async def favicon() -> Response:
         return Response(content=FAVICON_SVG, media_type="image/svg+xml")
+
+    @app.get(BRAND_LOGO_PATH, include_in_schema=False)
+    async def brand_logo() -> FileResponse:
+        return FileResponse(BRAND_LOGO_FILE, media_type="image/png")
 
     @app.get("/health")
     @app.get("/status")

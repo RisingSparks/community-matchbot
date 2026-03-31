@@ -22,7 +22,12 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from matchbot.branding import FAVICON_LINK_TAGS, build_meta_tags
+from matchbot.branding import (
+    BRAND_FONT_STYLESHEET,
+    FAVICON_LINK_TAGS,
+    build_brand_logo_link,
+    build_meta_tags,
+)
 from matchbot.db.models import Platform, Post, PostRole, PostStatus, PostType
 
 
@@ -39,22 +44,22 @@ router = APIRouter(prefix="/forms", tags=["intake"])
 # ---------------------------------------------------------------------------
 
 _BASE_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap');
+@import url('""" + BRAND_FONT_STYLESHEET + """');
 
 :root {
-  --bg: #120d05;
-  --surface: #1c1508;
-  --surface-hover: #231b0b;
-  --border: #3a2c12;
-  --border-light: #281e0c;
-  --ember: #e05a1f;
-  --ember-dim: #7c3210;
-  --gold: #c49a3c;
-  --text: #ede0c4;
-  --text-muted: #8a7a60;
-  --text-dim: #50432e;
-  --radius: 8px;
-  --max-w: 660px;
+  --bg: #f7f3e9;
+  --surface: rgba(255, 255, 255, 0.9);
+  --surface-hover: #ffffff;
+  --border: rgba(0, 0, 0, 0.14);
+  --border-light: rgba(74, 74, 74, 0.18);
+  --spark: #ff9200;
+  --spark-deep: #d97700;
+  --text: #000000;
+  --text-muted: #4a4a4a;
+  --text-dim: #6d655a;
+  --radius: 18px;
+  --max-w: 760px;
+  --shadow: 0 18px 44px rgba(0, 0, 0, 0.08);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -62,9 +67,12 @@ html { font-size: 16px; scroll-behavior: smooth; }
 
 body {
   background-color: var(--bg);
-  background-image: radial-gradient(ellipse 80% 35% at 50% -5%, rgba(224,90,31,0.07) 0%, transparent 65%);
+  background-image:
+    radial-gradient(circle at 12% 0%, rgba(255, 146, 0, 0.2), transparent 28%),
+    radial-gradient(circle at 88% 18%, rgba(0, 0, 0, 0.05), transparent 24%),
+    linear-gradient(180deg, #fbf8f0 0%, var(--bg) 100%);
   color: var(--text);
-  font-family: 'Libre Baskerville', Georgia, serif;
+  font-family: 'Merriweather', Georgia, serif;
   line-height: 1.7;
   min-height: 100vh;
   padding: 0 20px 80px;
@@ -76,7 +84,7 @@ body::before {
   top: -50%; left: -50%;
   width: 200%; height: 200%;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
-  opacity: 0.03;
+  opacity: 0.018;
   pointer-events: none;
   z-index: 9999;
 }
@@ -84,63 +92,68 @@ body::before {
 .page {
   max-width: var(--max-w);
   margin: 0 auto;
-  padding-top: 52px;
+  padding-top: 44px;
 }
 
-/* Header */
 .site-header {
-  margin-bottom: 52px;
+  margin-bottom: 38px;
 }
-.logo {
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: 0.85rem;
-  font-weight: 400;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--gold);
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
   text-decoration: none;
+  color: var(--text);
 }
-.logo:hover { color: var(--ember); }
+.brand-lockup__image {
+  width: 62px;
+  height: auto;
+  display: block;
+}
+.brand-lockup__text {
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: 1.55rem;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
 
 .back-link {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: 0.9rem;
-  letter-spacing: 0.06em;
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
   color: var(--text-muted);
   text-decoration: none;
   margin-bottom: 36px;
   transition: color 0.2s;
 }
-.back-link:hover { color: var(--text); }
+.back-link:hover { color: var(--spark-deep); }
 
-/* Typography */
 h1 {
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: clamp(2.1rem, 5.5vw, 3.2rem);
-  font-weight: 300;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: clamp(2.5rem, 6vw, 4.4rem);
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: 0.01em;
   color: var(--text);
   margin-bottom: 14px;
 }
-h1 em { font-style: italic; color: var(--ember); }
+h1 em { font-style: normal; color: var(--spark); }
 
 .lede {
   font-size: 1rem;
   color: var(--text-muted);
-  line-height: 1.75;
+  line-height: 1.9;
   margin-bottom: 44px;
-  max-width: 480px;
+  max-width: 52ch;
 }
 
-/* Landing cards */
 .choices {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
   margin-bottom: 56px;
 }
 .choice-card {
@@ -148,57 +161,59 @@ h1 em { font-style: italic; color: var(--ember); }
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 22px 28px;
+  padding: 24px 28px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   text-decoration: none;
   color: var(--text);
-  transition: background 0.18s, border-color 0.18s, transform 0.15s;
+  transition: background 0.18s, border-color 0.18s, transform 0.15s, box-shadow 0.18s;
+  box-shadow: var(--shadow);
 }
 .choice-card:hover {
   background: var(--surface-hover);
-  border-color: var(--ember-dim);
-  transform: translateX(5px);
+  border-color: rgba(255, 146, 0, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.12);
 }
 .choice-body { flex: 1; }
 .choice-label {
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: 1.25rem;
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: 1.4rem;
   font-weight: 400;
   letter-spacing: 0.01em;
   display: block;
+  line-height: 1.05;
 }
 .choice-sub {
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
-  margin-top: 2px;
-  line-height: 1.4;
+  margin-top: 8px;
+  line-height: 1.55;
   display: block;
 }
 .choice-arrow {
-  color: var(--ember);
-  font-size: 1.3rem;
+  color: var(--spark);
+  font-size: 1.55rem;
   flex-shrink: 0;
   transition: transform 0.18s;
 }
 .choice-card:hover .choice-arrow { transform: translateX(4px); }
 
-/* Form card */
 .form-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 36px 40px;
   margin-bottom: 44px;
+  box-shadow: var(--shadow);
 }
 .form-section-label {
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: 0.75rem;
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: 0.88rem;
   font-weight: 400;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--gold);
+  letter-spacing: 0.06em;
+  color: var(--spark);
   margin-bottom: 28px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-light);
@@ -213,17 +228,17 @@ label {
   margin-bottom: 7px;
   letter-spacing: 0.015em;
 }
-label .req { color: var(--ember); margin-left: 2px; }
+label .req { color: var(--spark); margin-left: 2px; }
 
 input[type=text], input[type=number], input[type=email],
 textarea, select {
   width: 100%;
-  padding: 10px 14px;
-  background: var(--bg);
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.72);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 12px;
   color: var(--text);
-  font-family: 'Libre Baskerville', Georgia, serif;
+  font-family: 'Merriweather', Georgia, serif;
   font-size: 0.9rem;
   line-height: 1.5;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -233,12 +248,12 @@ textarea, select {
 input::placeholder, textarea::placeholder { color: var(--text-dim); }
 input:focus, textarea:focus, select:focus {
   outline: none;
-  border-color: var(--ember-dim);
-  box-shadow: 0 0 0 3px rgba(224,90,31,0.09);
+  border-color: rgba(255, 146, 0, 0.7);
+  box-shadow: 0 0 0 4px rgba(255, 146, 0, 0.14);
 }
 textarea { resize: vertical; min-height: 108px; }
 select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%238a7a60' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%234a4a4a' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 14px center;
   padding-right: 38px;
@@ -255,33 +270,31 @@ select {
   gap: 16px;
 }
 
-/* Button */
 .btn-submit {
   display: inline-flex;
   align-items: center;
   gap: 10px;
   margin-top: 28px;
-  padding: 12px 28px;
-  background: var(--ember);
-  color: #fff;
-  font-family: 'Libre Baskerville', Georgia, serif;
+  padding: 14px 28px;
+  background: var(--spark);
+  color: #000;
+  font-family: 'Anton', Impact, sans-serif;
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.03em;
   border: none;
-  border-radius: 5px;
+  border-radius: 999px;
   cursor: pointer;
   transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
-  box-shadow: 0 2px 14px rgba(224,90,31,0.22);
+  box-shadow: 0 10px 26px rgba(255, 146, 0, 0.24);
 }
 .btn-submit:hover {
-  background: #c44d17;
+  background: #ff9e19;
   transform: translateY(-1px);
-  box-shadow: 0 4px 22px rgba(224,90,31,0.38);
+  box-shadow: 0 14px 30px rgba(255, 146, 0, 0.32);
 }
 .btn-submit:active { transform: translateY(0); }
 
-/* Disclaimer */
 .disclaimer {
   font-size: 0.78rem;
   color: var(--text-dim);
@@ -290,7 +303,6 @@ select {
   border-top: 1px solid var(--border-light);
 }
 
-/* Thanks page */
 .thanks-wrap {
   text-align: center;
   padding: 64px 20px;
@@ -298,7 +310,7 @@ select {
 .thanks-mark {
   width: 68px; height: 68px;
   background: var(--surface);
-  border: 1px solid var(--ember-dim);
+  border: 1px solid rgba(255, 146, 0, 0.38);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -315,20 +327,18 @@ select {
 .return-link {
   display: inline-block;
   margin-top: 36px;
-  color: var(--ember);
+  color: var(--spark-deep);
   text-decoration: none;
   font-size: 0.875rem;
   letter-spacing: 0.04em;
 }
 .return-link:hover { text-decoration: underline; }
 
-/* How it works steps */
 .steps-heading {
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: 0.72rem;
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: 0.82rem;
   font-weight: 400;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--text-dim);
   margin-bottom: 12px;
 }
@@ -343,10 +353,10 @@ select {
   border-bottom: 1px solid var(--border-light);
 }
 .step-num {
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: 1.25rem;
-  color: var(--ember);
-  font-weight: 300;
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: 1.35rem;
+  color: var(--spark);
+  font-weight: 400;
   min-width: 22px;
   line-height: 1.4;
   flex-shrink: 0;
@@ -392,8 +402,21 @@ select {
   .form-card { padding: 24px 20px; }
   .field-row { grid-template-columns: 1fr; }
   h1 { font-size: 2rem; }
+  .brand-lockup__image { width: 52px; }
+  .brand-lockup__text { font-size: 1.3rem; }
 }
 """
+
+_HEADER_HTML = (
+    '<header class="site-header">'
+    + build_brand_logo_link(
+        "/forms/",
+        link_class="brand-lockup",
+        image_class="brand-lockup__image",
+        text_class="brand-lockup__text",
+    )
+    + "</header>"
+)
 
 _DISCLAIMER_HTML = """
 <div class="disclaimer">
@@ -433,9 +456,7 @@ _LANDING_HTML = f"""<!DOCTYPE html>
 </head>
 <body>
 <div class="page">
-  <header class="site-header">
-    <a class="logo" href="/forms/">Rising Sparks</a>
-  </header>
+  {_HEADER_HTML}
 
   <h1>Find your <em>community.</em><br>Build the city.</h1>
   <p class="lede">
@@ -485,9 +506,7 @@ _SEEKER_FORM_HTML = f"""<!DOCTYPE html>
 </head>
 <body>
 <div class="page">
-  <header class="site-header">
-    <a class="logo" href="/forms/">Rising Sparks</a>
-  </header>
+  {_HEADER_HTML}
 
   <a class="back-link" href="/forms/">&#8592; Back</a>
   <h1>Find a Camp or<br><em>Art Project</em></h1>
@@ -568,9 +587,7 @@ _CAMP_FORM_HTML = f"""<!DOCTYPE html>
 </head>
 <body>
 <div class="page">
-  <header class="site-header">
-    <a class="logo" href="/forms/">Rising Sparks</a>
-  </header>
+  {_HEADER_HTML}
 
   <a class="back-link" href="/forms/">&#8592; Back</a>
   <h1>Find Builders and<br><em>Collaborators</em></h1>
@@ -661,9 +678,7 @@ _INFRA_FORM_HTML = f"""<!DOCTYPE html>
 </head>
 <body>
 <div class="page">
-  <header class="site-header">
-    <a class="logo" href="/forms/">Rising Sparks</a>
-  </header>
+  {_HEADER_HTML}
 
   <a class="back-link" href="/forms/">&#8592; Back</a>
   <h1>We need — or can offer —<br><em>infrastructure</em></h1>
@@ -749,9 +764,7 @@ _THANKS_HTML = f"""<!DOCTYPE html>
 </head>
 <body>
 <div class="page">
-  <header class="site-header">
-    <a class="logo" href="/forms/">Rising Sparks</a>
-  </header>
+  {_HEADER_HTML}
 
   <div class="thanks-wrap">
     <div class="thanks-mark">&#10024;</div>
