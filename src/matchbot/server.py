@@ -4,11 +4,17 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, Response
 
-from matchbot.branding import BRAND_LOGO_FILE, BRAND_LOGO_PATH, FAVICON_PATH, FAVICON_SVG
+from matchbot.branding import (
+    BRAND_LOGO_FALLBACK_SVG,
+    BRAND_LOGO_FILE,
+    BRAND_LOGO_PATH,
+    FAVICON_PATH,
+    FAVICON_SVG,
+)
 from matchbot.forms.router import router as forms_router
 from matchbot.listeners.facebook import router as facebook_router
 from matchbot.log_config import configure_logging
@@ -66,9 +72,9 @@ def create_app(enable_scheduler: bool = True, run_migrations_on_startup: bool = 
         return Response(content=FAVICON_SVG, media_type="image/svg+xml")
 
     @app.get(BRAND_LOGO_PATH, include_in_schema=False)
-    async def brand_logo() -> FileResponse:
+    async def brand_logo() -> Response:
         if not BRAND_LOGO_FILE.exists():
-            raise HTTPException(status_code=404, detail="Brand logo not found.")
+            return Response(content=BRAND_LOGO_FALLBACK_SVG, media_type="image/svg+xml")
         return FileResponse(BRAND_LOGO_FILE, media_type="image/png")
 
     @app.get("/health")
