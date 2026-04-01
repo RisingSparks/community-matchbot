@@ -396,7 +396,6 @@ function emptyState(heading, body) {
 
 _HOME_EXTRA_CSS = """
 .mobile-intake-banner {
-  position: sticky; top: 12px; z-index: 30;
   margin: 0 0 18px;
   padding: 14px 14px 12px;
   border-radius: 18px;
