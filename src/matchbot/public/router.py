@@ -368,6 +368,56 @@ function emptyState(heading, body) {
 """
 
 _HOME_EXTRA_CSS = """
+.mobile-intake-banner {
+  position: sticky; top: 12px; z-index: 30;
+  margin: 0 0 18px;
+  padding: 14px 14px 12px;
+  border-radius: 18px;
+  background: rgba(17,17,17,0.94);
+  color: #f7f3e9;
+  box-shadow: 0 16px 30px rgba(0,0,0,0.18);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.mobile-intake-banner__eyebrow {
+  margin: 0 0 6px;
+  font-family: "Anton", Impact, sans-serif;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffb347;
+}
+.mobile-intake-banner__row {
+  display: flex; align-items: center; gap: 12px;
+}
+.mobile-intake-banner__copy {
+  flex: 1; min-width: 0;
+}
+.mobile-intake-banner__copy strong {
+  display: block;
+  margin: 0 0 3px;
+  font-family: "Anton", Impact, sans-serif;
+  font-size: 22px;
+  line-height: 0.96;
+  font-weight: 400;
+}
+.mobile-intake-banner__copy span {
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(247,243,233,0.82);
+}
+.mobile-intake-banner__cta {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 48px; padding: 0 18px;
+  border-radius: 999px;
+  background: #ff9200; color: #000;
+  text-decoration: none;
+  font-family: "Anton", Impact, sans-serif;
+  font-size: 15px; line-height: 1;
+  white-space: nowrap; flex-shrink: 0;
+  box-shadow: 0 10px 22px rgba(255,146,0,0.28);
+}
 .hero { margin-bottom: 28px; }
 .hero-lockup { display: inline-flex; align-items: center; gap: 14px; margin-bottom: 16px; text-decoration: none; color: inherit; }
 .hero-lockup__image { width: 72px; height: auto; display: block; }
@@ -418,10 +468,27 @@ _HOME_EXTRA_CSS = """
 .snapshot-desc { margin: 0; font-size: 12px; line-height: 1.55; color: #4a4a4a; }
 .snapshot-gloss { margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: #4a4a4a; }
 .recent-section { margin-bottom: 28px; }
+@media (min-width: 680px) {
+  .mobile-intake-banner { display: none; }
+}
+@media (max-width: 420px) {
+  .mobile-intake-banner__row { flex-direction: column; align-items: stretch; }
+  .mobile-intake-banner__cta { width: 100%; }
+}
 """
 
 _HOME_BODY = """
   <main class="page-wrap">
+    <section class="mobile-intake-banner" aria-label="Submit signal">
+      <div class="mobile-intake-banner__eyebrow">Ready To Join?</div>
+      <div class="mobile-intake-banner__row">
+        <div class="mobile-intake-banner__copy">
+          <strong>Submit your signal</strong>
+          <span>Share what you need, what you can offer, or who you're looking for.</span>
+        </div>
+        <a href="/forms/" class="mobile-intake-banner__cta">Submit</a>
+      </div>
+    </section>
     <section class="hero">
       <a href="/community/" class="hero-lockup" aria-label="Rising Sparks home">
         <img src="/media/rising-sparks-logo.png" alt="Rising Sparks" class="hero-lockup__image">
