@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 FAVICON_PATH = "/favicon.svg"
-BRAND_LOGO_PATH = "/brand/rising-sparks-logo.png"
+BRAND_LOGO_PATH = "/media/rising-sparks-logo.png"
 BRAND_FONT_STYLESHEET = (
     "https://fonts.googleapis.com/css2?family=Anton&family=Merriweather:"
     "ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap"
