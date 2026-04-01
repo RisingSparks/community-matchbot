@@ -59,6 +59,15 @@ def _google_analytics_tags() -> str:
     return build_google_analytics_tags()
 
 
+def _page_meta_tags(*, title: str, description: str, path: str, base_url: str) -> str:
+    return build_meta_tags(
+        title=title,
+        description=description,
+        path=path,
+        base_url=base_url,
+    )
+
+
 async def _run_with_db_retry[T](
     operation_name: str,
     callback: Callable[[AsyncSession], Awaitable[T]],
@@ -1035,15 +1044,24 @@ loadGear();
 """
 
 
-def _build_home_page() -> str:
+def _build_home_page(base_url: str) -> str:
     nav = _nav_html("home")
     feedback_url = _community_feedback_url()
     analytics_tags = _google_analytics_tags()
+    meta_tags = _page_meta_tags(
+        title="Rising Sparks — Find Your Community",
+        description=(
+            "Find camps, projects, seekers, and infrastructure signals across the burner "
+            "ecosystem with Rising Sparks."
+        ),
+        path="/community/",
+        base_url=base_url,
+    )
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
         '  <meta charset="utf-8">\n'
         '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        '  <title>Rising Sparks \u2014 Find Your Community</title>\n'
+        f"  {meta_tags}\n"
         "  " + FAVICON_LINK_TAGS + "\n"
         + (f"  {analytics_tags}\n" if analytics_tags else "")
         + "  <style>" + _NAV_CSS + _BROWSE_CSS + _HOME_EXTRA_CSS + "</style>\n"
@@ -1055,15 +1073,21 @@ def _build_home_page() -> str:
     )
 
 
-def _build_camps_page() -> str:
+def _build_camps_page(base_url: str) -> str:
     feedback_url = _community_feedback_url()
     nav = _nav_html("camps")
     analytics_tags = _google_analytics_tags()
+    meta_tags = _page_meta_tags(
+        title="Camps & Projects — Rising Sparks",
+        description="Browse active camps and art projects looking for contributors this season.",
+        path="/community/camps",
+        base_url=base_url,
+    )
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
         '  <meta charset="utf-8">\n'
         '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        '  <title>Camps &amp; Projects \u2014 Rising Sparks</title>\n'
+        f"  {meta_tags}\n"
         "  " + FAVICON_LINK_TAGS + "\n"
         + (f"  {analytics_tags}\n" if analytics_tags else "")
         + "  <style>" + _NAV_CSS + _BROWSE_CSS + "</style>\n"
@@ -1079,15 +1103,21 @@ def _build_camps_page() -> str:
     )
 
 
-def _build_seekers_page() -> str:
+def _build_seekers_page(base_url: str) -> str:
     feedback_url = _community_feedback_url()
     nav = _nav_html("seekers")
     analytics_tags = _google_analytics_tags()
+    meta_tags = _page_meta_tags(
+        title="Builders & Seekers — Rising Sparks",
+        description="See people looking for their camp, project, collaborators, or next build.",
+        path="/community/seekers",
+        base_url=base_url,
+    )
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
         '  <meta charset="utf-8">\n'
         '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        '  <title>Builders &amp; Seekers \u2014 Rising Sparks</title>\n'
+        f"  {meta_tags}\n"
         "  " + FAVICON_LINK_TAGS + "\n"
         + (f"  {analytics_tags}\n" if analytics_tags else "")
         + "  <style>" + _NAV_CSS + _BROWSE_CSS + "</style>\n"
@@ -1103,15 +1133,21 @@ def _build_seekers_page() -> str:
     )
 
 
-def _build_gear_page() -> str:
+def _build_gear_page(base_url: str) -> str:
     feedback_url = _community_feedback_url()
     nav = _nav_html("gear")
     analytics_tags = _google_analytics_tags()
+    meta_tags = _page_meta_tags(
+        title="Gear Exchange — Rising Sparks",
+        description="Browse infrastructure needs and offers for shade, power, tools, transport, and more.",
+        path="/community/gear",
+        base_url=base_url,
+    )
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
         '  <meta charset="utf-8">\n'
         '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        '  <title>Gear Exchange \u2014 Rising Sparks</title>\n'
+        f"  {meta_tags}\n"
         "  " + FAVICON_LINK_TAGS + "\n"
         + (f"  {analytics_tags}\n" if analytics_tags else "")
         + "  <style>" + _NAV_CSS + _BROWSE_CSS + "</style>\n"
@@ -2221,22 +2257,22 @@ def _render_transparency_page(base_url: str) -> str:
 
 @router.get("/", response_class=HTMLResponse)
 async def community_home(request: Request) -> str:
-    return _build_home_page()
+    return _build_home_page(str(request.base_url))
 
 
 @router.get("/camps", response_class=HTMLResponse)
 async def community_camps(request: Request) -> str:
-    return _build_camps_page()
+    return _build_camps_page(str(request.base_url))
 
 
 @router.get("/seekers", response_class=HTMLResponse)
 async def community_seekers(request: Request) -> str:
-    return _build_seekers_page()
+    return _build_seekers_page(str(request.base_url))
 
 
 @router.get("/gear", response_class=HTMLResponse)
 async def community_gear(request: Request) -> str:
-    return _build_gear_page()
+    return _build_gear_page(str(request.base_url))
 
 
 @router.get("/transparency", response_class=HTMLResponse)

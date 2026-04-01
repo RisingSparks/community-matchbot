@@ -74,7 +74,7 @@ def build_meta_tags(
         f'<meta property="og:type" content="{escape(og_type)}">',
         f'<meta property="og:title" content="{escaped_title}">',
         f'<meta property="og:description" content="{escaped_description}">',
-        f'<meta name="twitter:card" content="summary">',
+        f'<meta name="twitter:card" content="summary_large_image">',
         f'<meta name="twitter:title" content="{escaped_title}">',
         f'<meta name="twitter:description" content="{escaped_description}">',
     ]
@@ -94,6 +94,7 @@ def build_meta_tags(
             tags.extend(
                 [
                     f'<meta property="og:image" content="{escape(image_url)}">',
+                    f'<meta property="og:image:alt" content="{escaped_title}">',
                     f'<meta name="twitter:image" content="{escape(image_url)}">',
                 ]
             )

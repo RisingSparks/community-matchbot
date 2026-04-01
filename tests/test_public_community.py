@@ -85,7 +85,7 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert (
             'property="og:title" content="Open Stats'
         ) in trans.text
-        assert 'name="twitter:card" content="summary"' in trans.text
+        assert 'name="twitter:card" content="summary_large_image"' in trans.text
     finally:
         _reset_engine()
 
@@ -102,6 +102,24 @@ def test_root_page_renders_dashboard(monkeypatch, tmp_path) -> None:
         assert "Build the city" in response.text
         assert 'rel="icon"' in response.text
         assert "/favicon.ico" in response.text
+    finally:
+        _reset_engine()
+
+
+def test_community_home_includes_share_meta_tags(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_share_meta.db")
+    try:
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get(
+            "/community/",
+            headers={"host": "community.rising-sparks.org"},
+        )
+        assert response.status_code == 200
+        assert 'property="og:title" content="Rising Sparks — Find Your Community"' in response.text
+        assert 'property="og:url" content="http://community.rising-sparks.org/community/"' in response.text
+        assert 'property="og:image"' in response.text
+        assert 'name="twitter:card" content="summary_large_image"' in response.text
+        assert 'rel="canonical" href="http://community.rising-sparks.org/community/"' in response.text
     finally:
         _reset_engine()
 
