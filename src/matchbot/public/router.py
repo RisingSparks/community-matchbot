@@ -606,7 +606,7 @@ _HOME_BODY = """
         <img src="/media/rising-sparks-logo.png" alt="Rising Sparks" class="hero-lockup__image">
       </a>
       <h1>Find your people.<br>Build the city.</h1>
-      <p>The burner community is spread across Facebook groups, Discord, Reddit, Spark Classifieds, and more. MatchBot is a live, free, community-run prototype that helps people find each other faster.</p>
+      <p>The burner community is spread across Facebook groups, Discord, Reddit, Spark Classifieds, and more. MatchBot is a community-run prototype that helps people find each other faster.</p>
       <p>If you need something, have something to offer, or are looking for a camp, project, collaborator, or piece of gear, this is one place to see what people are doing and add your own post.</p>
     </section>
 
