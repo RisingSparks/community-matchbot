@@ -72,7 +72,7 @@ def create_app(enable_scheduler: bool = True, run_migrations_on_startup: bool = 
 
     @app.get(BRAND_LOGO_PATH, include_in_schema=False)
     async def brand_logo() -> Response:
-        return FileResponse(BRAND_LOGO_FILE, media_type="image/svg+xml")
+        return FileResponse(BRAND_LOGO_FILE, media_type="image/png")
 
     @app.get("/health")
     @app.get("/status")
