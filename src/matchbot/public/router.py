@@ -620,7 +620,7 @@ _HOME_BODY = """
         <span class="intro-source">Direct submissions</span>
       </div>
       <p class="intro-footnote">This is still a prototype, and we are actively learning how people actually want to use it. Feedback is welcome: tell us what works, what does not, and which communities or channels we should pull from next.</p>
-      <p class="intro-feedback">Help us build this? Tell us what feels useful, what’s missing, or what feels too automated. <a id="feedback-link" href="__COMMUNITY_FEEDBACK_URL__">Send feedback to organizers.</a></p>
+      <p class="intro-feedback">Help us build this? Tell us what feels useful, what’s missing, or what feels too automated. <a id="feedback-link" href="__COMMUNITY_FEEDBACK_URL__">Send us feedback.</a></p>
     </section>
     <div class="entry-list">
       <a href="/community/camps" class="entry-card">
