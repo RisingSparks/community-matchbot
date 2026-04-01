@@ -1477,7 +1477,7 @@ _COMMUNITY_HTML = """
 <body>
   <main class="wrap">
     <section class="hero">
-      <div class="eyebrow">Rising Sparks Connection Dashboard</div>
+      <div class="eyebrow">Data Dashboard</div>
       <h1>Find your people. Build the city.</h1>
       <p class="hero-blurb">
         A lightweight community matchmaking experiment: surfacing infrastructure
