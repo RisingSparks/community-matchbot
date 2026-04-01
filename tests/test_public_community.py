@@ -59,7 +59,8 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert 'href="/community/gear?view=offers#offer-panel"' in response.text
         assert '/media/rising-sparks-logo.png' in response.text
         assert 'rel="icon"' in response.text
-        assert "/favicon.svg" in response.text
+        assert "/favicon.ico" in response.text
+        assert "/site.webmanifest" in response.text
 
         gear = client.get("/community/gear")
         assert gear.status_code == 200
@@ -100,7 +101,7 @@ def test_root_page_renders_dashboard(monkeypatch, tmp_path) -> None:
         assert "Find your people" in response.text
         assert "Build the city" in response.text
         assert 'rel="icon"' in response.text
-        assert "/favicon.svg" in response.text
+        assert "/favicon.ico" in response.text
     finally:
         _reset_engine()
 
@@ -139,14 +140,25 @@ def test_community_data_zero_state(monkeypatch, tmp_path) -> None:
         _reset_engine()
 
 
-def test_favicon_route_serves_svg(monkeypatch, tmp_path) -> None:
+def test_favicon_route_serves_ico(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_favicon.db")
     try:
         client = TestClient(create_app(enable_scheduler=False))
-        response = client.get("/favicon.svg")
+        response = client.get("/favicon.ico")
         assert response.status_code == 200
-        assert response.headers["content-type"].startswith("image/svg+xml")
-        assert "<svg" in response.text
+        assert response.headers["content-type"].startswith("image/x-icon")
+    finally:
+        _reset_engine()
+
+
+def test_webmanifest_route_serves_manifest(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_manifest.db")
+    try:
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get("/site.webmanifest")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/manifest+json")
+        assert '"icons"' in response.text
     finally:
         _reset_engine()
 

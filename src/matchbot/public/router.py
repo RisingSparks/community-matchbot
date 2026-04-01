@@ -597,15 +597,15 @@ _HOME_BODY = """
     </section>
     <section class="intro-panel" aria-labelledby="how-it-works-title">
       <div class="section-label">How It Works</div>
-      <h2 id="how-it-works-title" class="intro-panel__title">Post once. Get seen. Find the right people.</h2>
+      <h2 id="how-it-works-title" class="intro-panel__title">Signals in. Matches out.</h2>
       <p class="intro-panel__lede">We'll will gladly drive 100 miles for the right generator, shade structure, or collaborator. The hard part usually isn't willingness. It is finding each other before the opportunity disappears.</p>
       <div class="intro-steps">
         <div class="intro-step">
-          <strong>Share one signal</strong>
-          <p>Most of the time, we listen to where people are already spending time across burner internet and use that signal to help surface better recommendations. If you want to submit directly, go ahead. We will not stop you, and it will show up on Spark Classifieds too.</p>
+          <strong>From the places people already use</strong>
+          <p>We pick up signals from the platforms people already use. If you want to submit directly, that works too, and it will show up on Spark Classifieds.</p>
         </div>
         <div class="intro-step">
-          <strong>See the scattered posts together</strong>
+          <strong>Combining the chaos</strong>
           <p>Rising Sparks pulls community signals into one pool so you can browse what is happening without getting sucked into platform nonsense.</p>
         </div>
         <div class="intro-step">

@@ -12,8 +12,10 @@ from matchbot.branding import (
     BRAND_LOGO_FILE,
     BRAND_LOGO_PATH,
     FAVICON_PATH,
-    FAVICON_SVG,
+    WEBMANIFEST_PATH,
 )
+from pathlib import Path
+
 from matchbot.forms.router import router as forms_router
 from matchbot.listeners.facebook import router as facebook_router
 from matchbot.log_config import configure_logging
@@ -62,13 +64,19 @@ def create_app(enable_scheduler: bool = True, run_migrations_on_startup: bool = 
     app.include_router(mod_router)
     app.include_router(community_router)
 
+    assets_dir = Path(__file__).resolve().parent / "assets"
+
     @app.get("/", response_class=HTMLResponse)
     async def root(request: Request) -> str:
         return await community_home(request)
 
     @app.get(FAVICON_PATH, include_in_schema=False)
     async def favicon() -> Response:
-        return Response(content=FAVICON_SVG, media_type="image/svg+xml")
+        return FileResponse(assets_dir / "favicon.ico", media_type="image/x-icon")
+
+    @app.get(WEBMANIFEST_PATH, include_in_schema=False)
+    async def webmanifest() -> Response:
+        return FileResponse(assets_dir / "site.webmanifest", media_type="application/manifest+json")
 
     @app.get(BRAND_LOGO_PATH, include_in_schema=False)
     async def brand_logo() -> Response:
