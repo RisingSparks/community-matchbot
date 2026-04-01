@@ -64,7 +64,7 @@ def build_brand_logo_link(
     return (
         f'<a href="{safe_href}" class="{safe_link_class}">'
         f'<img src="{BRAND_LOGO_PATH}" alt="{safe_alt}" class="{safe_image_class}">'
-        f'<span class="{safe_text_class}">{safe_text}</span>'
+        # f'<span class="{safe_text_class}">{safe_text}</span>'
         "</a>"
     )
 

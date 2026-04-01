@@ -156,10 +156,11 @@ def _nav_html(active: str) -> str:
         image_class="site-nav__logo-mark",
         text_class="site-nav__logo-text",
     )
-    cta = '<a href="/forms/" class="site-nav__cta">Submit your signal</a>'
+    cta = '<a href="/forms/" class="site-nav__cta">Submit</a>'
     return (
         '<nav class="site-nav" aria-label="Site navigation">'
-        f'<div class="site-nav__inner">{logo}{"".join(items)}{cta}</div>'
+        # f'<div class="site-nav__inner">{logo}{"".join(items)}{cta}</div>'
+        f'<div class="site-nav__inner">{"".join(items)}{cta}</div>'
         "</nav>"
     )
 
@@ -423,7 +424,7 @@ _HOME_BODY = """
   <main class="page-wrap">
     <section class="hero">
       <a href="/community/" class="hero-lockup" aria-label="Rising Sparks home">
-        <img src="/brand/rising-sparks-logo.svg" alt="Rising Sparks" class="hero-lockup__image">
+        <img src="/media/rising-sparks-logo.png" alt="Rising Sparks" class="hero-lockup__image">
       </a>
       <h1>Find your people.<br>Build the city.</h1>
       <p>A community matchmaking experiment — surfacing participants, camps, projects, and infrastructure across the ecosystem.</p>
