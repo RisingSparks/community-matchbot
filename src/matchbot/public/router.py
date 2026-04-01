@@ -425,6 +425,81 @@ _HOME_EXTRA_CSS = """
 .eyebrow { font-family: "Anton", Impact, sans-serif; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #ff9200; margin: 0 0 8px; }
 .hero h1 { margin: 0 0 12px; font-family: "Anton", Impact, sans-serif; font-size: clamp(36px, 8vw, 64px); font-weight: 400; line-height: 0.95; letter-spacing: 0.01em; }
 .hero p { margin: 0; font-size: 16px; line-height: 1.8; color: #4a4a4a; max-width: 52ch; }
+.hero p + p { margin-top: 12px; font-size: 15px; line-height: 1.7; color: #5a5458; }
+.intro-panel {
+  margin-bottom: 28px;
+  padding: 18px 16px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.82);
+  border: 1px solid rgba(0,0,0,0.12);
+  box-shadow: 0 14px 28px rgba(0,0,0,0.06);
+}
+.intro-panel__title {
+  margin: 0 0 8px;
+  font-family: "Anton", Impact, sans-serif;
+  font-size: clamp(24px, 5vw, 34px);
+  line-height: 0.98;
+  font-weight: 400;
+}
+.intro-panel__lede {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #4a4a4a;
+}
+.intro-steps {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+.intro-step {
+  padding: 14px 14px 12px;
+  border-radius: 16px;
+  background: #fffdf9;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+.intro-step strong {
+  display: block;
+  margin: 0 0 5px;
+  font-family: "Anton", Impact, sans-serif;
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 400;
+}
+.intro-step p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #4a4a4a;
+}
+.intro-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.intro-source {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: rgba(255,146,0,0.12);
+  border: 1px solid rgba(255,146,0,0.16);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: #8d4f00;
+}
+.intro-footnote {
+  margin: 14px 0 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #5a5458;
+}
+@media (min-width: 760px) {
+  .intro-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 .entry-list { display: grid; gap: 10px; margin-bottom: 28px; }
 .entry-card {
   display: flex; align-items: center; gap: 14px; padding: 18px 20px;
@@ -494,7 +569,34 @@ _HOME_BODY = """
         <img src="/media/rising-sparks-logo.png" alt="Rising Sparks" class="hero-lockup__image">
       </a>
       <h1>Find your people.<br>Build the city.</h1>
-      <p>A community matchmaking experiment — surfacing participants, camps, projects, and infrastructure across the ecosystem.</p>
+      <p>The burner community is spread across Facebook groups, Discord, Reddit, Spark Classifieds, and more. Rising Sparks is a live, free, community-run prototype that helps people find each other faster.</p>
+      <p>If you need something, have something to offer, or are looking for a camp, project, collaborator, or piece of gear, this is one place to see what people are doing and add your own signal.</p>
+    </section>
+    <section class="intro-panel" aria-labelledby="how-it-works-title">
+      <div class="section-label">How It Works</div>
+      <h2 id="how-it-works-title" class="intro-panel__title">Post once. Get seen. Find the right people.</h2>
+      <p class="intro-panel__lede">We'll will gladly drive 100 miles for the right generator, shade structure, or collaborator. The hard part usually isn't willingness. It is finding each other before the opportunity disappears.</p>
+      <div class="intro-steps">
+        <div class="intro-step">
+          <strong>Share one signal</strong>
+          <p>Tell us what you need, what you can offer, or who you are looking for instead of posting the same thing all over burner internet.</p>
+        </div>
+        <div class="intro-step">
+          <strong>See the scattered posts together</strong>
+          <p>Rising Sparks pulls community signals into one pool so you can browse what is happening without getting sucked into platform nonsense.</p>
+        </div>
+        <div class="intro-step">
+          <strong>Connect people who should meet</strong>
+          <p>We are building toward better introductions between camps, seekers, builders, and infrastructure offers and asks, not just another feed.</p>
+        </div>
+      </div>
+      <div class="intro-sources" aria-label="Current signal sources">
+        <span class="intro-source">Facebook</span>
+        <span class="intro-source">Discord</span>
+        <span class="intro-source">Reddit</span>
+        <span class="intro-source">Direct submissions</span>
+      </div>
+      <p class="intro-footnote">This is still a prototype, and we are actively learning how people actually want to use it. Feedback is welcome: tell us what works, what does not, and which communities or channels we should pull from next.</p>
     </section>
     <div class="entry-list">
       <a href="/community/camps" class="entry-card">
