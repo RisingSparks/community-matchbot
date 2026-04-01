@@ -592,7 +592,7 @@ _HOME_BODY = """
         <img src="/media/rising-sparks-logo.png" alt="Rising Sparks" class="hero-lockup__image">
       </a>
       <h1>Find your people.<br>Build the city.</h1>
-      <p>The burner community is spread across Facebook groups, Discord, Reddit, Spark Classifieds, and more. Rising Sparks is a live, free, community-run prototype that helps people find each other faster.</p>
+      <p>The burner community is spread across Facebook groups, Discord, Reddit, Spark Classifieds, and more. MatchBot is a live, free, community-run prototype that helps people find each other faster.</p>
       <p>If you need something, have something to offer, or are looking for a camp, project, collaborator, or piece of gear, this is one place to see what people are doing and add your own signal.</p>
     </section>
     <section class="intro-panel" aria-labelledby="how-it-works-title">
@@ -602,7 +602,7 @@ _HOME_BODY = """
       <div class="intro-steps">
         <div class="intro-step">
           <strong>Share one signal</strong>
-          <p>Tell us what you need, what you can offer, or who you are looking for instead of posting the same thing all over burner internet.</p>
+          <p>Most of the time, we listen to where people are already spending time across burner internet and use that signal to help surface better recommendations. If you want to submit directly, go ahead. We will not stop you, and it will show up on Spark Classifieds too.</p>
         </div>
         <div class="intro-step">
           <strong>See the scattered posts together</strong>
@@ -618,6 +618,7 @@ _HOME_BODY = """
         <span class="intro-source">Discord</span>
         <span class="intro-source">Reddit</span>
         <span class="intro-source">Direct submissions</span>
+        <span class="intro-source">Spark Classifieds</span>
       </div>
       <p class="intro-footnote">This is still a prototype, and we are actively learning how people actually want to use it. Feedback is welcome: tell us what works, what does not, and which communities or channels we should pull from next.</p>
       <p class="intro-feedback">Help us build this? Tell us what feels useful, what’s missing, or what feels too automated. <a id="feedback-link" href="__COMMUNITY_FEEDBACK_URL__">Send us feedback.</a></p>
