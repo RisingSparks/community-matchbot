@@ -26,6 +26,7 @@ from matchbot.branding import (
     BRAND_FONT_STYLESHEET,
     FAVICON_LINK_TAGS,
     build_brand_logo_link,
+    build_google_analytics_tags,
     build_meta_tags,
 )
 from matchbot.db.models import Platform, Post, PostRole, PostStatus, PostType
@@ -443,7 +444,11 @@ def _with_meta(
         base_url=base_url,
         robots=robots,
     )
-    return html.replace(f"<title>{existing_title}</title>", meta_tags, 1)
+    analytics_tags = build_google_analytics_tags()
+    html = html.replace(f"<title>{existing_title}</title>", meta_tags, 1)
+    if analytics_tags:
+        html = html.replace("</head>", f"  {analytics_tags}\n</head>", 1)
+    return html
 
 _LANDING_HTML = f"""<!DOCTYPE html>
 <html lang="en">

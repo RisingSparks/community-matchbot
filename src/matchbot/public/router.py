@@ -21,6 +21,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from matchbot.branding import (
     BRAND_FONT_STYLESHEET,
     build_brand_logo_link,
+    build_google_analytics_tags,
     FAVICON_LINK_TAGS,
     build_meta_tags,
 )
@@ -52,6 +53,10 @@ def _community_feedback_url() -> str:
     if settings.community_feedback_url:
         return settings.community_feedback_url
     return "/forms/"
+
+
+def _google_analytics_tags() -> str:
+    return build_google_analytics_tags()
 
 
 async def _run_with_db_retry[T](
@@ -1033,14 +1038,16 @@ loadGear();
 def _build_home_page() -> str:
     nav = _nav_html("home")
     feedback_url = _community_feedback_url()
+    analytics_tags = _google_analytics_tags()
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
         '  <meta charset="utf-8">\n'
         '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
         '  <title>Rising Sparks \u2014 Find Your Community</title>\n'
         "  " + FAVICON_LINK_TAGS + "\n"
-        "  <style>" + _NAV_CSS + _BROWSE_CSS + _HOME_EXTRA_CSS + "</style>\n"
-        "</head>\n<body>\n"
+        + (f"  {analytics_tags}\n" if analytics_tags else "")
+        + "  <style>" + _NAV_CSS + _BROWSE_CSS + _HOME_EXTRA_CSS + "</style>\n"
+        + "</head>\n<body>\n"
         + nav + "\n"
         + _HOME_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url)
         + "<script>\n" + _TAXONOMY_JS + _HOME_JS + "\n</script>\n"
@@ -1051,14 +1058,16 @@ def _build_home_page() -> str:
 def _build_camps_page() -> str:
     feedback_url = _community_feedback_url()
     nav = _nav_html("camps")
+    analytics_tags = _google_analytics_tags()
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
         '  <meta charset="utf-8">\n'
         '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
         '  <title>Camps &amp; Projects \u2014 Rising Sparks</title>\n'
         "  " + FAVICON_LINK_TAGS + "\n"
-        "  <style>" + _NAV_CSS + _BROWSE_CSS + "</style>\n"
-        "</head>\n<body>\n"
+        + (f"  {analytics_tags}\n" if analytics_tags else "")
+        + "  <style>" + _NAV_CSS + _BROWSE_CSS + "</style>\n"
+        + "</head>\n<body>\n"
         + nav + "\n"
         + '<main class="page-wrap">\n'
         + '  <div class="page-header"><h1>Camps &amp; projects</h1>'
@@ -1073,14 +1082,16 @@ def _build_camps_page() -> str:
 def _build_seekers_page() -> str:
     feedback_url = _community_feedback_url()
     nav = _nav_html("seekers")
+    analytics_tags = _google_analytics_tags()
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
         '  <meta charset="utf-8">\n'
         '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
         '  <title>Builders &amp; Seekers \u2014 Rising Sparks</title>\n'
         "  " + FAVICON_LINK_TAGS + "\n"
-        "  <style>" + _NAV_CSS + _BROWSE_CSS + "</style>\n"
-        "</head>\n<body>\n"
+        + (f"  {analytics_tags}\n" if analytics_tags else "")
+        + "  <style>" + _NAV_CSS + _BROWSE_CSS + "</style>\n"
+        + "</head>\n<body>\n"
         + nav + "\n"
         + '<main class="page-wrap">\n'
         + '  <div class="page-header"><h1>Builders &amp; seekers</h1>'
@@ -1095,14 +1106,16 @@ def _build_seekers_page() -> str:
 def _build_gear_page() -> str:
     feedback_url = _community_feedback_url()
     nav = _nav_html("gear")
+    analytics_tags = _google_analytics_tags()
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
         '  <meta charset="utf-8">\n'
         '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
         '  <title>Gear Exchange \u2014 Rising Sparks</title>\n'
         "  " + FAVICON_LINK_TAGS + "\n"
-        "  <style>" + _NAV_CSS + _BROWSE_CSS + "</style>\n"
-        "</head>\n<body>\n"
+        + (f"  {analytics_tags}\n" if analytics_tags else "")
+        + "  <style>" + _NAV_CSS + _BROWSE_CSS + "</style>\n"
+        + "</head>\n<body>\n"
         + nav + "\n"
         + '<main class="page-wrap">\n'
         + '  <div class="page-header"><h1>Gear exchange</h1>'
@@ -2195,7 +2208,10 @@ def _render_transparency_page(base_url: str) -> str:
         path="/community/transparency",
         base_url=base_url,
     )
+    analytics_tags = _google_analytics_tags()
     html = _COMMUNITY_HTML.replace("<title>Rising Sparks Community Dashboard</title>", meta_tags, 1)
+    if analytics_tags:
+        html = html.replace("</head>", f"  {analytics_tags}\n</head>", 1)
     # Inject nav CSS and HTML into the existing page
     html = html.replace("  <style>", "  <style>" + _NAV_CSS, 1)
     nav = _nav_html("transparency")

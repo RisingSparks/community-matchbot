@@ -13,6 +13,7 @@ BRAND_FONT_STYLESHEET = (
     "https://fonts.googleapis.com/css2?family=Anton&family=Merriweather:"
     "ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap"
 )
+GOOGLE_ANALYTICS_MEASUREMENT_ID = "G-4QW073D00W"
 BRAND_LOGO_FILE = Path(__file__).resolve().parent / "assets" / "rising-sparks-logo.png"
 
 FAVICON_LINK_TAGS = (
@@ -98,3 +99,17 @@ def build_meta_tags(
             )
 
     return "\n  ".join(tags)
+
+
+def build_google_analytics_tags() -> str:
+    """Build the GA4 tag snippet for public HTML pages."""
+    safe_id = GOOGLE_ANALYTICS_MEASUREMENT_ID
+    return (
+        f'<script async src="https://www.googletagmanager.com/gtag/js?id={safe_id}"></script>\n'
+        "<script>\n"
+        "  window.dataLayer = window.dataLayer || [];\n"
+        "  function gtag(){dataLayer.push(arguments);}\n"
+        "  gtag('js', new Date());\n"
+        f"  gtag('config', '{safe_id}');\n"
+        "</script>"
+    )

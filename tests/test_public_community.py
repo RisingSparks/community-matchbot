@@ -190,6 +190,18 @@ def test_brand_logo_route_serves_png(monkeypatch, tmp_path) -> None:
         _reset_engine()
 
 
+def test_google_analytics_snippet_renders_when_configured(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_ga.db")
+    try:
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get("/community/")
+        assert response.status_code == 200
+        assert "https://www.googletagmanager.com/gtag/js?id=G-4QW073D00W" in response.text
+        assert "gtag('config', 'G-4QW073D00W');" in response.text
+    finally:
+        _reset_engine()
+
+
 def test_community_rest_api_endpoints_exist_and_are_nonbreaking(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_api_endpoints.db")
     try:
