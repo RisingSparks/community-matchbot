@@ -595,6 +595,34 @@ _HOME_BODY = """
       <p>The burner community is spread across Facebook groups, Discord, Reddit, Spark Classifieds, and more. MatchBot is a live, free, community-run prototype that helps people find each other faster.</p>
       <p>If you need something, have something to offer, or are looking for a camp, project, collaborator, or piece of gear, this is one place to see what people are doing and add your own signal.</p>
     </section>
+
+    <div class="entry-list">
+      <a href="/community/camps" class="entry-card">
+        <div class="entry-icon">\u26fa</div>
+        <div class="entry-body">
+          <strong>Looking for a camp or project</strong>
+          <span>Browse camps and art projects with openings this season</span>
+        </div>
+        <span class="entry-arrow" aria-hidden="true">\u2192</span>
+      </a>
+      <a href="/community/seekers" class="entry-card">
+        <div class="entry-icon">\u2726</div>
+        <div class="entry-body">
+          <strong>Our camp or project needs people</strong>
+          <span>Find motivated builders, artists, and contributors looking for a home</span>
+        </div>
+        <span class="entry-arrow" aria-hidden="true">\u2192</span>
+      </a>
+      <a href="/community/gear" class="entry-card">
+        <div class="entry-icon">\u2699</div>
+        <div class="entry-body">
+          <strong>Gear &amp; infrastructure exchange</strong>
+          <span>Shade, power, tools, transport \u2014 what the community needs and what\u2019s available</span>
+        </div>
+        <span class="entry-arrow" aria-hidden="true">\u2192</span>
+      </a>
+    </div>
+
     <section class="intro-panel" aria-labelledby="how-it-works-title">
       <div class="section-label">How It Works</div>
       <h2 id="how-it-works-title" class="intro-panel__title">Signals in. Matches out.</h2>
@@ -623,32 +651,7 @@ _HOME_BODY = """
       <p class="intro-footnote">This is still a prototype, and we are actively learning how people actually want to use it. Feedback is welcome: tell us what works, what does not, and which communities or channels we should pull from next.</p>
       <p class="intro-feedback">Help us build this? Tell us what feels useful, what’s missing, or what feels too automated. <a id="feedback-link" href="__COMMUNITY_FEEDBACK_URL__">Send us feedback.</a></p>
     </section>
-    <div class="entry-list">
-      <a href="/community/camps" class="entry-card">
-        <div class="entry-icon">\u26fa</div>
-        <div class="entry-body">
-          <strong>Looking for a camp or project</strong>
-          <span>Browse camps and art projects with openings this season</span>
-        </div>
-        <span class="entry-arrow" aria-hidden="true">\u2192</span>
-      </a>
-      <a href="/community/seekers" class="entry-card">
-        <div class="entry-icon">\u2726</div>
-        <div class="entry-body">
-          <strong>Our camp or project needs people</strong>
-          <span>Find motivated builders, artists, and contributors looking for a home</span>
-        </div>
-        <span class="entry-arrow" aria-hidden="true">\u2192</span>
-      </a>
-      <a href="/community/gear" class="entry-card">
-        <div class="entry-icon">\u2699</div>
-        <div class="entry-body">
-          <strong>Gear &amp; infrastructure exchange</strong>
-          <span>Shade, power, tools, transport \u2014 what the community needs and what\u2019s available</span>
-        </div>
-        <span class="entry-arrow" aria-hidden="true">\u2192</span>
-      </a>
-    </div>
+    
     <section class="snapshot-section">
       <div class="section-label">In The Pool</div>
       <p class="snapshot-note">A quick read on what this season's signals look like right now. Each card opens the relevant listings or stats view.</p>
@@ -668,7 +671,7 @@ _HOME_BODY = """
     </div>
     <div class="page-footer">
       Rising Sparks is a volunteer-led community experiment. Not an official Burning Man Project initiative.
-      &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>
+      &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
     </div>
   </main>
 """
@@ -760,7 +763,7 @@ _CAMPS_BODY = """
   </div>
   <div class="page-footer">
     Rising Sparks is a volunteer-led community experiment. Not an official Burning Man Project initiative.
-    &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>
+    &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
   </div>
 """
 
@@ -840,7 +843,7 @@ _SEEKERS_BODY = """
   </div>
   <div class="page-footer">
     Rising Sparks is a volunteer-led community experiment. Not an official Burning Man Project initiative.
-    &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>
+    &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
   </div>
 """
 
@@ -937,7 +940,7 @@ _GEAR_BODY = """
   </div>
   <div class="page-footer">
     Rising Sparks is a volunteer-led community experiment. Not an official Burning Man Project initiative.
-    &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>
+    &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
   </div>
 """
 
@@ -1046,6 +1049,7 @@ def _build_home_page() -> str:
 
 
 def _build_camps_page() -> str:
+    feedback_url = _community_feedback_url()
     nav = _nav_html("camps")
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
@@ -1059,7 +1063,7 @@ def _build_camps_page() -> str:
         + '<main class="page-wrap">\n'
         + '  <div class="page-header"><h1>Camps &amp; projects</h1>'
         + '<p class="sub">Active camps and projects looking for contributors this season.</p></div>\n'
-        + _CAMPS_BODY
+        + _CAMPS_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url)
         + "</main>\n"
         + "<script>\n" + _TAXONOMY_JS + _CAMPS_JS + "\n</script>\n"
         + "</body>\n</html>"
@@ -1067,6 +1071,7 @@ def _build_camps_page() -> str:
 
 
 def _build_seekers_page() -> str:
+    feedback_url = _community_feedback_url()
     nav = _nav_html("seekers")
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
@@ -1080,7 +1085,7 @@ def _build_seekers_page() -> str:
         + '<main class="page-wrap">\n'
         + '  <div class="page-header"><h1>Builders &amp; seekers</h1>'
         + '<p class="sub">People looking for their camp or project this season.</p></div>\n'
-        + _SEEKERS_BODY
+        + _SEEKERS_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url)
         + "</main>\n"
         + "<script>\n" + _TAXONOMY_JS + _SEEKERS_JS + "\n</script>\n"
         + "</body>\n</html>"
@@ -1088,6 +1093,7 @@ def _build_seekers_page() -> str:
 
 
 def _build_gear_page() -> str:
+    feedback_url = _community_feedback_url()
     nav = _nav_html("gear")
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
@@ -1101,7 +1107,7 @@ def _build_gear_page() -> str:
         + '<main class="page-wrap">\n'
         + '  <div class="page-header"><h1>Gear exchange</h1>'
         + "<p class=\"sub\">Gear, structures, and equipment \u2014 what the community needs and what\u2019s available.</p></div>\n"
-        + _GEAR_BODY
+        + _GEAR_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url)
         + "</main>\n"
         + "<script>\n" + _TAXONOMY_JS + _GEAR_JS + "\n</script>\n"
         + "</body>\n</html>"

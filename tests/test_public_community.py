@@ -163,6 +163,22 @@ def test_webmanifest_route_serves_manifest(monkeypatch, tmp_path) -> None:
         _reset_engine()
 
 
+def test_manifest_icon_routes_serve_pngs(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_manifest_icons.db")
+    try:
+        client = TestClient(create_app(enable_scheduler=False))
+
+        response_192 = client.get("/android-chrome-192x192.png")
+        assert response_192.status_code == 200
+        assert response_192.headers["content-type"].startswith("image/png")
+
+        response_512 = client.get("/android-chrome-512x512.png")
+        assert response_512.status_code == 200
+        assert response_512.headers["content-type"].startswith("image/png")
+    finally:
+        _reset_engine()
+
+
 def test_brand_logo_route_serves_png(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_logo.db")
     try:

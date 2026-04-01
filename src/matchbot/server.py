@@ -78,6 +78,14 @@ def create_app(enable_scheduler: bool = True, run_migrations_on_startup: bool = 
     async def webmanifest() -> Response:
         return FileResponse(assets_dir / "site.webmanifest", media_type="application/manifest+json")
 
+    @app.get("/android-chrome-192x192.png", include_in_schema=False)
+    async def android_chrome_192() -> Response:
+        return FileResponse(assets_dir / "android-chrome-192x192.png", media_type="image/png")
+
+    @app.get("/android-chrome-512x512.png", include_in_schema=False)
+    async def android_chrome_512() -> Response:
+        return FileResponse(assets_dir / "android-chrome-512x512.png", media_type="image/png")
+
     @app.get(BRAND_LOGO_PATH, include_in_schema=False)
     async def brand_logo() -> Response:
         return FileResponse(BRAND_LOGO_FILE, media_type="image/png")
