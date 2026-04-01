@@ -194,6 +194,7 @@ def test_community_rest_api_endpoints_exist_and_are_nonbreaking(monkeypatch, tmp
         assert "tab" in discovery.json()
 
         assert overview.json()["summary"] == legacy_payload["summary"]
+        assert metrics.json()["summary"] == legacy_payload["summary"]
         assert metrics.json()["key_metrics"] == legacy_payload["key_metrics"]
         assert pipeline.json()["pipeline"] == legacy_payload["pipeline"]
         assert platforms.json()["platform_breakdown"] == legacy_payload["platform_breakdown"]

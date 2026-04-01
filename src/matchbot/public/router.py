@@ -41,6 +41,19 @@ def clear_community_cache() -> None:
     _community_cache.clear()
 
 
+def _community_feedback_url() -> str:
+    settings = get_settings()
+    if settings.community_feedback_email:
+        return (
+            f"mailto:{settings.community_feedback_email}"
+            "?subject=Matchbot%20Community%20Feedback"
+            "&body=How%20would%20you%20improve%20it%3F"
+        )
+    if settings.community_feedback_url:
+        return settings.community_feedback_url
+    return "/forms/"
+
+
 async def _run_with_db_retry[T](
     operation_name: str,
     callback: Callable[[AsyncSession], Awaitable[T]],
@@ -497,6 +510,16 @@ _HOME_EXTRA_CSS = """
   line-height: 1.65;
   color: #5a5458;
 }
+.intro-feedback {
+  margin: 14px 0 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #5a5458;
+}
+.intro-feedback a {
+  color: #000;
+  font-weight: 700;
+}
 @media (min-width: 760px) {
   .intro-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
@@ -597,6 +620,7 @@ _HOME_BODY = """
         <span class="intro-source">Direct submissions</span>
       </div>
       <p class="intro-footnote">This is still a prototype, and we are actively learning how people actually want to use it. Feedback is welcome: tell us what works, what does not, and which communities or channels we should pull from next.</p>
+      <p class="intro-feedback">Help us build this? Tell us what feels useful, what’s missing, or what feels too automated. <a id="feedback-link" href="__COMMUNITY_FEEDBACK_URL__">Send feedback to organizers.</a></p>
     </section>
     <div class="entry-list">
       <a href="/community/camps" class="entry-card">
@@ -1004,6 +1028,7 @@ loadGear();
 
 def _build_home_page() -> str:
     nav = _nav_html("home")
+    feedback_url = _community_feedback_url()
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
         '  <meta charset="utf-8">\n'
@@ -1013,7 +1038,7 @@ def _build_home_page() -> str:
         "  <style>" + _NAV_CSS + _BROWSE_CSS + _HOME_EXTRA_CSS + "</style>\n"
         "</head>\n<body>\n"
         + nav + "\n"
-        + _HOME_BODY
+        + _HOME_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url)
         + "<script>\n" + _TAXONOMY_JS + _HOME_JS + "\n</script>\n"
         + "</body>\n</html>"
     )
@@ -2234,6 +2259,7 @@ async def community_api_overview() -> dict[str, Any]:
 async def community_api_metrics() -> dict[str, Any]:
     payload = await _get_cached_community_payload()
     return {
+        "summary": payload["summary"],
         "key_metrics": payload["key_metrics"],
         "updated_at": payload["updated_at"],
     }
@@ -2820,17 +2846,7 @@ async def build_public_community_payload(session: AsyncSession) -> dict[str, Any
     live_feed = _build_live_feed(live_feed_posts, live_feed_matches, seven_days_ago)
     demand = _build_demand_rows(demand_rows)
     active_infra_seeking, active_infra_offering = _count_active_infra_roles(demand_rows)
-    settings = get_settings()
-
-    feedback_url = "/forms/"
-    if settings.community_feedback_email:
-        feedback_url = (
-            f"mailto:{settings.community_feedback_email}"
-            "?subject=Matchbot%20Community%20Feedback"
-            "&body=How%20would%20you%20improve%20it%3F"
-        )
-    elif settings.community_feedback_url:
-        feedback_url = settings.community_feedback_url
+    feedback_url = _community_feedback_url()
 
     return {
         "summary": {
