@@ -390,7 +390,7 @@ function sourceLink(url) {
   return '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" class="source-link">Original post \u2192</a>';
 }
 function emptyState(heading, body) {
-  return '<div class="empty-state"><div class="empty-state__icon">\u2726</div><h2>' + esc(heading) + '</h2><p>' + esc(body) + '</p><a href="/forms/">Submit your signal \u2192</a></div>';
+  return '<div class="empty-state"><div class="empty-state__icon">\u2726</div><h2>' + esc(heading) + '</h2><p>' + esc(body) + '</p><a href="/forms/">Submit a post \u2192</a></div>';
 }
 """
 
@@ -591,11 +591,11 @@ _HOME_EXTRA_CSS = """
 
 _HOME_BODY = """
   <main class="page-wrap">
-    <section class="mobile-intake-banner" aria-label="Submit signal">
+    <section class="mobile-intake-banner" aria-label="Submit a post">
       <div class="mobile-intake-banner__eyebrow">Ready To Join?</div>
       <div class="mobile-intake-banner__row">
         <div class="mobile-intake-banner__copy">
-          <strong>Submit your signal</strong>
+          <strong>Submit a post</strong>
           <span>Share what you need, what you can offer, or who you're looking for.</span>
         </div>
         <a href="/forms/" class="mobile-intake-banner__cta">Submit</a>
@@ -607,7 +607,7 @@ _HOME_BODY = """
       </a>
       <h1>Find your people.<br>Build the city.</h1>
       <p>The burner community is spread across Facebook groups, Discord, Reddit, Spark Classifieds, and more. MatchBot is a live, free, community-run prototype that helps people find each other faster.</p>
-      <p>If you need something, have something to offer, or are looking for a camp, project, collaborator, or piece of gear, this is one place to see what people are doing and add your own signal.</p>
+      <p>If you need something, have something to offer, or are looking for a camp, project, collaborator, or piece of gear, this is one place to see what people are doing and add your own post.</p>
     </section>
 
     <div class="entry-list">
@@ -639,23 +639,23 @@ _HOME_BODY = """
 
     <section class="intro-panel" aria-labelledby="how-it-works-title">
       <div class="section-label">How It Works</div>
-      <h2 id="how-it-works-title" class="intro-panel__title">Signals in. Matches out.</h2>
+      <h2 id="how-it-works-title" class="intro-panel__title">Posts in. Matches out.</h2>
       <p class="intro-panel__lede">We'll will gladly drive 100 miles for the right generator, shade structure, or collaborator. The hard part usually isn't willingness. It is finding each other before the opportunity disappears.</p>
       <div class="intro-steps">
         <div class="intro-step">
           <strong>From the places people already use</strong>
-          <p>We pick up signals from the platforms people already use. If you want to submit directly, that works too, and it will show up on Spark Classifieds.</p>
+          <p>We pick up posts from the platforms people already use. If you want to submit directly, that works too, and it will show up on Spark Classifieds.</p>
         </div>
         <div class="intro-step">
           <strong>Combining the chaos</strong>
-          <p>Rising Sparks pulls community signals into one pool so you can browse what is happening without getting sucked into platform nonsense.</p>
+          <p>Rising Sparks pulls community posts into one pool so you can browse what is happening without getting sucked into platform nonsense.</p>
         </div>
         <div class="intro-step">
           <strong>Connect people who should meet</strong>
           <p>We are building toward better introductions between camps, seekers, builders, and infrastructure offers and asks, not just another feed.</p>
         </div>
       </div>
-      <div class="intro-sources" aria-label="Current signal sources">
+      <div class="intro-sources" aria-label="Current sources">
         <span class="intro-source">Facebook</span>
         <span class="intro-source">Discord</span>
         <span class="intro-source">Reddit</span>
@@ -668,20 +668,20 @@ _HOME_BODY = """
     
     <section class="snapshot-section">
       <div class="section-label">In The Pool</div>
-      <p class="snapshot-note">A quick read on what this season's signals look like right now. Each card opens the relevant listings or stats view.</p>
+      <p class="snapshot-note">A quick read on what people are posting right now. Each card opens the relevant listings or stats view.</p>
       <div class="snapshot-groups" id="snapshot-groups">
         <div class="loading-state">Loading overview\u2026</div>
       </div>
     </section>
     <section class="recent-section">
-      <div class="section-label">Recent Signals</div>
+      <div class="section-label">Recent Posts</div>
       <div class="card-grid" id="recent-grid">
         <div class="loading-state">Loading\u2026</div>
       </div>
     </section>
     <div class="page-cta">
-      <p><strong>Ready to connect?</strong>Submit your signal and let us help find the right match.</p>
-      <a href="/forms/">Submit your signal \u2192</a>
+      <p><strong>Ready to connect?</strong>Submit a post and let us help find the right match.</p>
+      <a href="/forms/">Submit a post \u2192</a>
     </div>
     <div class="page-footer">
       Rising Sparks is a volunteer-led community experiment. Not an official Burning Man Project initiative.
@@ -723,7 +723,7 @@ async function loadHome() {
       + '</div>',
       '<div class="snapshot-group">'
         + '<h2>Infrastructure Exchange</h2>'
-        + '<p>Gear, logistics, and support signals that are active in the pool.</p>'
+        + '<p>Gear, logistics, and support posts that are active in the pool.</p>'
         + '<div class="snapshot-grid">'
           + '<a href="/community/gear?view=needs#need-panel" class="snapshot-card snapshot-link" aria-label="Browse infrastructure needs">'
             + '<span class="snapshot-lbl">Infra Needs</span>'
@@ -744,7 +744,7 @@ async function loadHome() {
     ].slice(0, 4);
     const grid = document.getElementById('recent-grid');
     if (!recent.length) {
-      grid.innerHTML = emptyState('Nothing recent yet', 'Check back soon \u2014 or submit your signal to join the pool.');
+      grid.innerHTML = emptyState('Nothing recent yet', 'Check back soon \u2014 or submit a post to join the pool.');
       return;
     }
     grid.innerHTML = recent.map(({item, type}) => {
@@ -834,7 +834,7 @@ async function loadCamps() {
     const data = await res.json();
     allCamps = data.camps || [];
     if (!allCamps.length) {
-      document.getElementById('camp-grid').innerHTML = emptyState('No active camp listings right now', 'Check back soon \u2014 or submit your signal below.');
+      document.getElementById('camp-grid').innerHTML = emptyState('No active camp listings right now', 'Check back soon \u2014 or submit a post below.');
       return;
     }
     buildCampFilters(allCamps);
@@ -853,7 +853,7 @@ _SEEKERS_BODY = """
   </div>
   <div class="page-cta">
     <p><strong>Looking for a camp?</strong>Add yourself to the pool and let us find a connection.</p>
-    <a href="/forms/seeker">Submit your signal \u2192</a>
+    <a href="/forms/seeker">Submit a post \u2192</a>
   </div>
   <div class="page-footer">
     Rising Sparks is a volunteer-led community experiment. Not an official Burning Man Project initiative.
@@ -915,7 +915,7 @@ async function loadSeekers() {
     const data = await res.json();
     allSeekers = data.seekers || [];
     if (!allSeekers.length) {
-      document.getElementById('seeker-grid').innerHTML = emptyState('No active seeker listings right now', 'Check back soon \u2014 or submit your signal below.');
+      document.getElementById('seeker-grid').innerHTML = emptyState('No active seeker listings right now', 'Check back soon \u2014 or submit a post below.');
       return;
     }
     buildSeekerFilters(allSeekers);
@@ -949,7 +949,7 @@ _GEAR_BODY = """
     </div>
   </div>
   <div class="page-cta">
-    <p><strong>Have gear to share, or need something?</strong>Post your signal to the exchange.</p>
+    <p><strong>Have gear to share, or need something?</strong>Post it to the exchange.</p>
     <a href="/forms/infra">Post to exchange \u2192</a>
   </div>
   <div class="page-footer">
