@@ -11,6 +11,36 @@ cmd_data = importlib.import_module("matchbot.cli.cmd_data")
 raw_store_module = importlib.import_module("matchbot.storage.raw_store")
 
 
+def test_main_defaults_since_date_to_last_7_days(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, str] = {}
+
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            current = datetime(2026, 4, 3, 12, 0, 0, tzinfo=UTC)
+            if tz is None:
+                return current.replace(tzinfo=None)
+            return current.astimezone(tz)
+
+    class FakeSettings:
+        verbose = False
+        reddit_json_user_agent = "ua"
+        reddit_json_emulate_browser = False
+        reddit_json_cookie = None
+
+    async def fake_main_async(**kwargs) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(backfill_script, "datetime", FixedDatetime)
+    monkeypatch.setattr(backfill_script, "get_settings", lambda: FakeSettings())
+    monkeypatch.setattr(backfill_script, "configure_logging", lambda **kwargs: None)
+    monkeypatch.setattr(backfill_script, "_main_async", fake_main_async)
+
+    backfill_script.main(since_date=None)
+
+    assert captured["since_date"] == "2026-03-27"
+
+
 @pytest.mark.asyncio
 async def test_main_async_creates_tables_without_reset(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []

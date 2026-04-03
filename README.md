@@ -87,7 +87,7 @@ uv run python scripts/run_reddit_json_listener.py
 Backfill historical Reddit JSON posts (same ingestion/extraction pipeline):
 
 ```bash
-uv run python scripts/backfill_reddit_json.py --since-date 2026-01-01
+uv run python scripts/backfill_reddit_json.py --live --since-date 2026-01-01
 uv run python scripts/backfill_reddit_json.py --since-date 2026-01-01 --dry-run
 ```
 

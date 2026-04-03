@@ -4,7 +4,7 @@
 import asyncio
 import logging
 import sys
-from datetime import UTC, datetime, time
+from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 
 import typer
@@ -103,7 +103,11 @@ async def _backfill_from_cache(
 
 @app.command()
 def main(
-    since_date: str = typer.Option(..., "--since-date", help="UTC date cutoff (YYYY-MM-DD)"),
+    since_date: str | None = typer.Option(
+        None,
+        "--since-date",
+        help="UTC date cutoff (YYYY-MM-DD). Defaults to 7 days ago if omitted.",
+    ),
     reset_db: bool = typer.Option(
         False,
         "--reset-db",
@@ -148,6 +152,9 @@ def main(
     """Backfill Reddit posts on/after a UTC date cutoff."""
     settings = get_settings()
     configure_logging(verbose=verbose or settings.verbose)
+    if since_date is None:
+        since_date = (datetime.now(UTC) - timedelta(days=7)).date().isoformat()
+        logger.info("No --since-date provided; defaulting to %s (last 7 days UTC).", since_date)
     if live:
         logger.info("Loaded REDDIT_JSON_USER_AGENT=%r", settings.reddit_json_user_agent)
         logger.info(
