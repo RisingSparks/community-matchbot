@@ -420,6 +420,35 @@ async def test_process_post_preserves_unmapped_terms_and_routes_to_review(
 
 
 @pytest.mark.asyncio
+async def test_process_post_allows_debaucherous_vibe_as_canonical_taxonomy(
+    db_session, mock_extractor
+):
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="vibe001",
+        title="Camp wants weirdos",
+        raw_text="Looking for a debaucherous late-night crew.",
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        role="camp",
+        vibes=["party", "debaucherous"],
+        contribution_types=["event_production"],
+        confidence=0.9,
+    )
+
+    result = await process_post(db_session, post, mock_extractor)
+
+    assert result.status == PostStatus.INDEXED
+    assert result.vibes_list() == ["party", "debaucherous"]
+    assert result.vibes_other_list() == []
+
+
+@pytest.mark.asyncio
 async def test_process_post_preserves_unknown_role_when_llm_returns_unknown(db_session, mock_extractor):
     post = Post(
         platform=Platform.REDDIT,
