@@ -422,7 +422,7 @@ _HEADER_HTML = (
 _DISCLAIMER_HTML = """
 <div class="disclaimer">
   Rising Sparks is a grassroots collective, community-built, community-led. While we collaborate with folks across
-  the ecosystem, this is not an official Burning Man Project initiative.
+  the ecosystem, this is 
 </div>
 """
 
@@ -455,7 +455,7 @@ _LANDING_HTML = f"""<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rising Sparks — Find Your Community</title>
+  <title>MatchBot by Rising Sparks — Find Your Community</title>
   {FAVICON_LINK_TAGS}
   <style>{_BASE_CSS}</style>
 </head>

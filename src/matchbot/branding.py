@@ -54,7 +54,7 @@ def build_meta_tags(
     base_url: str | None = None,
     robots: str = "index,follow",
     og_type: str = "website",
-    site_name: str = "Rising Sparks",
+    site_name: str = "MatchBot by Rising Sparks",
     image_path: str = BRAND_LOGO_PATH,
     theme_color: str = "#ff9200",
 ) -> str:

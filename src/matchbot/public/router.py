@@ -605,7 +605,7 @@ _HOME_BODY = """
         <img src="/media/rising-sparks-logo.png" alt="Rising Sparks" class="hero-lockup__image">
       </a>
       <h1>Find your people.<br>Build the city.</h1>
-      <p>The burner community is spread across Facebook groups, Discord, Reddit, Spark Classifieds, and more. MatchBot is a community-run prototype that helps people find each other faster.</p>
+      <p>The Burner community is spread across Facebook groups, Discord, Reddit, Spark Classifieds, and more. MatchBot is a community-run prototype that helps people find each other faster.</p>
       <p>If you need something, have something to offer, or are looking for a camp, project, collaborator, or piece of gear, this is one place to see what people are doing and add your own post.</p>
     </section>
 
@@ -683,7 +683,7 @@ _HOME_BODY = """
       <a href="/forms/">Submit a post \u2192</a>
     </div>
     <div class="page-footer">
-      Rising Sparks is a grassroots collective, community-built, community-led. Not an official Burning Man Project initiative.
+      Rising Sparks is a grassroots collective, community-built, community-led. 
       &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
     </div>
   </main>
@@ -775,7 +775,7 @@ _CAMPS_BODY = """
     <a href="/forms/camp">List your camp \u2192</a>
   </div>
   <div class="page-footer">
-    Rising Sparks is a grassroots collective, community-built, community-led. Not an official Burning Man Project initiative.
+    Rising Sparks is a grassroots collective, community-built, community-led. 
     &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
   </div>
 """
@@ -855,7 +855,7 @@ _SEEKERS_BODY = """
     <a href="/forms/seeker">Submit a post \u2192</a>
   </div>
   <div class="page-footer">
-    Rising Sparks is a grassroots collective, community-built, community-led. Not an official Burning Man Project initiative.
+    Rising Sparks is a grassroots collective, community-built, community-led. 
     &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
   </div>
 """
@@ -952,7 +952,7 @@ _GEAR_BODY = """
     <a href="/forms/infra">Post to exchange \u2192</a>
   </div>
   <div class="page-footer">
-    Rising Sparks is a grassroots collective, community-built, community-led. Not an official Burning Man Project initiative.
+    Rising Sparks is a grassroots collective, community-built, community-led. 
     &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
   </div>
 """
@@ -1048,10 +1048,10 @@ def _build_home_page(base_url: str) -> str:
     feedback_url = _community_feedback_url()
     analytics_tags = _google_analytics_tags()
     meta_tags = _page_meta_tags(
-        title="Rising Sparks — Find Your Community",
+        title="MatchBot by Rising Sparks — Find Your Community",
         description=(
             "Find camps, projects, seekers, and infrastructure signals across the burner "
-            "ecosystem with Rising Sparks."
+            "ecosystem with MatchBot."
         ),
         path="/community/",
         base_url=base_url,
@@ -1707,7 +1707,7 @@ _COMMUNITY_HTML = """
     <div class="updated">
       Rising Sparks is a grassroots collective, community-built, community-led. While we
       collaborate with folks across the ecosystem,
-      this is not an official Burning Man Project initiative.
+      this is 
     </div>
     <div class="updated" id="updated"></div>
   </main>
