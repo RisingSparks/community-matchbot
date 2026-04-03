@@ -683,7 +683,7 @@ _HOME_BODY = """
       <a href="/forms/">Submit a post \u2192</a>
     </div>
     <div class="page-footer">
-      Rising Sparks is a volunteer-led community experiment. Not an official Burning Man Project initiative.
+      Rising Sparks is a grassroots collective, community-built, community-led. Not an official Burning Man Project initiative.
       &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
     </div>
   </main>
@@ -775,7 +775,7 @@ _CAMPS_BODY = """
     <a href="/forms/camp">List your camp \u2192</a>
   </div>
   <div class="page-footer">
-    Rising Sparks is a volunteer-led community experiment. Not an official Burning Man Project initiative.
+    Rising Sparks is a grassroots collective, community-built, community-led. Not an official Burning Man Project initiative.
     &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
   </div>
 """
@@ -855,7 +855,7 @@ _SEEKERS_BODY = """
     <a href="/forms/seeker">Submit a post \u2192</a>
   </div>
   <div class="page-footer">
-    Rising Sparks is a volunteer-led community experiment. Not an official Burning Man Project initiative.
+    Rising Sparks is a grassroots collective, community-built, community-led. Not an official Burning Man Project initiative.
     &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
   </div>
 """
@@ -952,7 +952,7 @@ _GEAR_BODY = """
     <a href="/forms/infra">Post to exchange \u2192</a>
   </div>
   <div class="page-footer">
-    Rising Sparks is a volunteer-led community experiment. Not an official Burning Man Project initiative.
+    Rising Sparks is a grassroots collective, community-built, community-led. Not an official Burning Man Project initiative.
     &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
   </div>
 """
@@ -1534,7 +1534,7 @@ _COMMUNITY_HTML = """
       <div class="eyebrow">Data Dashboard</div>
       <h1>Find your people. Build the city.</h1>
       <p class="hero-blurb">
-        A lightweight community matchmaking experiment: surfacing infrastructure
+        A community matchmaking experiment: surfacing infrastructure
         offers and asks, camp and art-project connections, and the broader
         patterns of what people across the ecosystem are seeking or ready to contribute.
       </p>
@@ -1705,7 +1705,7 @@ _COMMUNITY_HTML = """
       </div>
     </section>
     <div class="updated">
-      Rising Sparks is a volunteer-led community experiment. While we
+      Rising Sparks is a grassroots collective, community-built, community-led. While we
       collaborate with folks across the ecosystem,
       this is not an official Burning Man Project initiative.
     </div>

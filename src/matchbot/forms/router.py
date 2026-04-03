@@ -421,7 +421,7 @@ _HEADER_HTML = (
 
 _DISCLAIMER_HTML = """
 <div class="disclaimer">
-  Rising Sparks is a volunteer-led community experiment. While we collaborate with folks across
+  Rising Sparks is a grassroots collective, community-built, community-led. While we collaborate with folks across
   the ecosystem, this is not an official Burning Man Project initiative.
 </div>
 """

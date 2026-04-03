@@ -312,4 +312,4 @@ The existing `/community/` route becomes the new Home. The Transparency page rep
 
 ---
 
-*Rising Sparks is a volunteer-led community experiment. This is not an official Burning Man Project initiative.*
+*Rising Sparks is a grassroots collective, community-built, community-led. This is not an official Burning Man Project initiative.*
