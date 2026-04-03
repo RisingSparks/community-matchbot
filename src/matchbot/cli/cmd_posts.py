@@ -65,7 +65,7 @@ def posts_list(
         table.add_column("Role", width=8)
         table.add_column("Status", width=14)
         table.add_column("Title", no_wrap=False, max_width=50)
-        table.add_column("URL", no_wrap=False, max_width=60)
+        table.add_column("URL", no_wrap=False, overflow="fold", max_width=60)
         table.add_column("Detected")
 
         for p in posts:
