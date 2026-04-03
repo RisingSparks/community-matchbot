@@ -451,7 +451,7 @@ _HOME_EXTRA_CSS = """
 .eyebrow { font-family: "Anton", Impact, sans-serif; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #ff9200; margin: 0 0 8px; }
 .hero h1 { margin: 0 0 12px; font-family: "Anton", Impact, sans-serif; font-size: clamp(36px, 8vw, 64px); font-weight: 400; line-height: 0.95; letter-spacing: 0.01em; }
 .hero p { margin: 0; font-size: 16px; line-height: 1.8; color: #4a4a4a; max-width: 52ch; }
-.hero p + p { margin-top: 12px; font-size: 15px; line-height: 1.7; color: #5a5458; }
+.hero p + p { margin-top: 12px; }
 .intro-panel {
   margin-bottom: 28px;
   padding: 18px 16px;
