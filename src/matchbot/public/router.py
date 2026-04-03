@@ -113,6 +113,10 @@ _NAV_CSS = """
   border-top: 1px solid var(--nav-border); z-index: 100;
   padding-bottom: env(safe-area-inset-bottom);
 }
+.site-nav::after {
+  content: ''; position: absolute; top: 100%; left: 0; right: 0;
+  height: 150px; background: var(--nav-bg);
+}
 .site-nav__inner { display: flex; height: 64px; max-width: 700px; margin: 0 auto; }
 .site-nav__logo { display: none; }
 .site-nav__cta { display: none; }
