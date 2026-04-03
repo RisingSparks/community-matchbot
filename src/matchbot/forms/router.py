@@ -818,7 +818,7 @@ async def intake_landing(request: Request) -> str:
         existing_title="MatchBot by Rising Sparks — Find Your Community",
         title="Rising Sparks | Community Finder for Camps, Art Projects, and Infra",
         description=(
-            "Rising Sparks is a community discovery tool that helps self-motivated "
+            "MatchBot is a community discovery tool that helps self-motivated "
             "Burners find aligned camps, art projects, and infrastructure opportunities."
         ),
         path="/forms/",
@@ -834,7 +834,7 @@ async def seeker_form(request: Request) -> str:
         title="Find a Camp or Art Project | Rising Sparks",
         description=(
             "Share your skills, interests, and availability to find aligned camps or art "
-            "projects through Rising Sparks' human-reviewed discovery flow."
+            "projects through MatchBot's human-reviewed discovery flow."
         ),
         path="/forms/seeker",
         base_url=str(request.base_url),
@@ -848,7 +848,7 @@ async def camp_form(request: Request) -> str:
         existing_title="Find Your Builders — Rising Sparks",
         title="Find Builders and Collaborators | Rising Sparks",
         description=(
-            "Tell Rising Sparks about your camp or art project to surface aligned builders, "
+            "Tell MatchBot about your camp or art project to surface aligned builders, "
             "crew, and collaborators through thoughtful introductions."
         ),
         path="/forms/camp",
@@ -864,7 +864,7 @@ async def infra_form(request: Request) -> str:
         title="Share Infrastructure Needs or Offers | Rising Sparks",
         description=(
             "Post infrastructure needs or offers for shade, power, transport, tools, kitchen, "
-            "and other camp logistics through Rising Sparks."
+            "and other camp logistics through MatchBot."
         ),
         path="/forms/infra",
         base_url=str(request.base_url),
@@ -878,7 +878,7 @@ async def intake_thanks(request: Request) -> str:
         existing_title="Welcome to the Pool — Rising Sparks",
         title="Submission Received | Rising Sparks",
         description=(
-            "Rising Sparks received your signal. We will review it and follow "
+            "MatchBot received your signal. We will review it and follow "
             "up if we find an aligned connection."
         ),
         path="/forms/thanks",

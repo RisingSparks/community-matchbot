@@ -654,7 +654,7 @@ _HOME_BODY = """
         </div>
         <div class="intro-step">
           <strong>Combining the chaos</strong>
-          <p>Rising Sparks pulls community posts into one pool so you can browse what is happening without getting sucked into platform nonsense.</p>
+          <p>MatchBot pulls community posts into one pool so you can browse what is happening without getting sucked into platform nonsense.</p>
         </div>
         <div class="intro-step">
           <strong>Connect people who should meet</strong>
