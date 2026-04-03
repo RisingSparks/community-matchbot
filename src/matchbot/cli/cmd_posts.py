@@ -17,7 +17,7 @@ from matchbot.cli._db import with_session
 from matchbot.db.models import Event, Post, PostStatus, PostType
 
 app = typer.Typer(help="Browse and manage community signals")
-console = Console()
+console = Console(width=160)
 
 
 def _build_extractor():
@@ -65,6 +65,7 @@ def posts_list(
         table.add_column("Role", width=8)
         table.add_column("Status", width=14)
         table.add_column("Title", no_wrap=False, max_width=50)
+        table.add_column("URL", no_wrap=False, max_width=60)
         table.add_column("Detected")
 
         for p in posts:
@@ -75,6 +76,7 @@ def posts_list(
                 p.role or "",
                 p.status,
                 p.title[:50],
+                p.source_url or "",
                 p.detected_at.strftime("%Y-%m-%d"),
             )
         console.print(table)

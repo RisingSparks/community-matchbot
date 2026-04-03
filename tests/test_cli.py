@@ -92,6 +92,34 @@ def test_cli_helper_disposes_engine(cli_env):
     assert disposed == ["dispose"]
 
 
+def test_posts_list_shows_source_url(cli_env):
+    session, factory, loop = cli_env
+
+    async def seed():
+        post = Post(
+            platform=Platform.REDDIT,
+            platform_post_id="post001",
+            source_url="https://reddit.com/r/BurningMan/comments/post001/example/",
+            title="Example post",
+            raw_text="Looking for camp",
+            status=PostStatus.INDEXED,
+            post_type=PostType.MENTORSHIP,
+        )
+        session.add(post)
+        await session.commit()
+        await session.refresh(post)
+        return post
+
+    post = run_in(loop, seed())
+
+    with patch("matchbot.cli._db.get_session", factory):
+        result = runner.invoke(app, ["posts", "list", "--limit", "10"])
+
+    assert result.exit_code == 0, result.output
+    assert post.id[:8] in result.output
+    assert post.source_url in result.output
+
+
 # ---------------------------------------------------------------------------
 # Queue tests
 # ---------------------------------------------------------------------------
