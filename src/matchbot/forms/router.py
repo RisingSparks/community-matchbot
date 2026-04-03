@@ -802,7 +802,7 @@ async def intake_landing(request: Request) -> str:
         title="Rising Sparks | Community Finder for Camps, Art Projects, and Infra",
         description=(
             "Rising Sparks is a community discovery tool that helps self-motivated "
-            "burners find aligned camps, art projects, and infrastructure opportunities."
+            "Burners find aligned camps, art projects, and infrastructure opportunities."
         ),
         path="/forms/",
         base_url=str(request.base_url),

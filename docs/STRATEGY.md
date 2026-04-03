@@ -15,7 +15,7 @@ The opportunity lies in strengthening theme camps and art projects as the natura
 3. **Acculturation Incubators:** They provide "high-trust, high-accountability micro-communities" that facilitate social learning and principle absorption.
 
 ## Goal: Mentorship & Onboarding
-We need to move beyond simple recruitment to active builder **mentorship**. Camps and art teams should serve as classrooms where experienced burners onboard newcomers, passing on the tacit knowledge that keeps Burning Man alive across generations.
+We need to move beyond simple recruitment to active builder **mentorship**. Camps and art teams should serve as classrooms where experienced Burners onboard newcomers, passing on the tacit knowledge that keeps Burning Man alive across generations.
 
 ## Positioning Clarification
 This is not a recruitment tool. It is a discovery tool.

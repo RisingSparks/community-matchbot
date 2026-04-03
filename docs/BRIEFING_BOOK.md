@@ -37,7 +37,7 @@ Theme camps are already:
 - **Skill-Transfer Hubs**: High-trust environments where experienced builders can mentor newcomers in desert-specific engineering, logistics, and art production.
 - **Financially enabling**: shared infrastructure (power, water, shade, food) dramatically lowers the cost barrier for newcomers. By lowering the financial and logistical barriers (shared food, water, shade), camps free up newcomers' energy to focus on **building and contributing** to the art or infrastructure projects.
 - **Self-interested Mentors**: Camps need new builders to survive leadership burnout and ensure their projects continue into the future.
-- **Acculturation incubators**: high-trust, high-accountability micro-communities where people *become* burners.
+- **Acculturation incubators**: high-trust, high-accountability micro-communities where people *become* Burners.
 
 The project doesn't build new infrastructure—it strengthens the connective tissue that already works.
 

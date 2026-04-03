@@ -61,4 +61,4 @@ Avoid:
 
 ## One-Sentence Version for Posts
 
-"Matchbot is a discovery tool that helps self-motivated burners find aligned camps, art projects, and infra opportunities; it does introductions, not recruiting or placement."
+"Matchbot is a discovery tool that helps self-motivated Burners find aligned camps, art projects, and infra opportunities; it does introductions, not recruiting or placement."
