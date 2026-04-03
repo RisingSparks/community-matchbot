@@ -220,26 +220,33 @@ body {
 }
 .page-wrap { max-width: 1120px; margin: 0 auto; padding: 28px 16px 32px; }
 .page-header { margin-bottom: 20px; }
-.page-header h1, .gear-panel-head h2, .empty-state h2, .page-cta strong, .listing-card__title {
+.page-header h1 {
   font-family: "Anton", Impact, sans-serif;
+}
+.gear-panel-head h2, .empty-state h2, .page-cta strong, .listing-card__title,
+.section-label, .filter-chip, .empty-state a, .page-cta a {
+  font-family: "Oswald", "Anton", Impact, sans-serif;
 }
 .page-header h1 { margin: 0 0 6px; font-size: clamp(22px, 5vw, 36px); font-weight: 400; line-height: 1.02; letter-spacing: 0.01em; }
 .page-header .sub { margin: 0; font-size: 15px; color: var(--muted); line-height: 1.5; max-width: 58ch; }
-.section-label { font-family: "Anton", Impact, sans-serif; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 400; color: var(--sun); margin: 0 0 10px; }
+.section-label { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500; color: var(--sun); margin: 0 0 10px; }
 .filter-row {
-  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
-  padding-bottom: 4px; margin-bottom: 20px; -webkit-overflow-scrolling: touch;
+  display: flex; flex-wrap: wrap; gap: 8px;
+  overflow: visible; scrollbar-width: none;
+  padding-right: 2px; padding-bottom: 4px; margin-bottom: 20px; -webkit-overflow-scrolling: touch;
 }
 .filter-row::-webkit-scrollbar { display: none; }
 .filter-chip {
   display: inline-flex; align-items: center; padding: 7px 14px;
   background: var(--card-bg); border: 1.5px solid var(--card-border); border-radius: 999px;
-  font-family: "Anton", Impact, sans-serif; font-size: 13px; font-weight: 400; white-space: nowrap; cursor: pointer;
+  font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;
   min-height: 44px; color: var(--ink); transition: background 0.15s, border-color 0.15s, color 0.15s;
   flex-shrink: 0; user-select: none; -webkit-user-select: none;
+  gap: 7px;
 }
 .filter-chip:hover { border-color: var(--sun); color: var(--ink); }
 .filter-chip.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+.filter-chip__count { opacity: 0.6; font-size: 11px; }
 .card-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
 @media (min-width: 580px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1000px) { .card-grid { grid-template-columns: repeat(3, 1fr); } }
@@ -259,8 +266,8 @@ body {
 .platform-badge--facebook { background: #1877f2; color: #fff; }
 .platform-badge--manual { background: var(--sage); color: #fff; }
 .card-age { font-size: 11px; color: var(--muted); }
-.listing-card__title { margin: 0; font-size: 18px; font-weight: 400; line-height: 1.08; }
-.tag-row { display: flex; flex-wrap: wrap; gap: 5px; }
+.listing-card__title { margin: 0; font-size: 18px; font-weight: 500; line-height: 1.12; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
 .tag--vibe { background: rgba(255,146,0,0.16); color: #8d4f00; }
 .tag--contrib { background: rgba(0,0,0,0.08); color: var(--ink); }
@@ -277,7 +284,7 @@ body {
 .empty-state__icon { font-size: 40px; margin-bottom: 16px; }
 .empty-state h2 { margin: 0 0 8px; font-size: 20px; color: var(--ink); }
 .empty-state p { margin: 0 0 20px; font-size: 15px; line-height: 1.5; max-width: 42ch; margin-left: auto; margin-right: auto; }
-.empty-state a { display: inline-block; padding: 10px 20px; background: var(--sun); color: #000; border-radius: 999px; font-family: "Anton", Impact, sans-serif; font-weight: 400; text-decoration: none; font-size: 14px; }
+.empty-state a { display: inline-block; padding: 10px 20px; background: var(--sun); color: #000; border-radius: 999px; font-weight: 500; text-decoration: none; font-size: 14px; }
 .loading-state { text-align: center; padding: 48px 24px; color: var(--muted); font-size: 15px; }
 .page-cta {
   margin-top: 32px; background: linear-gradient(135deg, #111111, #333333);
@@ -289,7 +296,7 @@ body {
 .page-cta strong { display: block; font-size: 20px; margin-bottom: 4px; }
 .page-cta a {
   display: inline-block; padding: 10px 20px; background: var(--sun); color: #000;
-  border-radius: 999px; font-family: "Anton", Impact, sans-serif; font-weight: 400; text-decoration: none; font-size: 14px;
+  border-radius: 999px; font-weight: 500; text-decoration: none; font-size: 14px;
   white-space: nowrap; flex-shrink: 0;
 }
 .page-footer { margin-top: 24px; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.5; }
@@ -815,7 +822,7 @@ function buildCampFilters(camps) {
   if (!sorted.length) { row.style.display = 'none'; return; }
   row.innerHTML = sorted.map(([slug, count]) => {
     const label = VIBE_LABELS[slug] ? humanLabel(VIBE_LABELS, slug) : humanLabel(CONTRIB_LABELS, slug);
-    return '<button class="filter-chip" data-tag="' + esc(slug) + '" aria-pressed="false">' + label + ' <span style="opacity:0.6;font-size:11px">(' + count + ')</span></button>';
+    return '<button class="filter-chip" data-tag="' + esc(slug) + '" aria-pressed="false">' + label + '<span class="filter-chip__count">(' + count + ')</span></button>';
   }).join('');
   row.querySelectorAll('.filter-chip').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -896,7 +903,7 @@ function buildSeekerFilters(seekers) {
   if (!sorted.length) { row.style.display = 'none'; return; }
   row.innerHTML = sorted.map(([slug, count]) => {
     const label = VIBE_LABELS[slug] ? humanLabel(VIBE_LABELS, slug) : humanLabel(CONTRIB_LABELS, slug);
-    return '<button class="filter-chip" data-tag="' + esc(slug) + '" aria-pressed="false">' + label + ' <span style="opacity:0.6;font-size:11px">(' + count + ')</span></button>';
+    return '<button class="filter-chip" data-tag="' + esc(slug) + '" aria-pressed="false">' + label + '<span class="filter-chip__count">(' + count + ')</span></button>';
   }).join('');
   row.querySelectorAll('.filter-chip').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -990,7 +997,7 @@ function setupGearPanel(items, filterId, gridId) {
     filterRow.innerHTML = sorted.map(([slug, count]) =>
       '<button class="filter-chip" data-tag="' + esc(slug) + '" aria-pressed="false">'
       + humanLabel(INFRA_LABELS, slug)
-      + ' <span style="opacity:0.6;font-size:11px">(' + count + ')</span></button>'
+      + '<span class="filter-chip__count">(' + count + ')</span></button>'
     ).join('');
   } else {
     filterRow.style.display = 'none';
@@ -1048,7 +1055,7 @@ def _build_home_page(base_url: str) -> str:
     feedback_url = _community_feedback_url()
     analytics_tags = _google_analytics_tags()
     meta_tags = _page_meta_tags(
-        title="MatchBot by Rising Sparks — Find Your Community",
+        title="Rising Sparks — Find Your Community",
         description=(
             "Find camps, projects, seekers, and infrastructure signals across the burner "
             "ecosystem with MatchBot."

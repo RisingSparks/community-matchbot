@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Annotated
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -39,6 +40,15 @@ async def _get_session():
         yield session
 
 router = APIRouter(prefix="/forms", tags=["intake"])
+
+
+def _clean_http_url(url: str) -> str:
+    """Keep only http(s) URLs from form submissions."""
+    candidate = (url or "").strip()
+    if not candidate:
+        return ""
+    parsed = urlparse(candidate)
+    return candidate if parsed.scheme in ("http", "https") else ""
 
 # ---------------------------------------------------------------------------
 # Minimal inline HTML — avoids external template file dependency
@@ -112,7 +122,7 @@ body::before {
   display: block;
 }
 .brand-lockup__text {
-  font-family: 'Anton', Impact, sans-serif;
+  font-family: 'Oswald', 'Anton', Impact, sans-serif;
   font-size: 1.55rem;
   line-height: 1;
   letter-spacing: 0.01em;
@@ -122,7 +132,7 @@ body::before {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: 'Anton', Impact, sans-serif;
+  font-family: 'Oswald', 'Anton', Impact, sans-serif;
   font-size: 0.95rem;
   letter-spacing: 0.02em;
   color: var(--text-muted);
@@ -179,9 +189,9 @@ h1 em { font-style: normal; color: var(--spark); }
 }
 .choice-body { flex: 1; }
 .choice-label {
-  font-family: 'Anton', Impact, sans-serif;
+  font-family: 'Oswald', 'Anton', Impact, sans-serif;
   font-size: 1.4rem;
-  font-weight: 400;
+  font-weight: 500;
   letter-spacing: 0.01em;
   display: block;
   line-height: 1.05;
@@ -210,9 +220,9 @@ h1 em { font-style: normal; color: var(--spark); }
   box-shadow: var(--shadow);
 }
 .form-section-label {
-  font-family: 'Anton', Impact, sans-serif;
+  font-family: 'Oswald', 'Anton', Impact, sans-serif;
   font-size: 0.88rem;
-  font-weight: 400;
+  font-weight: 500;
   letter-spacing: 0.06em;
   color: var(--spark);
   margin-bottom: 28px;
@@ -279,9 +289,9 @@ select {
   padding: 14px 28px;
   background: var(--spark);
   color: #000;
-  font-family: 'Anton', Impact, sans-serif;
+  font-family: 'Oswald', 'Anton', Impact, sans-serif;
   font-size: 0.9rem;
-  font-weight: 400;
+  font-weight: 500;
   letter-spacing: 0.03em;
   border: none;
   border-radius: 999px;
@@ -330,6 +340,7 @@ select {
   margin-top: 36px;
   color: var(--spark-deep);
   text-decoration: none;
+  font-family: 'Oswald', 'Anton', Impact, sans-serif;
   font-size: 0.875rem;
   letter-spacing: 0.04em;
 }
@@ -616,6 +627,12 @@ _CAMP_FORM_HTML = f"""<!DOCTYPE html>
       </div>
 
       <div class="field">
+        <label>Project URL</label>
+        <input type="url" name="source_url" maxlength="500" placeholder="https://yourcamp.org or your listing URL">
+        <div class="hint">Optional, but helpful. Add your website, directory listing, or original post link here instead of burying it in the description.</div>
+      </div>
+
+      <div class="field">
         <label>Tell us about your project</label>
         <textarea name="bio" maxlength="2000" placeholder="Describe your vibe, what you build, and what you expect from collaborators&#8230;"></textarea>
         <div class="hint">This is how motivated seekers will understand your world. Be honest about expectations, norms, and contribution style.</div>
@@ -798,7 +815,7 @@ _THANKS_HTML = f"""<!DOCTYPE html>
 async def intake_landing(request: Request) -> str:
     return _with_meta(
         _LANDING_HTML,
-        existing_title="Rising Sparks — Find Your Community",
+        existing_title="MatchBot by Rising Sparks — Find Your Community",
         title="Rising Sparks | Community Finder for Camps, Art Projects, and Infra",
         description=(
             "Rising Sparks is a community discovery tool that helps self-motivated "
@@ -930,6 +947,7 @@ async def seeker_submit(
 async def camp_submit(
     camp_name: Annotated[str, Form()],
     display_name: Annotated[str, Form()],
+    source_url: Annotated[str, Form()] = "",
     bio: Annotated[str, Form()] = "",
     vibes: Annotated[str, Form()] = "",
     contributions: Annotated[str, Form()] = "",
@@ -941,6 +959,9 @@ async def camp_submit(
 ) -> RedirectResponse:
     title = f"[Intake] Camp: {camp_name}"
     body_parts = [f"Camp: {camp_name}"]
+    cleaned_source_url = _clean_http_url(source_url)
+    if cleaned_source_url:
+        body_parts.append(f"URL: {cleaned_source_url}")
     if bio:
         body_parts.append(bio)
     if vibes:
@@ -971,7 +992,7 @@ async def camp_submit(
         platform_post_id=f"intake_camp_{datetime.now(UTC).timestamp()}",
         platform_author_id=display_name,
         author_display_name=display_name,
-        source_url="",
+        source_url=cleaned_source_url,
         source_community="intake_form",
         title=title,
         raw_text="\n".join(body_parts),

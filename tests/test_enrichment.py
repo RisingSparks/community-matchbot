@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from sqlmodel import select
 
 from matchbot.db.models import Platform, Post, PostRole, PostStatus, PostType
 from matchbot.enrichment.www_guide import (
@@ -371,6 +372,7 @@ def test_intake_camp_form_renders():
     assert "/favicon.ico" in response.text
     assert '<link rel="canonical" href="http://testserver/forms/camp">' in response.text
     assert 'name="camp_name"' in response.text
+    assert 'name="source_url"' in response.text
 
 
 def test_intake_infra_form_renders():
@@ -435,6 +437,34 @@ def test_intake_camp_submit_redirects():
     )
     assert response.status_code == 303
     assert response.headers["location"] == "/forms/thanks"
+
+
+@pytest.mark.asyncio
+async def test_intake_camp_submit_persists_source_url(db_session):
+    from matchbot.forms.router import camp_submit
+
+    response = await camp_submit(
+        camp_name="Solar Circus",
+        display_name="CampContact",
+        source_url="https://solarcircus.example/camp",
+        bio="We do art and fire.",
+        vibes="art, fire",
+        contributions="build, art",
+        camp_size="40",
+        year="2026",
+        availability_notes="Need early arrival crew",
+        contact_method="DM on Reddit",
+        session=db_session,
+    )
+
+    assert response.status_code == 303
+    post = (
+        await db_session.exec(
+            select(Post).where(Post.platform == Platform.MANUAL, Post.camp_name == "Solar Circus")
+        )
+    ).one()
+    assert post.source_url == "https://solarcircus.example/camp"
+    assert "URL: https://solarcircus.example/camp" in post.raw_text
 
 
 def test_intake_infra_submit_redirects():

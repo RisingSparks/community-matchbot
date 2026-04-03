@@ -10,7 +10,7 @@ FAVICON_PATH = "/favicon.ico"
 WEBMANIFEST_PATH = "/site.webmanifest"
 BRAND_LOGO_PATH = "/media/rising-sparks-logo.png"
 BRAND_FONT_STYLESHEET = (
-    "https://fonts.googleapis.com/css2?family=Anton&family=Merriweather:"
+    "https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;500;600&family=Merriweather:"
     "ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap"
 )
 GOOGLE_ANALYTICS_MEASUREMENT_ID = "G-4QW073D00W"
