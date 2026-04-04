@@ -105,12 +105,10 @@ _NAV_CSS = """
 :root { 
   --nav-h: 64px;
   --nav-bg: rgba(247,243,233,0.94);
-  --nav-underfill: rgb(247,243,233);
   --nav-border: rgba(74,74,74,0.16);
 }
 .site-nav {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  height: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  position: fixed; bottom: 0; left: 0; right: 0; height: var(--nav-h);
   background: var(--nav-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--nav-border); z-index: 100;
   padding-bottom: env(safe-area-inset-bottom);
@@ -127,20 +125,6 @@ _NAV_CSS = """
 .nav-tab__label { font-family: "Anton", Impact, sans-serif; font-size: 10px; font-weight: 400; letter-spacing: 0.03em; text-transform: uppercase; }
 .nav-tab--active { color: #000; }
 body { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom)); }
-@media (max-width: 679px) {
-  html { background: var(--nav-underfill); }
-  body::after {
-    content: "";
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: max(env(safe-area-inset-bottom), calc(100lvh - 100dvh));
-    background: var(--nav-underfill);
-    pointer-events: none;
-    z-index: 99;
-  }
-}
 @media (min-width: 680px) {
   body { padding-bottom: 0; padding-top: 58px; }
   .site-nav { top: 0; bottom: auto; height: 58px; border-top: none; border-bottom: 1px solid var(--nav-border); }
