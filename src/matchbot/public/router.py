@@ -55,6 +55,16 @@ def _community_feedback_url() -> str:
     return "/forms/"
 
 
+def _opt_out_note() -> str:
+    settings = get_settings()
+    email = settings.community_feedback_email
+    if not email:
+        return ""
+    return (
+        f'&nbsp;&middot;&nbsp;<a href="mailto:{email}">Don&#8217;t want your post here? Email us to opt out</a>'
+    )
+
+
 def _google_analytics_tags() -> str:
     return build_google_analytics_tags()
 
@@ -689,8 +699,8 @@ _HOME_BODY = """
       <a href="/forms/">Submit a post \u2192</a>
     </div>
     <div class="page-footer">
-      Rising Sparks is a grassroots collective, community-built, community-led. 
-      &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
+      Rising Sparks is a grassroots collective, community-built, community-led.
+      &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>__OPT_OUT_NOTE__
     </div>
   </main>
 """
@@ -781,8 +791,8 @@ _CAMPS_BODY = """
     <a href="/forms/camp">List your camp \u2192</a>
   </div>
   <div class="page-footer">
-    Rising Sparks is a grassroots collective, community-built, community-led. 
-    &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
+    Rising Sparks is a grassroots collective, community-built, community-led.
+    &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>__OPT_OUT_NOTE__
   </div>
 """
 
@@ -861,8 +871,8 @@ _SEEKERS_BODY = """
     <a href="/forms/seeker">Submit a post \u2192</a>
   </div>
   <div class="page-footer">
-    Rising Sparks is a grassroots collective, community-built, community-led. 
-    &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
+    Rising Sparks is a grassroots collective, community-built, community-led.
+    &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>__OPT_OUT_NOTE__
   </div>
 """
 
@@ -958,8 +968,8 @@ _GEAR_BODY = """
     <a href="/forms/infra">Post to exchange \u2192</a>
   </div>
   <div class="page-footer">
-    Rising Sparks is a grassroots collective, community-built, community-led. 
-    &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>
+    Rising Sparks is a grassroots collective, community-built, community-led.
+    &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>__OPT_OUT_NOTE__
   </div>
 """
 
@@ -1052,6 +1062,7 @@ loadGear();
 def _build_home_page(base_url: str) -> str:
     nav = _nav_html("home")
     feedback_url = _community_feedback_url()
+    opt_out_note = _opt_out_note()
     analytics_tags = _google_analytics_tags()
     meta_tags = _page_meta_tags(
         title="Rising Sparks — Find Your Community",
@@ -1072,7 +1083,7 @@ def _build_home_page(base_url: str) -> str:
         + "  <style>" + _NAV_CSS + _BROWSE_CSS + _HOME_EXTRA_CSS + "</style>\n"
         + "</head>\n<body>\n"
         + nav + "\n"
-        + _HOME_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url)
+        + _HOME_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url).replace("__OPT_OUT_NOTE__", opt_out_note)
         + "<script>\n" + _TAXONOMY_JS + _HOME_JS + "\n</script>\n"
         + "</body>\n</html>"
     )
@@ -1080,6 +1091,7 @@ def _build_home_page(base_url: str) -> str:
 
 def _build_camps_page(base_url: str) -> str:
     feedback_url = _community_feedback_url()
+    opt_out_note = _opt_out_note()
     nav = _nav_html("camps")
     analytics_tags = _google_analytics_tags()
     meta_tags = _page_meta_tags(
@@ -1101,7 +1113,7 @@ def _build_camps_page(base_url: str) -> str:
         + '<main class="page-wrap">\n'
         + '  <div class="page-header"><h1>Camps &amp; projects</h1>'
         + '<p class="sub">Active camps and projects looking for contributors this season.</p></div>\n'
-        + _CAMPS_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url)
+        + _CAMPS_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url).replace("__OPT_OUT_NOTE__", opt_out_note)
         + "</main>\n"
         + "<script>\n" + _TAXONOMY_JS + _CAMPS_JS + "\n</script>\n"
         + "</body>\n</html>"
@@ -1110,6 +1122,7 @@ def _build_camps_page(base_url: str) -> str:
 
 def _build_seekers_page(base_url: str) -> str:
     feedback_url = _community_feedback_url()
+    opt_out_note = _opt_out_note()
     nav = _nav_html("seekers")
     analytics_tags = _google_analytics_tags()
     meta_tags = _page_meta_tags(
@@ -1131,7 +1144,7 @@ def _build_seekers_page(base_url: str) -> str:
         + '<main class="page-wrap">\n'
         + '  <div class="page-header"><h1>Builders &amp; seekers</h1>'
         + '<p class="sub">People looking for their camp or project this season.</p></div>\n'
-        + _SEEKERS_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url)
+        + _SEEKERS_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url).replace("__OPT_OUT_NOTE__", opt_out_note)
         + "</main>\n"
         + "<script>\n" + _TAXONOMY_JS + _SEEKERS_JS + "\n</script>\n"
         + "</body>\n</html>"
@@ -1140,6 +1153,7 @@ def _build_seekers_page(base_url: str) -> str:
 
 def _build_gear_page(base_url: str) -> str:
     feedback_url = _community_feedback_url()
+    opt_out_note = _opt_out_note()
     nav = _nav_html("gear")
     analytics_tags = _google_analytics_tags()
     meta_tags = _page_meta_tags(
@@ -1161,7 +1175,7 @@ def _build_gear_page(base_url: str) -> str:
         + '<main class="page-wrap">\n'
         + '  <div class="page-header"><h1>Gear exchange</h1>'
         + "<p class=\"sub\">Gear, structures, and equipment \u2014 what the community needs and what\u2019s available.</p></div>\n"
-        + _GEAR_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url)
+        + _GEAR_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url).replace("__OPT_OUT_NOTE__", opt_out_note)
         + "</main>\n"
         + "<script>\n" + _TAXONOMY_JS + _GEAR_JS + "\n</script>\n"
         + "</body>\n</html>"
