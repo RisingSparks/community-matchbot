@@ -44,7 +44,9 @@ async def _propose_mentorship_matches(session: AsyncSession, new_post: Post) -> 
     else:
         return []  # unknown role — skip
 
-    # Skip if the new post's author has opted out
+    # Skip if the new post's author has opted out or the post itself is opted out
+    if new_post.opted_out:
+        return []
     if await is_opted_out(session, new_post.platform, new_post.platform_author_id):
         return []
 
@@ -56,6 +58,7 @@ async def _propose_mentorship_matches(session: AsyncSession, new_post: Post) -> 
                 Post.role == candidate_role,
                 Post.post_type == PostType.MENTORSHIP,
                 Post.id != new_post.id,
+                Post.opted_out == False,  # noqa: E712
             )
         )
     ).all()
@@ -121,7 +124,9 @@ async def _propose_infra_matches(session: AsyncSession, new_post: Post) -> list[
     settings = get_settings()
     min_score = settings.matching_min_score
 
-    # Skip if the new post's author has opted out
+    # Skip if the new post's author has opted out or the post itself is opted out
+    if new_post.opted_out:
+        return []
     if await is_opted_out(session, new_post.platform, new_post.platform_author_id):
         return []
 
@@ -132,6 +137,7 @@ async def _propose_infra_matches(session: AsyncSession, new_post: Post) -> list[
                 Post.status == PostStatus.INDEXED,
                 Post.post_type == PostType.INFRASTRUCTURE,
                 Post.id != new_post.id,
+                Post.opted_out == False,  # noqa: E712
             )
         )
     ).all()
