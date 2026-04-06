@@ -797,6 +797,7 @@ _THANKS_HTML = f"""<!DOCTYPE html>
       If we find a likely match, we&#8217;ll reach out to make a human introduction.
     </p>
     <a class="return-link" href="/forms/">Submit another signal &#8594;</a>
+    __OPT_OUT_NOTE__
   </div>
 
   {_DISCLAIMER_HTML}
@@ -873,8 +874,21 @@ async def infra_form(request: Request) -> str:
 
 @router.get("/thanks", response_class=HTMLResponse)
 async def intake_thanks(request: Request) -> str:
+    from matchbot.settings import get_settings
+
+    settings = get_settings()
+    support_email = settings.community_feedback_email
+    if support_email:
+        opt_out_note = (
+            f'<p style="margin-top:1.5rem;font-size:0.85rem;color:#888;">'
+            f'Changed your mind? <a href="mailto:{support_email}" style="color:#c84b31;">Email us</a>'
+            f" to remove your listing.</p>"
+        )
+    else:
+        opt_out_note = ""
+    thanks_html = _THANKS_HTML.replace("__OPT_OUT_NOTE__", opt_out_note)
     return _with_meta(
-        _THANKS_HTML,
+        thanks_html,
         existing_title="Welcome to the Pool — Rising Sparks",
         title="Submission Received | Rising Sparks",
         description=(
