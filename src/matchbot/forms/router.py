@@ -505,6 +505,7 @@ _LANDING_HTML = f"""<!DOCTYPE html>
     </a>
   </div>
 
+  __OPT_OUT_NOTE__
   {_DISCLAIMER_HTML}
 </div>
 </body>
@@ -814,8 +815,20 @@ _THANKS_HTML = f"""<!DOCTYPE html>
 
 @router.get("/", response_class=HTMLResponse)
 async def intake_landing(request: Request) -> str:
+    from matchbot.settings import get_settings
+
+    settings = get_settings()
+    support_email = settings.community_feedback_email
+    if support_email:
+        opt_out_note = (
+            f'<p style="font-size:0.85rem;color:#888;text-align:center;margin-top:1.5rem;">'
+            f'Don&#8217;t want your post here? <a href="mailto:{support_email}" style="color:#c84b31;">Email us</a> to opt out.</p>'
+        )
+    else:
+        opt_out_note = ""
+    landing_html = _LANDING_HTML.replace("__OPT_OUT_NOTE__", opt_out_note)
     return _with_meta(
-        _LANDING_HTML,
+        landing_html,
         existing_title="MatchBot by Rising Sparks — Find Your Community",
         title="Rising Sparks | Community Finder for Camps, Art Projects, and Infra",
         description=(
