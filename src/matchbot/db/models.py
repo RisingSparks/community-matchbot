@@ -126,6 +126,7 @@ class Post(SQLModel, table=True):
     source_created_at: datetime | None = Field(default=None)
     status: str = Field(default=PostStatus.RAW, index=True)
     expires_at: datetime | None = Field(default=None)
+    opted_out: bool = Field(default=False)
 
     # Extraction results
     role: str | None = Field(default=None)
