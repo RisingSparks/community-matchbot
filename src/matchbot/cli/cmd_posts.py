@@ -519,3 +519,49 @@ def posts_dismiss(
             rprint(f"  Reason: {reason}")
 
     with_session(_run)
+
+
+@app.command("opt-out")
+def posts_opt_out(post_id: str) -> None:
+    """Mark a post as opted out — excluded from matching."""
+
+    async def _run(session):
+        post = await _resolve_post(session, post_id)
+        if not post:
+            rprint(f"[red]Signal {post_id!r} not found.[/red]")
+            raise typer.Exit(1)
+        if post.opted_out:
+            rprint(f"[dim]Signal {post_id[:8]} is already opted out.[/dim]")
+            return
+
+        post.opted_out = True
+        session.add(post)
+        await _write_event(session, post, "post_opted_out", note="User requested removal")
+        await session.commit()
+
+        rprint(f"[yellow]Signal {post_id[:8]} opted out → excluded from matching.[/yellow]")
+
+    with_session(_run)
+
+
+@app.command("un-opt-out")
+def posts_un_opt_out(post_id: str) -> None:
+    """Restore a post that was previously opted out."""
+
+    async def _run(session):
+        post = await _resolve_post(session, post_id)
+        if not post:
+            rprint(f"[red]Signal {post_id!r} not found.[/red]")
+            raise typer.Exit(1)
+        if not post.opted_out:
+            rprint(f"[dim]Signal {post_id[:8]} is not opted out.[/dim]")
+            return
+
+        post.opted_out = False
+        session.add(post)
+        await _write_event(session, post, "post_un_opted_out", note="Opt-out reversed")
+        await session.commit()
+
+        rprint(f"[green]Signal {post_id[:8]} opt-out removed → back in matching pool.[/green]")
+
+    with_session(_run)
