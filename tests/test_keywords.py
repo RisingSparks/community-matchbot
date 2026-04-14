@@ -26,6 +26,14 @@ class TestSeekerPatterns:
         assert result.matched is True
         assert result.candidate_role == PostRole.UNKNOWN
 
+    def test_first_time_phrase_not_burner_context(self):
+        result = keyword_filter(
+            "Poor ticket sales this year and other ramblings",
+            "We didn't use our Stewards sale allocation this year, the first time in forever.",
+        )
+        assert result.matched is False
+        assert result.tier == "no_match"
+
     def test_first_burn(self):
         result = keyword_filter("My first burn!", "Super excited. Looking to find my people.")
         assert result.matched is True
