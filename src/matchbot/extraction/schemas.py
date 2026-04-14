@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from matchbot.db.models import PostType
 
@@ -100,6 +100,12 @@ class ExtractedPost(BaseModel):
     @classmethod
     def clamp_confidence(cls, v: float) -> float:
         return max(0.0, min(1.0, v))
+
+    @model_validator(mode="after")
+    def clear_non_seeker_intent(self) -> "ExtractedPost":
+        if self.role != "seeker":
+            self.seeker_intent = None
+        return self
 
     @field_validator(
         "vibes",

@@ -34,6 +34,10 @@ class TestExtractedPostSchema:
         ep = ExtractedPost(role="wizard")
         assert ep.role == "unknown"
 
+    def test_seeker_intent_cleared_for_non_seeker_roles(self):
+        ep = ExtractedPost(role="camp", seeker_intent="join_art_project")
+        assert ep.seeker_intent is None
+
     def test_unknown_vibes_preserved_in_schema(self):
         ep = ExtractedPost(vibes=["art", "invalid_vibe_xyz"])
         assert "art" in ep.vibes
