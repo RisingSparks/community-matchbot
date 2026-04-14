@@ -17,6 +17,7 @@ from matchbot.db.models import OptOut, Platform, Post, PostStatus
 from matchbot.extraction import process_post
 from matchbot.extraction.anthropic_extractor import AnthropicExtractor
 from matchbot.extraction.openai_extractor import OpenAIExtractor
+from matchbot.listeners.reddit_json import _build_source_url
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
 from matchbot.storage.raw_store import RawStore
@@ -103,7 +104,7 @@ async def _handle_submission(submission, session: AsyncSession) -> Post | None:
         platform_post_id=submission.id,
         platform_author_id=str(submission.author) if submission.author else "unknown",
         author_display_name=str(submission.author) if submission.author else "unknown",
-        source_url=f"https://reddit.com{submission.permalink}",
+        source_url=_build_source_url(submission.permalink),
         source_community=submission.subreddit.display_name,
         title=submission.title[:500],
         raw_text=raw_text,

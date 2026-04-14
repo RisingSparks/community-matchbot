@@ -55,6 +55,31 @@ async def test_handle_submission_creates_post(db_session, mock_extractor):
 
 
 @pytest.mark.asyncio
+async def test_handle_submission_strips_reddit_query_params(db_session, mock_extractor):
+    import matchbot.listeners.reddit as rl
+    from matchbot.extraction.schemas import ExtractedPost
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        role="seeker", confidence=0.85
+    )
+
+    submission = _make_submission(
+        sub_id="query001",
+        permalink=(
+            "/r/BurningMan/comments/query001/test/"
+            "?solution=abc123&js_challenge=1#foo"
+        ),
+    )
+
+    with patch.object(rl, "_raw_store", MagicMock()):
+        with patch("matchbot.listeners.reddit._get_extractor", return_value=mock_extractor):
+            post = await _handle_submission(submission, db_session)
+
+    assert post is not None
+    assert post.source_url == "https://reddit.com/r/BurningMan/comments/query001/test/"
+
+
+@pytest.mark.asyncio
 async def test_handle_submission_deduplicates(db_session, mock_extractor):
     import matchbot.listeners.reddit as rl
 

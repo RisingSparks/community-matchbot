@@ -64,6 +64,25 @@ def test_build_reddit_json_headers_browser_emulation(monkeypatch: pytest.MonkeyP
     assert headers["Cookie"] == "session=abc123"
 
 
+def test_build_source_url_strips_reddit_query_and_fragment() -> None:
+    url = (
+        "https://www.reddit.com/r/BurningMan/comments/1siozo1/post/"
+        "?solution=abc123&js_challenge=1#section"
+    )
+
+    assert (
+        reddit_json._build_source_url(url)
+        == "https://www.reddit.com/r/BurningMan/comments/1siozo1/post/"
+    )
+
+
+def test_build_source_url_strips_reddit_query_from_relative_permalink() -> None:
+    assert (
+        reddit_json._build_source_url("/r/BurningMan/comments/1siozo1/post/?foo=bar")
+        == "https://reddit.com/r/BurningMan/comments/1siozo1/post/"
+    )
+
+
 @pytest.mark.asyncio
 async def test_poll_reddit_json_once_uses_checkpoint_and_persists_skipped_with_body(
     monkeypatch: pytest.MonkeyPatch,

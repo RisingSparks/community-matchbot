@@ -7,6 +7,7 @@ import logging
 import time
 from datetime import UTC, datetime
 from typing import Any, Literal
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from sqlalchemy.exc import ProgrammingError
@@ -73,10 +74,19 @@ def _build_source_url(url: str) -> str:
     if not url:
         return ""
     if url.startswith("http://") or url.startswith("https://"):
-        return url
-    if url.startswith("/"):
-        return f"https://reddit.com{url}"
-    return f"https://reddit.com/{url}"
+        candidate = url
+    elif url.startswith("/"):
+        candidate = f"https://reddit.com{url}"
+    else:
+        candidate = f"https://reddit.com/{url}"
+    return _strip_reddit_tracking(candidate)
+
+
+def _strip_reddit_tracking(url: str) -> str:
+    parsed = urlsplit(url)
+    if parsed.netloc.lower().endswith("reddit.com"):
+        return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+    return url
 
 
 def _source_created_at_from_json(data: dict[str, Any]) -> datetime | None:
