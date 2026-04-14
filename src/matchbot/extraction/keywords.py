@@ -160,7 +160,7 @@ def keyword_filter(title: str, body: str) -> KeywordResult:
         )
 
     score, reasons = _score_mentorship_signals(text)
-    if score >= 5:
+    if score >= 8:
         return KeywordResult(
             matched=True,
             candidate_role=PostRole.UNKNOWN,

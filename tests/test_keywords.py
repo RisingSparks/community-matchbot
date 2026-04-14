@@ -153,3 +153,16 @@ class TestMentorshipFalsePositives:
         assert not (result.matched and result.tier == "hard_match"), (
             f"Unexpectedly hard-matched as mentorship seeker: reasons={result.reasons}"
         )
+
+    def test_session_contributor_post_only_soft_matches(self):
+        result = keyword_filter(
+            "Seeking: Integrative therapy professionals for CFT",
+            (
+                "The Campfire Talks team is hoping to produce a session on Integrating your "
+                "Burning Man Experience. We're interested in connecting with Burners who have "
+                "professional experience with integrative therapy. If you might be interested "
+                "in contributing to our session, please reach out!"
+            ),
+        )
+        assert result.matched is False
+        assert result.tier == "soft_match"
