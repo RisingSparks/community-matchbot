@@ -10,6 +10,7 @@ from sqlmodel import select
 
 from matchbot.db.models import Platform, Post, PostRole, PostStatus, Profile
 from matchbot.extraction import process_post
+from matchbot.extraction.prompts import SYSTEM_PROMPT
 from matchbot.extraction.schemas import ExtractedPost
 
 # ---------------------------------------------------------------------------
@@ -704,3 +705,15 @@ def test_extracted_post_unknown_post_type_becomes_none():
     """Unrecognised post_type strings are coerced to None rather than defaulting to mentorship."""
     ep = ExtractedPost(post_type="general_discussion")
     assert ep.post_type is None
+
+
+def test_system_prompt_marks_ticket_discussion_as_null():
+    assert "Ticket-market discussion is null." in SYSTEM_PROMPT
+    assert "steward allocations" in SYSTEM_PROMPT
+    assert "vehicle passes" in SYSTEM_PROMPT
+
+
+def test_system_prompt_marks_one_off_session_contributor_asks_as_null():
+    assert "One-off asks for professionals" in SYSTEM_PROMPT
+    assert "session" in SYSTEM_PROMPT
+    assert "contributors are null unless" in SYSTEM_PROMPT

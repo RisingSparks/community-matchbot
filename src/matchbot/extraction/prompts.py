@@ -46,6 +46,16 @@ Rules:
   Leave all origin_location fields null if the post contains no geographic origin information.
 - Never invent information not in the post
 - Respond ONLY with valid JSON — no markdown, no explanation
+- Ticket-market discussion is null. Posts about ticket sales, steward allocations,
+  Ticket Aid, vehicle passes, resale markets, or general attendance trends are not mentorship
+  unless they explicitly recruit members or offer/seek gear
+- Camp operations discussion is null. Posts about camp logistics, roster stress,
+  budgets, planning, or internal challenges are not mentorship unless they explicitly recruit
+  or seek a camp/team match
+- One-off asks for professionals, speakers, panelists, therapists, facilitators, or session
+  contributors are null unless the post is clearly recruiting ongoing camp or art-project members
+- Posts asking for opinions, reactions, or general discussion ("what do people think",
+  "curious about", "ramblings") are usually null unless they explicitly recruit or seek a match
 
 Role guidance for mentorship posts:
 - role="seeker": the author is a person looking to join a camp/art team, find a mentor,
@@ -146,6 +156,16 @@ Rules:
   Use 2-letter state codes. Leave null if no geographic origin is mentioned.
 - Do not invent facts that are not in the post
 - Confidence should be below 0.5 when the post is vague or ambiguous
+- Ticket-market discussion is null. Posts about ticket sales, steward allocations,
+  Ticket Aid, vehicle passes, resale markets, or general attendance trends are not mentorship
+  unless they explicitly recruit members or offer/seek gear
+- Camp operations discussion is null. Posts about camp logistics, roster stress,
+  budgets, planning, or internal challenges are not mentorship unless they explicitly recruit
+  or seek a camp/team match
+- One-off asks for professionals, speakers, panelists, therapists, facilitators, or session
+  contributors are null unless the post is clearly recruiting ongoing camp or art-team members
+- Posts asking for opinions, reactions, or general discussion ("what do people think",
+  "curious about", "ramblings") are usually null unless they explicitly recruit or seek a match
 
 Role guidance for mentorship posts:
 - role="seeker": the author is an individual seeking a camp, art team, mentor,
