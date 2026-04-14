@@ -43,6 +43,38 @@ let groupsStatusMessage = '';
 let groupsStatusWarning = false;
 let urlFileHandle = null;
 
+function isFacebookUrl(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(raw);
+    return /(^|\.)facebook\.com$/i.test(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function setControlsEnabled(enabled) {
+  for (const id of [
+    'group_urls',
+    'choose_groups_file',
+    'save_groups',
+    'open_groups',
+    'download_dir',
+    'toggle',
+    'download',
+    'clear',
+  ]) {
+    const element = document.getElementById(id);
+    if (element) {
+      element.disabled = !enabled;
+    }
+  }
+}
+
 function supportsGroupUrlFileAccess() {
   return typeof window.showSaveFilePicker === 'function';
 }
@@ -355,6 +387,15 @@ async function loadActiveTabInfo() {
       url: '',
     };
   }
+
+  if (!isFacebookUrl(activeTabInfo.url)) {
+    setStatus('Open a facebook.com tab to use this extension.');
+    setControlsEnabled(false);
+    return;
+  }
+
+  setStatus('');
+  setControlsEnabled(true);
 }
 
 async function getActiveFacebookGroupTab() {

@@ -42,6 +42,30 @@ const errorLog = (...args) => console.error('FBGC[background]:', ...args);
 let captureDbPromise = null;
 let appendQueue = Promise.resolve();
 
+async function ensureActionVisibilityRules() {
+  if (!chrome.declarativeContent?.onPageChanged) {
+    return;
+  }
+
+  const rule = {
+    conditions: [
+      new chrome.declarativeContent.PageStateMatcher({
+        pageUrl: {
+          hostSuffix: 'facebook.com',
+          schemes: ['http', 'https'],
+        },
+      }),
+    ],
+    actions: [new chrome.declarativeContent.ShowAction()],
+  };
+
+  await new Promise((resolve) => {
+    chrome.declarativeContent.onPageChanged.removeRules(undefined, () => {
+      chrome.declarativeContent.onPageChanged.addRules([rule], resolve);
+    });
+  });
+}
+
 async function ensureStorageAccess() {
   if (chrome.storage?.session?.setAccessLevel) {
     await chrome.storage.session.setAccessLevel({
@@ -248,6 +272,7 @@ async function appendResponses(responses) {
 async function initializeState() {
   await ensureStorageAccess();
   await ensureDefaults();
+  await ensureActionVisibilityRules();
   await openCaptureDb();
   await syncCaptureMetaFromDb();
   log('Background state initialized');
