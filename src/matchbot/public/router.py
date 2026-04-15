@@ -1667,28 +1667,6 @@ _COMMUNITY_HTML = """
     </section>
 
     <section class="panel">
-      <h2 class="section-title">Community Pool — Camps &amp; Builders</h2>
-      <p class="group-desc">Camps and projects seeking contributors, alongside builders ready to plug in.</p>
-      <div class="tab-bar" role="tablist" aria-label="Community pool tabs">
-        <button type="button" class="tab-btn" id="disc-tab-camps" data-mentorship-tab="mentorship_camps" aria-selected="true">Camps &amp; Projects</button>
-        <button type="button" class="tab-btn" id="disc-tab-seekers" data-mentorship-tab="mentorship_seekers" aria-selected="false">Builders &amp; Seekers</button>
-      </div>
-      <div class="disc-grid" id="discovery-grid-mentorship"></div>
-      <p class="note" id="discovery-count-mentorship" style="margin-top:8px"></p>
-    </section>
-
-    <section class="panel">
-      <h2 class="section-title">Community Pool — Infra Needs &amp; Offers</h2>
-      <p class="group-desc">Gear, structures, and equipment — what people need and what's available to share.</p>
-      <div class="tab-bar" role="tablist" aria-label="Infrastructure pool tabs">
-        <button type="button" class="tab-btn" id="disc-tab-infra-need" data-infra-tab="infra_seeking" aria-selected="true">Infra Needs</button>
-        <button type="button" class="tab-btn" id="disc-tab-infra-offer" data-infra-tab="infra_offering" aria-selected="false">Infra Offers</button>
-      </div>
-      <div class="disc-grid" id="discovery-grid-infra"></div>
-      <p class="note" id="discovery-count-infra" style="margin-top:8px"></p>
-    </section>
-
-    <section class="panel">
       <h2 class="section-title">Infrastructure Exchange Snapshot</h2>
       <p class="group-desc">
         Active infrastructure needs and offers across indexed and reviewable posts.
@@ -1713,6 +1691,28 @@ _COMMUNITY_HTML = """
       </div>
     </section>
     
+    <section class="panel">
+      <h2 class="section-title">Community Pool — Camps &amp; Builders</h2>
+      <p class="group-desc">Camps and projects seeking contributors, alongside builders ready to plug in.</p>
+      <div class="tab-bar" role="tablist" aria-label="Community pool tabs">
+        <button type="button" class="tab-btn" id="disc-tab-camps" data-mentorship-tab="mentorship_camps" aria-selected="true">Camps &amp; Projects</button>
+        <button type="button" class="tab-btn" id="disc-tab-seekers" data-mentorship-tab="mentorship_seekers" aria-selected="false">Builders &amp; Seekers</button>
+      </div>
+      <div class="disc-grid" id="discovery-grid-mentorship"></div>
+      <p class="note" id="discovery-count-mentorship" style="margin-top:8px"></p>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">Community Pool — Infra Needs &amp; Offers</h2>
+      <p class="group-desc">Gear, structures, and equipment — what people need and what's available to share.</p>
+      <div class="tab-bar" role="tablist" aria-label="Infrastructure pool tabs">
+        <button type="button" class="tab-btn" id="disc-tab-infra-need" data-infra-tab="infra_seeking" aria-selected="true">Infra Needs</button>
+        <button type="button" class="tab-btn" id="disc-tab-infra-offer" data-infra-tab="infra_offering" aria-selected="false">Infra Offers</button>
+      </div>
+      <div class="disc-grid" id="discovery-grid-infra"></div>
+      <p class="note" id="discovery-count-infra" style="margin-top:8px"></p>
+    </section>
+
     <section class="panel">
       <h2 class="section-title">Matched Drill-Down</h2>
       <div class="grid2" style="margin-bottom: 10px;">
