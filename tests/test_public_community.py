@@ -727,6 +727,58 @@ def test_live_feed_excludes_post_indexed_events(monkeypatch, tmp_path) -> None:
         _reset_engine()
 
 
+def test_live_feed_excludes_old_source_posts_imported_recently(
+    monkeypatch, tmp_path
+) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_live_feed_old_source_post.db")
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    async def _seed() -> None:
+        async with get_session() as session:
+            old_source_post = Post(
+                platform=Platform.FACEBOOK,
+                platform_post_id="fb_old_source_new_import",
+                platform_author_id="fb_old_source",
+                title="Older Facebook post imported recently",
+                raw_text="Imported now, but the original source post is weeks old.",
+                role=PostRole.CAMP,
+                status=PostStatus.NEEDS_REVIEW,
+                source_created_at=now - timedelta(days=21),
+                detected_at=now - timedelta(hours=11),
+            )
+            recent_needs_review = Post(
+                platform=Platform.REDDIT,
+                platform_post_id="reddit_recent_review",
+                platform_author_id="reddit_recent",
+                title="Recent post pending review",
+                raw_text="This one should stay in the live feed.",
+                role=PostRole.SEEKER,
+                status=PostStatus.NEEDS_REVIEW,
+                source_created_at=now - timedelta(days=1),
+                detected_at=now - timedelta(hours=20),
+            )
+            session.add_all([old_source_post, recent_needs_review])
+            await session.commit()
+
+    try:
+        asyncio.run(_seed())
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get("/community/data")
+        assert response.status_code == 200
+        payload = response.json()
+
+        feed = payload["live_feed"]
+        post_events = [item for item in feed if item["event_type"] == "post_needs_review"]
+        assert len(post_events) == 1
+        assert post_events[0]["summary"] == "This one should stay in the live feed."
+        assert post_events[0]["occurred_at"] == (
+            now - timedelta(days=1)
+        ).replace(tzinfo=UTC).isoformat()
+    finally:
+        _reset_engine()
+
+
 def test_community_order_book_for_skills_and_vibes(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_order_book.db")
 
@@ -1078,6 +1130,72 @@ def test_community_discovery_api_returns_camps_and_seekers(monkeypatch, tmp_path
         assert infra_offer_data["count"] == 1
         assert "shade" in infra_offer_data["items"][0]["infra_categories"]
         assert infra_offer_data["items"][0]["condition"] == "good"
+    finally:
+        _reset_engine()
+
+
+def test_community_discovery_prefers_source_created_at_for_order_and_age(
+    monkeypatch, tmp_path
+) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_discovery_source_created_at.db")
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    async def _seed() -> None:
+        async with get_session() as session:
+            session.add_all(
+                [
+                    Post(
+                        platform=Platform.FACEBOOK,
+                        platform_post_id="disc_fb_old_source_new_import",
+                        platform_author_id="camp_old",
+                        title="Older source camp post imported late",
+                        raw_text="Posted weeks ago, imported recently.",
+                        role=PostRole.CAMP,
+                        post_type=PostType.MENTORSHIP,
+                        status=PostStatus.INDEXED,
+                        camp_name="Pepperland",
+                        source_created_at=now - timedelta(days=21),
+                        detected_at=now - timedelta(hours=11),
+                    ),
+                    Post(
+                        platform=Platform.REDDIT,
+                        platform_post_id="disc_reddit_recent",
+                        platform_author_id="camp_recent",
+                        title="More recent camp post",
+                        raw_text="Posted recently and should sort first.",
+                        role=PostRole.CAMP,
+                        post_type=PostType.MENTORSHIP,
+                        status=PostStatus.INDEXED,
+                        camp_name="Recent Camp",
+                        source_created_at=now - timedelta(days=2),
+                        detected_at=now - timedelta(days=1),
+                    ),
+                ]
+            )
+            await session.commit()
+
+    try:
+        asyncio.run(_seed())
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get("/community/api/discovery?tab=mentorship_camps")
+        assert response.status_code == 200
+        payload = response.json()
+
+        camps = payload["items"]
+        assert [item["camp_name"] for item in camps[:2]] == ["Recent Camp", "Pepperland"]
+        assert camps[0]["occurred_at"] == (
+            now - timedelta(days=2)
+        ).replace(tzinfo=UTC).isoformat()
+        assert camps[0]["detected_at"] == (
+            now - timedelta(days=1)
+        ).replace(tzinfo=UTC).isoformat()
+        assert camps[1]["occurred_at"] == (
+            now - timedelta(days=21)
+        ).replace(tzinfo=UTC).isoformat()
+        assert camps[1]["detected_at"] == (
+            now - timedelta(hours=11)
+        ).replace(tzinfo=UTC).isoformat()
     finally:
         _reset_engine()
 

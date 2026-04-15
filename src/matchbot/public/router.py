@@ -1911,7 +1911,7 @@ _COMMUNITY_HTML = """
       const src = item.source_url
         ? ` · <a href="${escapeHTML(item.source_url)}" target="_blank" rel="noopener noreferrer">source</a>`
         : "";
-      return `<div class="disc-card-meta">${escapeHTML(item.platform)} · ${timeAgo(item.detected_at)}${src}</div>`;
+      return `<div class="disc-card-meta">${escapeHTML(item.platform)} · ${timeAgo(item.occurred_at || item.detected_at)}${src}</div>`;
     }
 
     function discCampCard(item) {
@@ -2451,7 +2451,8 @@ async def _build_discovery_payload(
             Post.post_type == PostType.INFRASTRUCTURE,
             Post.infra_role == InfraRole.OFFERING,
         )
-    stmt = stmt.order_by(Post.detected_at.desc()).limit(limit)
+    occurred_at_expr = func.coalesce(Post.source_created_at, Post.detected_at)
+    stmt = stmt.order_by(occurred_at_expr.desc(), Post.detected_at.desc()).limit(limit)
 
     posts = (await session.exec(stmt)).all()
 
@@ -2461,6 +2462,9 @@ async def _build_discovery_payload(
         item: dict[str, Any] = {
             "post_id": post.id,
             "platform": post.platform,
+            "occurred_at": (
+                post.source_created_at or post.detected_at
+            ).replace(tzinfo=UTC).isoformat(),
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
             "title": post.effective_title,
             "snippet": _sanitize_text(post.raw_text or post.title, max_len=160),
@@ -3018,10 +3022,11 @@ def _build_live_feed(
     feed: list[dict[str, Any]] = []
 
     for post in posts:
-        if post.detected_at < since or post.status != PostStatus.NEEDS_REVIEW:
+        effective_occurred_at = post.source_created_at or post.detected_at
+        if effective_occurred_at < since or post.status != PostStatus.NEEDS_REVIEW:
             continue
         summary = _sanitize_text(post.raw_text or post.title, max_len=120)
-        occurred_at = (post.source_created_at or post.detected_at).replace(tzinfo=UTC).isoformat()
+        occurred_at = effective_occurred_at.replace(tzinfo=UTC).isoformat()
         feed.append(
             {
                 "event_type": "post_needs_review",
