@@ -120,6 +120,7 @@ class Post(SQLModel, table=True):
     source_url: str = Field(default="")
     source_community: str = Field(default="")
     title: str = Field(default="")
+    display_title: str | None = Field(default=None)
     raw_text: str = Field(default="")  # max 2000 chars
 
     detected_at: datetime = Field(default_factory=_now, index=True)
@@ -197,6 +198,10 @@ class Post(SQLModel, table=True):
             if self.infra_categories_other
             else []
         )
+
+    @property
+    def effective_title(self) -> str:
+        return self.display_title or self.title
 
 
 class Match(SQLModel, table=True):

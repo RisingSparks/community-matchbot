@@ -7,6 +7,7 @@ class ExtractedPost(BaseModel):
     # --- shared fields ---
     role: str = "unknown"          # seeker | camp | unknown (mentorship path)
     post_type: str | None = None  # mentorship | infrastructure | None (irrelevant)
+    display_title: str | None = None
     confidence: float = 0.5        # 0.0–1.0
     extraction_notes: str | None = None
 
@@ -100,6 +101,14 @@ class ExtractedPost(BaseModel):
     @classmethod
     def clamp_confidence(cls, v: float) -> float:
         return max(0.0, min(1.0, v))
+
+    @field_validator("display_title")
+    @classmethod
+    def validate_display_title(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        cleaned = " ".join(v.split()).strip()
+        return cleaned[:120] or None
 
     @model_validator(mode="after")
     def clear_non_seeker_intent(self) -> "ExtractedPost":

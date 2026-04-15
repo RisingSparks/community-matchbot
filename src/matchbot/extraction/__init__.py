@@ -22,6 +22,7 @@ from matchbot.taxonomy import (
     split_infra_categories,
     split_vibes,
 )
+from matchbot.title_utils import build_post_title
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,19 @@ _INFRA_EXCHANGE_PATTERN = re.compile(
     r"free\s+to\s+a\s+good\s+home"
     r")\b"
 )
+
+
+def _should_refresh_title_from_body(post: Post) -> bool:
+    if post.platform != "facebook":
+        return False
+    if not post.raw_text.strip():
+        return False
+
+    title = (post.title or "").strip()
+    author_name = (post.author_display_name or "").strip()
+    if not title:
+        return True
+    return bool(author_name) and title.casefold() == author_name.casefold()
 
 
 def _join_pipe(values: list[str]) -> str:
@@ -122,6 +136,9 @@ async def process_post(
     7. Call propose_matches (deferred import to avoid circular)
     """
     settings = get_settings()
+
+    if _should_refresh_title_from_body(post):
+        post.title = build_post_title(post.raw_text)
 
     # --- 1. Keyword filter ---
     kw_result = keyword_filter(post.title, post.raw_text)
@@ -228,6 +245,7 @@ async def process_post(
 
     # --- 5. Update Post fields ---
     post.post_type = extracted.post_type
+    post.display_title = extracted.display_title
 
     if post.post_type is None:
         # LLM determined the post is not relevant to camp-finding or gear exchange

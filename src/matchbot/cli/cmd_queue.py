@@ -71,8 +71,8 @@ def queue_list(
         for m in matches:
             seeker = await session.get(Post, m.seeker_post_id)
             camp = await session.get(Post, m.camp_post_id)
-            seeker_text = _short_text(seeker.title if seeker else "?")
-            camp_text = _short_text(camp.title if camp else "?")
+            seeker_text = _short_text(seeker.effective_title if seeker else "?")
+            camp_text = _short_text(camp.effective_title if camp else "?")
             table.add_row(
                 m.id[:8],
                 f"{m.score:.3f}",
@@ -111,9 +111,9 @@ def queue_view(match_id: str) -> None:
             f"[bold cyan]Alignment breakdown:[/bold cyan]\n{breakdown_str}\n\n"
             f"[bold]Moderator notes:[/bold] {match.moderator_notes or '—'}\n\n"
             f"[bold magenta]Intro draft:[/bold magenta]\n{match.intro_draft or '(not yet rendered)'}\n\n"
-            f"[bold yellow]{left_label.upper().rstrip(':')}:[/bold yellow] {seeker.title if seeker else '?'}\n"
+            f"[bold yellow]{left_label.upper().rstrip(':')}:[/bold yellow] {seeker.effective_title if seeker else '?'}\n"
             f"{seeker.raw_text[:500] if seeker else ''}\n\n"
-            f"[bold green]{right_label.upper().rstrip(':')}:[/bold green] {camp.title if camp else '?'}\n"
+            f"[bold green]{right_label.upper().rstrip(':')}:[/bold green] {camp.effective_title if camp else '?'}\n"
             f"{camp.raw_text[:500] if camp else ''}"
         )
 

@@ -75,7 +75,7 @@ def posts_list(
                 p.post_type,
                 p.role or "",
                 p.status,
-                p.title[:50],
+                p.effective_title[:50],
                 p.source_url or "",
                 p.detected_at.strftime("%Y-%m-%d"),
             )
@@ -118,7 +118,8 @@ def posts_show(post_id: str) -> None:
             f"[bold]Extraction Confidence:[/bold] {post.extraction_confidence}  |  "
             f"[bold]Method:[/bold] {post.extraction_method}\n"
             f"{type_detail}\n"
-            f"[bold yellow]Title:[/bold yellow] {post.title}\n\n"
+            f"[bold yellow]Title:[/bold yellow] {post.effective_title}\n"
+            f"[dim]Source title:[/dim] {post.title}\n\n"
             f"[bold]Original Signal:[/bold]\n{post.raw_text}"
         )
         console.print(Panel(content, title=f"Signal {post.id[:8]}", expand=False))
@@ -189,7 +190,9 @@ def posts_re_extract_many(
         if dry_run:
             rprint(f"[cyan]Would re-extract {len(posts)} signal(s):[/cyan]")
             for post in posts:
-                rprint(f"  {post.id[:8]}  {post.platform}  {post.role or ''}  {post.title[:80]}")
+                rprint(
+                    f"  {post.id[:8]}  {post.platform}  {post.role or ''}  {post.effective_title[:80]}"
+                )
             return
 
         from matchbot.extraction import process_post
@@ -201,7 +204,7 @@ def posts_re_extract_many(
             rprint(f"[cyan]Re-analyzing {total} signal(s)...[/cyan]")
             for idx, post in enumerate(posts, start=1):
                 rprint(
-                    f"[dim][{idx}/{total}] {post.id[:8]} {post.platform} {post.title[:80]}[/dim]"
+                    f"[dim][{idx}/{total}] {post.id[:8]} {post.platform} {post.effective_title[:80]}[/dim]"
                 )
                 post.status = PostStatus.RAW
                 session.add(post)

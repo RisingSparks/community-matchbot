@@ -17,6 +17,7 @@ from matchbot.importers.facebook_har import (
     parse_facebook_post_fields,
     parse_har_file,
 )
+from matchbot.title_utils import build_post_title
 from scripts.backfill_facebook import (
     _build_group_batches,
     _clean_group_title,
@@ -199,6 +200,11 @@ def test_parse_facebook_post_fields_filters_member_welcome_noise():
     }
 
     assert parse_facebook_post_fields(node) is None
+
+
+def test_build_post_title_prefers_first_non_empty_line():
+    raw_text = "\n\nHERE is looking for campers\nWe are a small camp with openings"
+    assert build_post_title(raw_text) == "HERE is looking for campers"
 
 
 def test_parse_har_file(tmp_path):
@@ -627,11 +633,12 @@ async def test_backfill_facebook_posts_dedup(db_session, monkeypatch, tmp_path):
     # Verify DB state
     async with get_internal_session() as session:
         posts = (await session.exec(select(Post).where(Post.platform == Platform.FACEBOOK))).all()
-    
+
     assert len(posts) == 2
     post_ids = [p.platform_post_id for p in posts]
     assert "dup1" in post_ids
     assert "new1" in post_ids
+    assert next(p for p in posts if p.platform_post_id == "new1").title == "New content"
     
     engine_module._engine = None
 

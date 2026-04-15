@@ -215,6 +215,7 @@ def _post_to_dict(post: Post, age_hours: float | None = None) -> dict[str, Any]:
         "source_url": post.source_url,
         "source_community": post.source_community,
         "title": post.title,
+        "display_title": post.display_title,
         "raw_text": post.raw_text,
         "detected_at": post.detected_at.isoformat(),
         "status": post.status,

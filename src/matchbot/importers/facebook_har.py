@@ -21,6 +21,7 @@ from matchbot.extraction import process_post
 from matchbot.extraction.anthropic_extractor import AnthropicExtractor
 from matchbot.extraction.openai_extractor import OpenAIExtractor
 from matchbot.settings import get_settings
+from matchbot.title_utils import build_post_title
 
 logger = logging.getLogger(__name__)
 _FACEBOOK_BACKFILL_DB_RETRY_ATTEMPTS = 3
@@ -438,7 +439,7 @@ async def _process_existing_or_new_facebook_post(
         source_url=source_url,
         source_community=source_community,
         source_created_at=fields["source_created_at"],
-        title=fields["raw_text"][:80],
+        title=build_post_title(fields["raw_text"]),
         raw_text=fields["raw_text"][:2000],
         status=PostStatus.RAW,
     )

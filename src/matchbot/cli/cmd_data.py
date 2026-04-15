@@ -9,6 +9,7 @@ import typer
 
 from matchbot.settings import get_settings
 from matchbot.storage.raw_store import RawStore
+from matchbot.title_utils import build_post_title
 
 app = typer.Typer(help="Raw data management commands.")
 logger = logging.getLogger(__name__)
@@ -94,7 +95,7 @@ async def _replay_one(platform: str, post_id: str, payload: dict) -> None:
         source_created_at = None
 
     else:  # facebook
-        title = (payload.get("message") or "")[:80]
+        title = build_post_title(payload.get("message") or "")
         raw_text = (payload.get("message") or "")[:2000]
         author_id = (payload.get("from") or {}).get("id") or ""
         author_display = (payload.get("from") or {}).get("name") or ""

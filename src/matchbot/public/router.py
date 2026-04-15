@@ -764,8 +764,8 @@ async function loadHome() {
     }
     grid.innerHTML = recent.map(({item, type}) => {
       const title = type === 'camp'
-        ? esc(item.name || 'Camp or Project')
-        : (item.contributions && item.contributions.length ? humanLabel(CONTRIB_LABELS, item.contributions[0]) : 'Seeker');
+        ? esc(item.name || item.title || 'Camp or Project')
+        : esc(item.title || (item.contributions && item.contributions.length ? humanLabel(CONTRIB_LABELS, item.contributions[0]) : 'Seeker'));
       return '<article class="listing-card">'
         + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
         + '<h3 class="listing-card__title">' + title + '</h3>'
@@ -803,7 +803,7 @@ function buildCampCard(item) {
   const vibes = item.vibes || [], contribs = item.contributions || [];
   return '<article class="listing-card">'
     + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
-    + '<h3 class="listing-card__title">' + esc(item.name || 'Camp or Project') + '</h3>'
+    + '<h3 class="listing-card__title">' + esc(item.name || item.title || 'Camp or Project') + '</h3>'
     + '<div class="tag-row">' + vibeTags(vibes, 3) + contribTags(contribs, 2) + '</div>'
     + '<p class="listing-card__snippet">' + esc(item.snippet || '') + '</p>'
     + '<div class="listing-card__footer">' + sourceLink(item.source_url) + '</div>'
@@ -881,7 +881,7 @@ let allSeekers = [], activeSeekerFilters = new Set();
 
 function buildSeekerCard(item) {
   const vibes = item.vibes || [], contribs = item.contributions || [];
-  const lead = contribs.length ? humanLabel(CONTRIB_LABELS, contribs[0]) : 'Seeker';
+  const lead = item.title || (contribs.length ? humanLabel(CONTRIB_LABELS, contribs[0]) : 'Seeker');
   return '<article class="listing-card">'
     + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
     + '<h3 class="listing-card__title">' + lead + '</h3>'
@@ -988,6 +988,7 @@ function buildGearCard(item) {
   const cats = item.categories || [];
   return '<article class="listing-card">'
     + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
+    + '<h3 class="listing-card__title">' + esc(item.title || 'Infra listing') + '</h3>'
     + '<div class="tag-row">' + infraTags(cats, 3) + conditionTag(item.condition) + '</div>'
     + (item.quantity ? '<p style="margin:0;font-size:13px;color:#6a6264">Qty: ' + esc(item.quantity) + '</p>' : '')
     + '<p class="listing-card__snippet">' + esc(item.snippet || '') + '</p>'
@@ -2461,6 +2462,7 @@ async def _build_discovery_payload(
             "post_id": post.id,
             "platform": post.platform,
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
+            "title": post.effective_title,
             "snippet": _sanitize_text(post.raw_text or post.title, max_len=160),
             "source_url": _safe_url(post.source_url),
         }
@@ -2550,6 +2552,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
         return {
             "id": post.id,
             "name": post.camp_name or post.author_display_name or "Camp or Project",
+            "title": post.effective_title,
             "vibes": post.vibes_list(),
             "contributions": post.contribution_types_list(),
             "snippet": _sanitize_text(post.raw_text or post.title or "", max_len=220),
@@ -2563,6 +2566,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
         occurred_at = (post.source_created_at or post.detected_at).replace(tzinfo=UTC).isoformat()
         return {
             "id": post.id,
+            "title": post.effective_title,
             "vibes": post.vibes_list(),
             "contributions": post.contribution_types_list(),
             "snippet": _sanitize_text(post.raw_text or post.title or "", max_len=220),
@@ -2577,6 +2581,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
         return {
             "id": post.id,
             "infra_role": post.infra_role or "",
+            "title": post.effective_title,
             "categories": _split_pipe_values(post.infra_categories),
             "quantity": post.quantity or "",
             "condition": post.condition or "",

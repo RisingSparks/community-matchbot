@@ -62,6 +62,10 @@ class TestExtractedPostSchema:
         assert ep.vibes == []
         assert ep.contribution_types == []
 
+    def test_display_title_is_trimmed_and_normalized(self):
+        ep = ExtractedPost(display_title="  Looking   for   campers   in 2026  ")
+        assert ep.display_title == "Looking for campers in 2026"
+
 
 # ---------------------------------------------------------------------------
 # process_post orchestration
@@ -169,6 +173,7 @@ async def test_process_post_indexes_on_high_confidence(db_session, mock_extracto
 
     mock_extractor.extract.return_value = ExtractedPost(
         role="seeker",
+        display_title="Looking for a camp in 2025",
         vibes=["art", "build_focused"],
         contribution_types=["build", "kitchen_food"],
         year=2025,
@@ -180,6 +185,7 @@ async def test_process_post_indexes_on_high_confidence(db_session, mock_extracto
     assert result.status == PostStatus.INDEXED
     assert result.role == PostRole.SEEKER
     assert result.year == 2025
+    assert result.display_title == "Looking for a camp in 2025"
     assert result.profile_id is not None
 
     profile = await db_session.get(Profile, result.profile_id)

@@ -76,6 +76,7 @@ Allowed condition values: {conditions}
 Output schema:
 {{
   "post_type": "mentorship" | "infrastructure" | null,
+  "display_title": string | null,
   "confidence": float (0.0–1.0),
   "extraction_notes": string | null,
 
@@ -115,6 +116,13 @@ For null posts: leave all fields at their defaults — only extraction_notes
 is useful to explain why the post was skipped.
 Use *_other fields only when the post expresses a real concept that does not
 cleanly fit an allowed label.
+display_title guidance:
+- Write a short, readable title for humans scanning a list of posts
+- Prefer the author's core ask or offer in the post's own wording
+- Do not include the author's name unless the post is actually about that person
+- Keep it specific, not generic; aim for 4-12 words when possible
+- If the existing post title is already good, you may preserve it
+- Use null only when the post is null / irrelevant
 
 seeker_intent rules (only set when role == "seeker"):
 - "join_camp": person wants to join a camp as a member/volunteer
@@ -188,6 +196,12 @@ seeker_intent guidance:
 - skills_learning: wants mentorship, hands-on learning, or project-specific learning
 - unknown: seeker intent is unclear
 - null: use for camp posts, infrastructure posts, and any non-seeker post
+display_title guidance:
+- Return a short, readable title for humans scanning a queue or listing
+- Prefer the core ask, offer, or recruitment hook in the post's own wording
+- Do not use the author's name as the title unless it is semantically the title
+- Keep it specific and concise; usually 4-12 words
+- Return null only for null / irrelevant posts
 """.format(
     vibes=", ".join(sorted(VIBES)),
     contribution_types=", ".join(sorted(CONTRIBUTION_TYPES)),
