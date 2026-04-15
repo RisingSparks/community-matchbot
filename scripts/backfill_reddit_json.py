@@ -42,7 +42,7 @@ def _collect_cached_ids(since_datetime: datetime, *, settings) -> list[str]:
 
 
 async def _backfill_from_cache(
-    all_ids: list[str], *, dry_run: bool, since_datetime: datetime
+    all_ids: list[str], *, dry_run: bool, since_datetime: datetime, concurrency: int = 4
 ) -> None:
     """Replay raw Reddit payloads from disk without hitting the Reddit API."""
     from matchbot.cli.cmd_data import _post_status_async, _replay_one
@@ -55,7 +55,9 @@ async def _backfill_from_cache(
     # Use the async helper directly — we're already inside a running event loop.
     status_map = await _post_status_async("reddit", all_ids)
 
-    processed = skipped = errors = 0
+    skipped = errors = 0
+    to_process: list[tuple[str, dict]] = []
+
     for post_id in all_ids:
         existing_status = status_map.get(post_id)
         if existing_status is not None and existing_status != "raw":
@@ -84,16 +86,27 @@ async def _backfill_from_cache(
 
         if dry_run:
             logger.info("Cache replay [dry-run]: would process %s", post_id)
-            processed += 1
-            continue
+        else:
+            to_process.append((post_id, payload))
 
-        try:
-            await _replay_one("reddit", post_id, payload)
-            logger.info("Cache replay: processed %s", post_id)
-            processed += 1
-        except Exception as exc:  # noqa: BLE001
-            logger.error("Cache replay: error on %s — %s", post_id, exc)
-            errors += 1
+    if dry_run:
+        processed = len(to_process)
+    else:
+        semaphore = asyncio.Semaphore(min(concurrency, len(to_process)) if to_process else 1)
+
+        async def _process_one(post_id: str, payload: dict) -> bool:
+            async with semaphore:
+                try:
+                    await _replay_one("reddit", post_id, payload)
+                    logger.info("Cache replay: processed %s", post_id)
+                    return True
+                except Exception as exc:  # noqa: BLE001
+                    logger.error("Cache replay: error on %s — %s", post_id, exc)
+                    return False
+
+        results = await asyncio.gather(*(_process_one(pid, pl) for pid, pl in to_process))
+        processed = sum(results)
+        errors += len(results) - processed
 
     logger.info(
         "Cache replay complete: processed=%d skipped=%d errors=%d dry_run=%s",
@@ -137,6 +150,12 @@ def main(
         min=1,
         help="Safety cap on total pages fetched.",
     ),
+    concurrency: int = typer.Option(
+        4,
+        "--concurrency",
+        min=1,
+        help="Number of posts to process concurrently (cache replay only).",
+    ),
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
@@ -171,6 +190,7 @@ def main(
             fetch_limit=fetch_limit,
             sleep_seconds=sleep_seconds,
             max_pages=max_pages,
+            concurrency=concurrency,
             dry_run=dry_run,
             live=live,
         )
@@ -185,6 +205,7 @@ async def _main_async(
     fetch_limit: int | None,
     sleep_seconds: float,
     max_pages: int,
+    concurrency: int,
     dry_run: bool,
     live: bool,
 ) -> None:
@@ -226,7 +247,7 @@ async def _main_async(
             )
             try:
                 await _backfill_from_cache(
-                    cached_ids, dry_run=dry_run, since_datetime=since_datetime
+                    cached_ids, dry_run=dry_run, since_datetime=since_datetime, concurrency=concurrency
                 )
             finally:
                 await dispose_engine()

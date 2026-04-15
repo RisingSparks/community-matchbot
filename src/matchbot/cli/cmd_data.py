@@ -166,6 +166,9 @@ def replay(
     date: str | None = typer.Option(
         None, help="Replay only this date (YYYY-MM-DD). Default: all dates."
     ),
+    concurrency: int = typer.Option(
+        4, "--concurrency", min=1, help="Number of posts to process concurrently."
+    ),
     dry_run: bool = typer.Option(
         False, "--dry-run", help="List what would be processed without touching the DB."
     ),
@@ -202,7 +205,10 @@ def replay(
     exists_map = _post_exists_batch(platform, ids)
 
     async def _run_all() -> tuple[int, int, int]:
-        processed = skipped = errors = 0
+        skipped = 0
+        errors = 0
+        to_process: list[tuple[str, dict]] = []
+
         for post_id in ids:
             if exists_map.get(post_id):
                 typer.echo(f"  [skipped] {post_id} — already in DB")
@@ -217,17 +223,27 @@ def replay(
 
             if dry_run:
                 typer.echo(f"  [would process] {post_id}")
-                processed += 1
-                continue
+            else:
+                to_process.append((post_id, payload))
 
-            try:
-                await _replay_one(platform, post_id, payload)
-                typer.echo(f"  [processed] {post_id}")
-                processed += 1
-            except Exception as exc:  # noqa: BLE001
-                typer.echo(f"  [error] {post_id} — {exc}")
-                errors += 1
+        if dry_run:
+            return len(to_process) + skipped, skipped, errors  # processed = would-be count
 
+        semaphore = asyncio.Semaphore(min(concurrency, len(to_process)) if to_process else 1)
+
+        async def _process_one(post_id: str, payload: dict) -> bool:
+            async with semaphore:
+                try:
+                    await _replay_one(platform, post_id, payload)
+                    typer.echo(f"  [processed] {post_id}")
+                    return True
+                except Exception as exc:  # noqa: BLE001
+                    typer.echo(f"  [error] {post_id} — {exc}")
+                    return False
+
+        results = await asyncio.gather(*(_process_one(pid, pl) for pid, pl in to_process))
+        processed = sum(results)
+        errors += len(results) - processed
         return processed, skipped, errors
 
     processed, skipped, errors = asyncio.run(_run_all())

@@ -79,6 +79,7 @@ async def test_main_async_creates_tables_without_reset(monkeypatch: pytest.Monke
         fetch_limit=25,
         sleep_seconds=0.0,
         max_pages=10,
+        concurrency=4,
         dry_run=False,
         live=True,
     )
@@ -124,6 +125,7 @@ async def test_main_async_resets_tables_when_requested(monkeypatch: pytest.Monke
         fetch_limit=25,
         sleep_seconds=0.0,
         max_pages=10,
+        concurrency=4,
         dry_run=False,
         live=True,
     )
@@ -161,6 +163,7 @@ async def test_main_async_aborts_when_reset_not_confirmed(
             fetch_limit=25,
             sleep_seconds=0.0,
             max_pages=10,
+            concurrency=4,
             dry_run=False,
             live=True,
         )
