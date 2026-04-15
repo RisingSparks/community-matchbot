@@ -84,6 +84,36 @@ jobs:
             fi
           EOF
 
+      - name: Wait for container healthy
+        run: |
+          ssh -p "${{ secrets.DEPLOY_SSH_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" <<'EOF'
+            set -euo pipefail
+            cd "${{ env.DEPLOY_PATH }}"
+            CONTAINER_ID=$(docker compose ps -q matchbot)
+            if [ -z "$CONTAINER_ID" ]; then
+              echo "No container found for matchbot service"
+              exit 1
+            fi
+            echo "Waiting for container to become healthy (up to 3 min)..."
+            for i in $(seq 1 36); do
+              STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$CONTAINER_ID" 2>/dev/null || echo "unknown")
+              echo "  [$i/36] $STATUS"
+              if [ "$STATUS" = "healthy" ]; then
+                echo "Container healthy after $((i * 5))s"
+                exit 0
+              fi
+              if [ "$STATUS" = "unhealthy" ]; then
+                echo "Container is unhealthy — last 50 log lines:"
+                docker compose logs --tail=50
+                exit 1
+              fi
+              sleep 5
+            done
+            echo "Timed out waiting for healthy status — last 50 log lines:"
+            docker compose logs --tail=50
+            exit 1
+          EOF
+
       - name: Smoke test
         if: ${{ vars.DEPLOY_HEALTHCHECK_URL != '' }}
         run: |
