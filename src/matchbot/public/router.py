@@ -438,6 +438,20 @@ function snippetBlock(text, mode) {
       + '</div>'
   };
 }
+function renderListingCard(options) {
+  const snippet = snippetBlock(options.snippet || '', options.mode || 'browse');
+  return '<article class="listing-card ' + snippet.cardClass + '">'
+    + '<div class="listing-card__meta">'
+    + platformBadge(options.platform)
+    + '<span class="card-age">' + timeAgo(options.occurredAt || options.detectedAt) + '</span>'
+    + '</div>'
+    + '<h3 class="listing-card__title">' + options.title + '</h3>'
+    + (options.tagHtml || '')
+    + (options.detailHtml || '')
+    + snippet.html
+    + '<div class="listing-card__footer">' + sourceLink(options.sourceUrl) + '</div>'
+    + '</article>';
+}
 function emptyState(heading, body) {
   return '<div class="empty-state"><div class="empty-state__icon">\u2726</div><h2>' + esc(heading) + '</h2><p>' + esc(body) + '</p><a href="/forms/">Submit a post \u2192</a></div>';
 }
@@ -807,14 +821,16 @@ async function loadHome() {
       const title = type === 'camp'
         ? esc(item.name || item.title || 'Camp or Project')
         : esc(item.title || (item.contributions && item.contributions.length ? humanLabel(CONTRIB_LABELS, item.contributions[0]) : 'Seeker'));
-      const snippet = snippetBlock(item.snippet || '', 'compact');
-      return '<article class="listing-card ' + snippet.cardClass + '">'
-        + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
-        + '<h3 class="listing-card__title">' + title + '</h3>'
-        + '<div class="tag-row">' + vibeTags(item.vibes, 2) + contribTags(item.contributions, 2) + '</div>'
-        + snippet.html
-        + '<div class="listing-card__footer">' + sourceLink(item.source_url) + '</div>'
-        + '</article>';
+      return renderListingCard({
+        mode: 'compact',
+        title,
+        snippet: item.snippet,
+        platform: item.platform,
+        occurredAt: item.occurred_at,
+        detectedAt: item.detected_at,
+        sourceUrl: item.source_url,
+        tagHtml: '<div class="tag-row">' + vibeTags(item.vibes, 2) + contribTags(item.contributions, 2) + '</div>',
+      });
     }).join('');
   } catch(e) {
     document.getElementById('recent-grid').innerHTML = '<p style="color:#6a6264;padding:24px">Could not load listings.</p>';
@@ -843,14 +859,16 @@ let allCamps = [], activeCampFilters = new Set();
 
 function buildCampCard(item) {
   const vibes = item.vibes || [], contribs = item.contributions || [];
-  const snippet = snippetBlock(item.snippet || '', 'browse');
-  return '<article class="listing-card ' + snippet.cardClass + '">'
-    + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
-    + '<h3 class="listing-card__title">' + esc(item.name || item.title || 'Camp or Project') + '</h3>'
-    + '<div class="tag-row">' + vibeTags(vibes, 3) + contribTags(contribs, 2) + '</div>'
-    + snippet.html
-    + '<div class="listing-card__footer">' + sourceLink(item.source_url) + '</div>'
-    + '</article>';
+  return renderListingCard({
+    mode: 'browse',
+    title: esc(item.name || item.title || 'Camp or Project'),
+    snippet: item.snippet,
+    platform: item.platform,
+    occurredAt: item.occurred_at,
+    detectedAt: item.detected_at,
+    sourceUrl: item.source_url,
+    tagHtml: '<div class="tag-row">' + vibeTags(vibes, 3) + contribTags(contribs, 2) + '</div>',
+  });
 }
 
 function renderCamps() {
@@ -925,14 +943,16 @@ let allSeekers = [], activeSeekerFilters = new Set();
 function buildSeekerCard(item) {
   const vibes = item.vibes || [], contribs = item.contributions || [];
   const lead = item.title || (contribs.length ? humanLabel(CONTRIB_LABELS, contribs[0]) : 'Seeker');
-  const snippet = snippetBlock(item.snippet || '', 'browse');
-  return '<article class="listing-card ' + snippet.cardClass + '">'
-    + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
-    + '<h3 class="listing-card__title">' + lead + '</h3>'
-    + '<div class="tag-row">' + vibeTags(vibes, 3) + contribTags(contribs, 2) + '</div>'
-    + snippet.html
-    + '<div class="listing-card__footer">' + sourceLink(item.source_url) + '</div>'
-    + '</article>';
+  return renderListingCard({
+    mode: 'browse',
+    title: lead,
+    snippet: item.snippet,
+    platform: item.platform,
+    occurredAt: item.occurred_at,
+    detectedAt: item.detected_at,
+    sourceUrl: item.source_url,
+    tagHtml: '<div class="tag-row">' + vibeTags(vibes, 3) + contribTags(contribs, 2) + '</div>',
+  });
 }
 
 function renderSeekers() {
@@ -1030,15 +1050,19 @@ function setGearFocus(view) {
 
 function buildGearCard(item) {
   const cats = item.categories || [];
-  const snippet = snippetBlock(item.snippet || '', 'browse');
-  return '<article class="listing-card ' + snippet.cardClass + '">'
-    + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
-    + '<h3 class="listing-card__title">' + esc(item.title || 'Infra listing') + '</h3>'
-    + '<div class="tag-row">' + infraTags(cats, 3) + conditionTag(item.condition) + '</div>'
-    + (item.quantity ? '<p style="margin:0;font-size:13px;color:#6a6264">Qty: ' + esc(item.quantity) + '</p>' : '')
-    + snippet.html
-    + '<div class="listing-card__footer">' + sourceLink(item.source_url) + '</div>'
-    + '</article>';
+  return renderListingCard({
+    mode: 'browse',
+    title: esc(item.title || 'Infra listing'),
+    snippet: item.snippet,
+    platform: item.platform,
+    occurredAt: item.occurred_at,
+    detectedAt: item.detected_at,
+    sourceUrl: item.source_url,
+    tagHtml: '<div class="tag-row">' + infraTags(cats, 3) + conditionTag(item.condition) + '</div>',
+    detailHtml: item.quantity
+      ? '<p style="margin:0;font-size:13px;color:#6a6264">Qty: ' + esc(item.quantity) + '</p>'
+      : '',
+  });
 }
 
 function setupGearPanel(items, filterId, gridId) {
