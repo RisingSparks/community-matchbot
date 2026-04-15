@@ -15,7 +15,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from typer.testing import CliRunner
@@ -32,7 +31,7 @@ runner = CliRunner()
 
 
 @pytest.fixture
-def cli_env():
+def cli_env(tmp_path):
     """
     Provides (session, factory, loop) for synchronous CLI tests.
 
@@ -41,9 +40,8 @@ def cli_env():
     - loop: event loop to use for async setup/teardown
     """
     engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
+        f"sqlite+aiosqlite:///{tmp_path / 'cli.db'}",
         connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
     )
 
     loop = asyncio.new_event_loop()
@@ -58,7 +56,11 @@ def cli_env():
 
     @asynccontextmanager
     async def factory():
-        yield session
+        worker_session = AsyncSession(engine, expire_on_commit=False)
+        try:
+            yield worker_session
+        finally:
+            await worker_session.close()
 
     yield session, factory, loop
 
@@ -439,7 +441,102 @@ def test_posts_re_extract_many(cli_env):
 
     run_in(loop, seed())
 
+    active = 0
+    max_active = 0
+
     async def fake_process_post(db_session, post, extractor):
+        nonlocal active, max_active
+        active += 1
+        max_active = max(max_active, active)
+        await asyncio.sleep(0.01)
+        post.status = PostStatus.INDEXED
+        post.role = "camp"
+        db_session.add(post)
+        await db_session.commit()
+        await db_session.refresh(post)
+        active -= 1
+        return post
+
+    extractor = MagicMock()
+    extractor.aclose = AsyncMock(return_value=None)
+
+    with (
+        patch("matchbot.cli._db.get_session", factory),
+        patch("matchbot.cli.cmd_posts._build_extractor", return_value=extractor),
+        patch("matchbot.extraction.process_post", side_effect=fake_process_post),
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "posts",
+                "re-extract-many",
+                "--author",
+                "fearless_dp",
+                "--role",
+                "seeker",
+                "--concurrency",
+                "2",
+                "--limit",
+                "10",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert "Re-analyzed 2 signal(s)." in result.output
+    assert "concurrency=2" in result.output
+    assert max_active == 2
+
+    async def check():
+        rows = (
+            await session.exec(
+                select(Post)
+                .where(Post.author_display_name == "fearless_dp")
+                .order_by(Post.platform_post_id)
+            )
+        ).all()
+        return [(row.status, row.role) for row in rows]
+
+    assert run_in(loop, check()) == [
+        (PostStatus.INDEXED, "camp"),
+        (PostStatus.INDEXED, "camp"),
+    ]
+
+
+def test_posts_re_extract_many_continues_after_failure(cli_env):
+    session, factory, loop = cli_env
+
+    async def seed():
+        first = Post(
+            platform=Platform.REDDIT,
+            platform_post_id="batch_fail_1",
+            platform_author_id="fearless_dp",
+            author_display_name="fearless_dp",
+            title="First recruiting post",
+            raw_text="We are building a camp and need people.",
+            status=PostStatus.INDEXED,
+            post_type=PostType.MENTORSHIP,
+            role="seeker",
+        )
+        second = Post(
+            platform=Platform.REDDIT,
+            platform_post_id="batch_fail_2",
+            platform_author_id="fearless_dp",
+            author_display_name="fearless_dp",
+            title="Second recruiting post",
+            raw_text="Looking for more builders.",
+            status=PostStatus.INDEXED,
+            post_type=PostType.MENTORSHIP,
+            role="seeker",
+        )
+        session.add(first)
+        session.add(second)
+        await session.commit()
+
+    run_in(loop, seed())
+
+    async def fake_process_post(db_session, post, extractor):
+        if post.platform_post_id == "batch_fail_1":
+            raise RuntimeError("boom")
         post.status = PostStatus.INDEXED
         post.role = "camp"
         db_session.add(post)
@@ -464,26 +561,32 @@ def test_posts_re_extract_many(cli_env):
                 "fearless_dp",
                 "--role",
                 "seeker",
+                "--concurrency",
+                "2",
                 "--limit",
                 "10",
             ],
         )
 
     assert result.exit_code == 0, result.output
-    assert "Re-analyzed 2 signal(s)." in result.output
+    assert "Re-analyzed 1 signal(s)." in result.output
+    assert "Failed 1 signal(s)." in result.output
+    assert "boom" in result.output
 
     async def check():
-        rows = (
-            await session.exec(
-                select(Post).where(Post.author_display_name == "fearless_dp").order_by(Post.platform_post_id)
-            )
-        ).all()
-        return [(row.status, row.role) for row in rows]
+        async with factory() as read_session:
+            rows = (
+                await read_session.exec(
+                    select(Post)
+                    .where(Post.author_display_name == "fearless_dp")
+                    .order_by(Post.platform_post_id)
+                )
+            ).all()
+            return [(row.platform_post_id, row.status, row.role) for row in rows]
 
-    assert run_in(loop, check()) == [
-        (PostStatus.INDEXED, "camp"),
-        (PostStatus.INDEXED, "camp"),
-    ]
+    rows = run_in(loop, check())
+    assert sorted(status for _, status, _ in rows) == [PostStatus.INDEXED, PostStatus.RAW]
+    assert sorted(role for _, _, role in rows) == ["camp", "seeker"]
 
 
 def test_posts_re_extract_many_raw_facebook_without_type_filter(cli_env):

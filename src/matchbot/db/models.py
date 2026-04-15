@@ -2,6 +2,7 @@ import json
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -206,6 +207,9 @@ class Post(SQLModel, table=True):
 
 class Match(SQLModel, table=True):
     __tablename__ = "match"
+    __table_args__ = (
+        UniqueConstraint("seeker_post_id", "camp_post_id", name="uq_match_seeker_camp"),
+    )
 
     id: str = Field(default_factory=_new_id, primary_key=True)
     seeker_post_id: str = Field(foreign_key="post.id", index=True)

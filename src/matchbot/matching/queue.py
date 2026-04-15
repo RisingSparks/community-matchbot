@@ -4,10 +4,19 @@ from __future__ import annotations
 
 import json
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from matchbot.db.models import Match, MatchStatus, Post, PostRole, PostStatus, PostType, is_opted_out
+from matchbot.db.models import (
+    Match,
+    MatchStatus,
+    Post,
+    PostRole,
+    PostStatus,
+    PostType,
+    is_opted_out,
+)
 from matchbot.matching.infra_scorer import score_infra_match
 from matchbot.matching.scorer import score_match
 from matchbot.messaging.renderer import render_intro
@@ -111,7 +120,12 @@ async def _propose_mentorship_matches(session: AsyncSession, new_post: Post) -> 
             match.intro_draft = render_intro(seeker, camp, seeker.platform)
         except Exception:
             pass  # draft is best-effort; don't block match creation
-        session.add(match)
+        try:
+            async with session.begin_nested():
+                session.add(match)
+                await session.flush()
+        except IntegrityError:
+            continue
         created.append(match)
 
     await session.commit()
@@ -186,7 +200,12 @@ async def _propose_infra_matches(session: AsyncSession, new_post: Post) -> list[
             match.intro_draft = render_intro(seeker, offerer, seeker.platform)
         except Exception:
             pass  # draft is best-effort; don't block match creation
-        session.add(match)
+        try:
+            async with session.begin_nested():
+                session.add(match)
+                await session.flush()
+        except IntegrityError:
+            continue
         created.append(match)
 
     await session.commit()

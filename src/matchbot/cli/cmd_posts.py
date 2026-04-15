@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+from dataclasses import dataclass
 from typing import Annotated
 
 import typer
@@ -10,14 +12,22 @@ from rich import print as rprint
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from sqlalchemy import update
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from matchbot.cli._db import with_session
+from matchbot.cli import _db
 from matchbot.db.models import Event, Post, PostStatus, PostType
 
 app = typer.Typer(help="Browse and manage community signals")
 console = Console(width=160)
+
+
+@dataclass(slots=True)
+class _BatchReextractResult:
+    post_id: str
+    status: str
+    error: str | None = None
 
 
 def _build_extractor():
@@ -81,7 +91,7 @@ def posts_list(
             )
         console.print(table)
 
-    with_session(_run)
+    _db.with_session(_run)
 
 
 @app.command("show")
@@ -124,7 +134,7 @@ def posts_show(post_id: str) -> None:
         )
         console.print(Panel(content, title=f"Signal {post.id[:8]}", expand=False))
 
-    with_session(_run)
+    _db.with_session(_run)
 
 
 @app.command("re-extract")
@@ -151,7 +161,7 @@ def posts_re_extract(post_id: str) -> None:
             await extractor.aclose()
         rprint(f"[green]Re-analyzed signal {post_id[:8]}: status={updated.status}[/green]")
 
-    with_session(_run)
+    _db.with_session(_run)
 
 
 @app.command("re-extract-many")
@@ -159,10 +169,21 @@ def posts_re_extract_many(
     role: Annotated[str | None, typer.Option("--role", help="Filter by current role")] = None,
     platform: Annotated[str | None, typer.Option("--platform")] = None,
     status: Annotated[str, typer.Option("--status")] = PostStatus.INDEXED,
-    post_type: Annotated[str | None, typer.Option("--type", help="mentorship|infrastructure")] = None,
-    author: Annotated[str | None, typer.Option("--author", help="Filter by author_display_name")] = None,
+    post_type: Annotated[
+        str | None, typer.Option("--type", help="mentorship|infrastructure")
+    ] = None,
+    author: Annotated[
+        str | None, typer.Option("--author", help="Filter by author_display_name")
+    ] = None,
     limit: Annotated[int, typer.Option("--limit")] = 50,
-    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show matching posts without re-extracting")] = False,
+    concurrency: Annotated[
+        int,
+        typer.Option("--concurrency", min=1, help="Number of signals to re-extract concurrently"),
+    ] = 4,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Show matching posts without re-extracting"),
+    ] = False,
 ) -> None:
     """Re-analyze a filtered batch of signals."""
 
@@ -191,33 +212,86 @@ def posts_re_extract_many(
             rprint(f"[cyan]Would re-extract {len(posts)} signal(s):[/cyan]")
             for post in posts:
                 rprint(
-                    f"  {post.id[:8]}  {post.platform}  {post.role or ''}  {post.effective_title[:80]}"
+                    f"  {post.id[:8]}  {post.platform}  "
+                    f"{post.role or ''}  {post.effective_title[:80]}"
                 )
             return
 
         from matchbot.extraction import process_post
 
+        max_concurrency = min(concurrency, len(posts))
         extractor = _build_extractor()
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        async def _re_extract_one(post_id: str, index: int, total: int) -> _BatchReextractResult:
+            async with semaphore:
+                rprint(f"[dim][{index}/{total}] {post_id[:8]}[/dim]")
+                async with _db.get_session() as worker_session:
+                    try:
+                        if status != PostStatus.RAW:
+                            claim = await worker_session.exec(
+                                update(Post)
+                                .where(Post.id == post_id, Post.status == status)
+                                .values(status=PostStatus.RAW)
+                            )
+                            await worker_session.commit()
+                            if claim.rowcount == 0:
+                                return _BatchReextractResult(
+                                    post_id=post_id,
+                                    status="skipped",
+                                    error="status changed before processing",
+                                )
+
+                        post = await worker_session.get(Post, post_id)
+                        if post is None:
+                            return _BatchReextractResult(
+                                post_id=post_id,
+                                status="failed",
+                                error="post not found during processing",
+                            )
+
+                        if status == PostStatus.RAW:
+                            post.status = PostStatus.RAW
+                            worker_session.add(post)
+                            await worker_session.commit()
+
+                        await process_post(worker_session, post, extractor)
+                        return _BatchReextractResult(post_id=post_id, status="updated")
+                    except Exception as exc:
+                        await worker_session.rollback()
+                        return _BatchReextractResult(
+                            post_id=post_id,
+                            status="failed",
+                            error=str(exc),
+                        )
+
         updated = 0
         try:
             total = len(posts)
-            rprint(f"[cyan]Re-analyzing {total} signal(s)...[/cyan]")
-            for idx, post in enumerate(posts, start=1):
-                rprint(
-                    f"[dim][{idx}/{total}] {post.id[:8]} {post.platform} {post.effective_title[:80]}[/dim]"
+            rprint(
+                f"[cyan]Re-analyzing {total} signal(s) with concurrency={max_concurrency}...[/cyan]"
+            )
+            results = await asyncio.gather(
+                *(
+                    _re_extract_one(post.id, idx, total)
+                    for idx, post in enumerate(posts, start=1)
                 )
-                post.status = PostStatus.RAW
-                session.add(post)
-                await session.commit()
-                await session.refresh(post)
-                await process_post(session, post, extractor)
-                updated += 1
+            )
+            updated = sum(1 for result in results if result.status == "updated")
+            skipped = [result for result in results if result.status == "skipped"]
+            failed = [result for result in results if result.status == "failed"]
         finally:
             await extractor.aclose()
 
         rprint(f"[green]Re-analyzed {updated} signal(s).[/green]")
+        if skipped:
+            rprint(f"[yellow]Skipped {len(skipped)} signal(s) already claimed elsewhere.[/yellow]")
+        if failed:
+            rprint(f"[red]Failed {len(failed)} signal(s).[/red]")
+            for result in failed[:10]:
+                rprint(f"  {result.post_id[:8]}  {result.error or 'unknown error'}")
 
-    with_session(_run)
+    _db.with_session(_run)
 
 
 @app.command("flag")
@@ -239,7 +313,7 @@ def posts_flag(
         if note:
             rprint(f"  Note: {note}")
 
-    with_session(_run)
+    _db.with_session(_run)
 
 
 
@@ -416,7 +490,7 @@ def posts_edit(
         if note:
             rprint(f"  Note: {note}")
 
-    with_session(_run)
+    _db.with_session(_run)
 
 
 @app.command("approve")
@@ -482,7 +556,7 @@ def posts_approve(
         await session.refresh(post)
         rprint(f"[dim]Connections explored for {post_id[:8]}.[/dim]")
 
-    with_session(_run)
+    _db.with_session(_run)
 
 
 @app.command("dismiss")
@@ -521,7 +595,7 @@ def posts_dismiss(
         if reason:
             rprint(f"  Reason: {reason}")
 
-    with_session(_run)
+    _db.with_session(_run)
 
 
 @app.command("opt-out")
@@ -544,7 +618,7 @@ def posts_opt_out(post_id: str) -> None:
 
         rprint(f"[yellow]Signal {post_id[:8]} opted out → excluded from matching.[/yellow]")
 
-    with_session(_run)
+    _db.with_session(_run)
 
 
 @app.command("un-opt-out")
@@ -567,4 +641,4 @@ def posts_un_opt_out(post_id: str) -> None:
 
         rprint(f"[green]Signal {post_id[:8]} opt-out removed → back in matching pool.[/green]")
 
-    with_session(_run)
+    _db.with_session(_run)
