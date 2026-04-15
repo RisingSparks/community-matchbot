@@ -1335,6 +1335,49 @@ def test_community_listings_include_active_infra_needs_review_and_inferred_roles
         _reset_engine()
 
 
+def test_community_listings_keep_longer_snippets_for_browse_cards(monkeypatch, tmp_path) -> None:
+    _setup_sqlite_db(monkeypatch, tmp_path, "community_listings_long_snippets.db")
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    long_body = (
+        "The Campfire Talks team is hoping to produce a session on Integrating your Burning Man "
+        "Experience and is interested in connecting with Burners who have professional background "
+        "in coaching, facilitation, therapy, or reflective group work. We want enough room in the "
+        "community card preview to make the post understandable before someone clicks through."
+    )
+
+    async def _seed() -> None:
+        async with get_session() as session:
+            session.add(
+                Post(
+                    platform=Platform.REDDIT,
+                    platform_post_id="reddit_long_snippet",
+                    platform_author_id="camp_long_snippet",
+                    title="Long browse card content",
+                    raw_text=long_body,
+                    role=PostRole.CAMP,
+                    post_type=PostType.MENTORSHIP,
+                    status=PostStatus.INDEXED,
+                    detected_at=now - timedelta(hours=1),
+                )
+            )
+            await session.commit()
+
+    try:
+        asyncio.run(_seed())
+        client = TestClient(create_app(enable_scheduler=False))
+        response = client.get("/community/api/listings")
+        assert response.status_code == 200
+        payload = response.json()
+
+        snippet = payload["camps"][0]["snippet"]
+        assert len(snippet) > 220
+        assert "Integrating your Burning Man Experience" in snippet
+        assert "professional background in coaching" in snippet
+    finally:
+        _reset_engine()
+
+
 def test_community_discovery_api_blocks_javascript_source_urls(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_discovery_js_url.db")
 

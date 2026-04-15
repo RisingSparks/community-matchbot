@@ -266,6 +266,8 @@ body {
   display: flex; flex-direction: column; gap: 10px;
   box-shadow: var(--card-shadow);
 }
+.listing-card--compact { --snippet-lines: 3; }
+.listing-card--browse { --snippet-lines: 6; }
 .listing-card__meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .platform-badge {
   display: inline-flex; align-items: center; padding: 3px 8px;
@@ -283,9 +285,23 @@ body {
 .tag--contrib { background: rgba(0,0,0,0.08); color: var(--ink); }
 .tag--infra { background: rgba(74,74,74,0.12); color: var(--muted); }
 .tag--cond { background: rgba(0,0,0,0.06); color: var(--muted); }
+.listing-card__text { display: grid; gap: 8px; }
 .listing-card__snippet {
   margin: 0; font-size: 14px; line-height: 1.55; color: #4a4448;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: var(--snippet-lines, 4); -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.listing-card__text.is-expanded .listing-card__snippet {
+  display: block; -webkit-line-clamp: unset; overflow: visible;
+}
+.listing-card__toggle {
+  justify-self: start; padding: 0; border: 0; background: none;
+  color: var(--ink); font: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+}
+.listing-card__toggle:hover { color: var(--sun); }
+.listing-card__toggle:focus-visible {
+  outline: 2px solid var(--sun); outline-offset: 3px; border-radius: 4px;
 }
 .listing-card__footer { display: flex; align-items: center; justify-content: flex-end; margin-top: auto; padding-top: 4px; }
 .source-link { font-size: 13px; color: var(--ink); text-decoration: none; font-weight: 700; }
@@ -406,9 +422,34 @@ function sourceLink(url) {
   if (!url) return '';
   return '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" class="source-link">Original post \u2192</a>';
 }
+function snippetBlock(text, mode) {
+  const content = esc(text || '');
+  if (!content) return '';
+  const variant = mode === 'browse' ? 'listing-card--browse' : 'listing-card--compact';
+  if ((text || '').length <= 280) {
+    return { cardClass: variant, html: '<p class="listing-card__snippet">' + content + '</p>' };
+  }
+  return {
+    cardClass: variant,
+    html:
+      '<div class="listing-card__text">'
+      + '<p class="listing-card__snippet">' + content + '</p>'
+      + '<button type="button" class="listing-card__toggle" aria-expanded="false">Show more</button>'
+      + '</div>'
+  };
+}
 function emptyState(heading, body) {
   return '<div class="empty-state"><div class="empty-state__icon">\u2726</div><h2>' + esc(heading) + '</h2><p>' + esc(body) + '</p><a href="/forms/">Submit a post \u2192</a></div>';
 }
+document.addEventListener('click', event => {
+  const button = event.target.closest('.listing-card__toggle');
+  if (!button) return;
+  const block = button.closest('.listing-card__text');
+  if (!block) return;
+  const expanded = block.classList.toggle('is-expanded');
+  button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  button.textContent = expanded ? 'Show less' : 'Show more';
+});
 """
 
 _HOME_EXTRA_CSS = """
@@ -766,11 +807,12 @@ async function loadHome() {
       const title = type === 'camp'
         ? esc(item.name || item.title || 'Camp or Project')
         : esc(item.title || (item.contributions && item.contributions.length ? humanLabel(CONTRIB_LABELS, item.contributions[0]) : 'Seeker'));
-      return '<article class="listing-card">'
+      const snippet = snippetBlock(item.snippet || '', 'compact');
+      return '<article class="listing-card ' + snippet.cardClass + '">'
         + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
         + '<h3 class="listing-card__title">' + title + '</h3>'
         + '<div class="tag-row">' + vibeTags(item.vibes, 2) + contribTags(item.contributions, 2) + '</div>'
-        + '<p class="listing-card__snippet">' + esc(item.snippet || '') + '</p>'
+        + snippet.html
         + '<div class="listing-card__footer">' + sourceLink(item.source_url) + '</div>'
         + '</article>';
     }).join('');
@@ -801,11 +843,12 @@ let allCamps = [], activeCampFilters = new Set();
 
 function buildCampCard(item) {
   const vibes = item.vibes || [], contribs = item.contributions || [];
-  return '<article class="listing-card">'
+  const snippet = snippetBlock(item.snippet || '', 'browse');
+  return '<article class="listing-card ' + snippet.cardClass + '">'
     + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
     + '<h3 class="listing-card__title">' + esc(item.name || item.title || 'Camp or Project') + '</h3>'
     + '<div class="tag-row">' + vibeTags(vibes, 3) + contribTags(contribs, 2) + '</div>'
-    + '<p class="listing-card__snippet">' + esc(item.snippet || '') + '</p>'
+    + snippet.html
     + '<div class="listing-card__footer">' + sourceLink(item.source_url) + '</div>'
     + '</article>';
 }
@@ -882,11 +925,12 @@ let allSeekers = [], activeSeekerFilters = new Set();
 function buildSeekerCard(item) {
   const vibes = item.vibes || [], contribs = item.contributions || [];
   const lead = item.title || (contribs.length ? humanLabel(CONTRIB_LABELS, contribs[0]) : 'Seeker');
-  return '<article class="listing-card">'
+  const snippet = snippetBlock(item.snippet || '', 'browse');
+  return '<article class="listing-card ' + snippet.cardClass + '">'
     + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
     + '<h3 class="listing-card__title">' + lead + '</h3>'
     + '<div class="tag-row">' + vibeTags(vibes, 3) + contribTags(contribs, 2) + '</div>'
-    + '<p class="listing-card__snippet">' + esc(item.snippet || '') + '</p>'
+    + snippet.html
     + '<div class="listing-card__footer">' + sourceLink(item.source_url) + '</div>'
     + '</article>';
 }
@@ -986,12 +1030,13 @@ function setGearFocus(view) {
 
 function buildGearCard(item) {
   const cats = item.categories || [];
-  return '<article class="listing-card">'
+  const snippet = snippetBlock(item.snippet || '', 'browse');
+  return '<article class="listing-card ' + snippet.cardClass + '">'
     + '<div class="listing-card__meta">' + platformBadge(item.platform) + '<span class="card-age">' + timeAgo(item.occurred_at || item.detected_at) + '</span></div>'
     + '<h3 class="listing-card__title">' + esc(item.title || 'Infra listing') + '</h3>'
     + '<div class="tag-row">' + infraTags(cats, 3) + conditionTag(item.condition) + '</div>'
     + (item.quantity ? '<p style="margin:0;font-size:13px;color:#6a6264">Qty: ' + esc(item.quantity) + '</p>' : '')
-    + '<p class="listing-card__snippet">' + esc(item.snippet || '') + '</p>'
+    + snippet.html
     + '<div class="listing-card__footer">' + sourceLink(item.source_url) + '</div>'
     + '</article>';
 }
@@ -2559,7 +2604,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "title": post.effective_title,
             "vibes": post.vibes_list(),
             "contributions": post.contribution_types_list(),
-            "snippet": _sanitize_text(post.raw_text or post.title or "", max_len=220),
+            "snippet": _sanitize_text(post.raw_text or post.title or "", max_len=900),
             "platform": post.platform,
             "source_url": post.source_url or "",
             "occurred_at": occurred_at,
@@ -2573,7 +2618,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "title": post.effective_title,
             "vibes": post.vibes_list(),
             "contributions": post.contribution_types_list(),
-            "snippet": _sanitize_text(post.raw_text or post.title or "", max_len=220),
+            "snippet": _sanitize_text(post.raw_text or post.title or "", max_len=900),
             "platform": post.platform,
             "source_url": post.source_url or "",
             "occurred_at": occurred_at,
@@ -2589,7 +2634,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "categories": _split_pipe_values(post.infra_categories),
             "quantity": post.quantity or "",
             "condition": post.condition or "",
-            "snippet": _sanitize_text(post.raw_text or post.title or "", max_len=220),
+            "snippet": _sanitize_text(post.raw_text or post.title or "", max_len=900),
             "platform": post.platform,
             "source_url": post.source_url or "",
             "occurred_at": occurred_at,
