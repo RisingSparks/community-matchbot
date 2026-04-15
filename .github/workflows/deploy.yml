@@ -84,7 +84,6 @@ jobs:
             {
               cat "$tmp_file"
               printf 'COMMUNITY_FEEDBACK_EMAIL=%s\n' "${{ env.COMMUNITY_FEEDBACK_EMAIL }}"
-              printf 'COMMUNITY_FEEDBACK_URL=%s\n' "${{ env.COMMUNITY_FEEDBACK_URL || '/forms/' }}"
             } > .env
             rm -f "$tmp_file"
           EOF
