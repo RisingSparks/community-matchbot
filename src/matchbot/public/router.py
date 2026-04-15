@@ -65,6 +65,18 @@ def _opt_out_note() -> str:
     )
 
 
+def _page_footer_html(*, feedback_url: str) -> str:
+    return (
+        '<div class="page-footer">'
+        "Rising Sparks is a grassroots collective, community-built, community-led."
+        '&nbsp;&middot;&nbsp;<a href="/community/transparency">Open stats &rarr;</a>'
+        f'&nbsp;&middot;&nbsp;<a href="{feedback_url}">Send Feedback &rarr;</a>'
+        '&nbsp;&middot;&nbsp;<a href="https://github.com/RisingSparks/community-matchbot" target="_blank" rel="noopener noreferrer">GitHub &rarr;</a>'
+        f"{_opt_out_note()}"
+        "</div>"
+    )
+
+
 def _google_analytics_tags() -> str:
     return build_google_analytics_tags()
 
@@ -257,18 +269,19 @@ body {
 .filter-chip:hover { border-color: var(--sun); color: var(--ink); }
 .filter-chip.active { background: var(--ink); border-color: var(--ink); color: #fff; }
 .filter-chip__count { opacity: 0.6; font-size: 11px; }
-.card-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-@media (min-width: 580px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 1000px) { .card-grid { grid-template-columns: repeat(3, 1fr); } }
+.card-grid { display: flex; flex-direction: column; gap: 0; }
 .listing-card {
-  background: var(--card-bg); border: 1px solid var(--card-border);
-  border-radius: var(--card-radius-lg); padding: 18px;
-  display: flex; flex-direction: column; gap: 10px;
-  box-shadow: var(--card-shadow);
+  background: transparent; border: none; border-bottom: 1px solid var(--card-border);
+  border-radius: 0; padding: 14px 4px;
+  display: flex; flex-direction: row; gap: 14px; align-items: flex-start;
 }
+.listing-card:first-child { border-top: 1px solid var(--card-border); }
 .listing-card--compact { --snippet-lines: 3; }
-.listing-card--browse { --snippet-lines: 6; }
-.listing-card__meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.listing-card--browse { --snippet-lines: 4; }
+.listing-card__meta {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding-top: 2px; min-width: 56px; flex-shrink: 0;
+}
 .platform-badge {
   display: inline-flex; align-items: center; padding: 3px 8px;
   border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
@@ -277,18 +290,20 @@ body {
 .platform-badge--discord { background: #5865f2; color: #fff; }
 .platform-badge--facebook { background: #1877f2; color: #fff; }
 .platform-badge--manual { background: var(--sage); color: #fff; }
-.card-age { font-size: 11px; color: var(--muted); }
-.listing-card__title { margin: 0; font-size: 18px; font-weight: 500; line-height: 1.12; }
-.tag-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.card-age { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.listing-card__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.listing-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.listing-card__title { margin: 0; font-size: 16px; font-weight: 500; line-height: 1.2; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
 .tag--vibe { background: rgba(255,146,0,0.16); color: #8d4f00; }
 .tag--contrib { background: rgba(0,0,0,0.08); color: var(--ink); }
 .tag--infra { background: rgba(74,74,74,0.12); color: var(--muted); }
 .tag--cond { background: rgba(0,0,0,0.06); color: var(--muted); }
-.listing-card__text { display: grid; gap: 8px; }
+.listing-card__text { display: grid; gap: 6px; }
 .listing-card__snippet {
-  margin: 0; font-size: 14px; line-height: 1.55; color: #4a4448;
-  display: -webkit-box; -webkit-line-clamp: var(--snippet-lines, 4); -webkit-box-orient: vertical;
+  margin: 0; font-size: 13px; line-height: 1.5; color: #4a4448;
+  display: -webkit-box; -webkit-line-clamp: var(--snippet-lines, 3); -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .listing-card__text.is-expanded .listing-card__snippet {
@@ -296,15 +311,15 @@ body {
 }
 .listing-card__toggle {
   justify-self: start; padding: 0; border: 0; background: none;
-  color: var(--ink); font: inherit; font-size: 13px; font-weight: 700;
+  color: var(--ink); font: inherit; font-size: 12px; font-weight: 700;
   cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
 }
 .listing-card__toggle:hover { color: var(--sun); }
 .listing-card__toggle:focus-visible {
   outline: 2px solid var(--sun); outline-offset: 3px; border-radius: 4px;
 }
-.listing-card__footer { display: flex; align-items: center; justify-content: flex-end; margin-top: auto; padding-top: 4px; }
-.source-link { font-size: 13px; color: var(--ink); text-decoration: none; font-weight: 700; }
+.listing-card__footer { display: flex; align-items: flex-start; flex-shrink: 0; padding-top: 2px; }
+.source-link { font-size: 12px; color: var(--ink); text-decoration: none; font-weight: 700; white-space: nowrap; }
 .source-link:hover { text-decoration: underline; }
 .empty-state { text-align: center; padding: 64px 24px; color: var(--muted); }
 .empty-state__icon { font-size: 40px; margin-bottom: 16px; }
@@ -445,11 +460,15 @@ function renderListingCard(options) {
     + platformBadge(options.platform)
     + '<span class="card-age">' + timeAgo(options.occurredAt || options.detectedAt) + '</span>'
     + '</div>'
+    + '<div class="listing-card__body">'
+    + '<div class="listing-card__header">'
     + '<h3 class="listing-card__title">' + options.title + '</h3>'
+    + '<div class="listing-card__footer">' + sourceLink(options.sourceUrl) + '</div>'
+    + '</div>'
     + (options.tagHtml || '')
     + (options.detailHtml || '')
     + snippet.html
-    + '<div class="listing-card__footer">' + sourceLink(options.sourceUrl) + '</div>'
+    + '</div>'
     + '</article>';
 }
 function emptyState(heading, body) {
@@ -753,10 +772,7 @@ _HOME_BODY = """
       <p><strong>Ready to connect?</strong>Submit a post and let us help find the right match.</p>
       <a href="/forms/">Submit a post \u2192</a>
     </div>
-    <div class="page-footer">
-      Rising Sparks is a grassroots collective, community-built, community-led.
-      &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>__OPT_OUT_NOTE__
-    </div>
+    __PAGE_FOOTER__
   </main>
 """
 
@@ -848,10 +864,7 @@ _CAMPS_BODY = """
     <p><strong>Running a camp or art project?</strong>List your openings and find the people you need.</p>
     <a href="/forms/camp">List your camp \u2192</a>
   </div>
-  <div class="page-footer">
-    Rising Sparks is a grassroots collective, community-built, community-led.
-    &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>__OPT_OUT_NOTE__
-  </div>
+  __PAGE_FOOTER__
 """
 
 _CAMPS_JS = """
@@ -931,10 +944,7 @@ _SEEKERS_BODY = """
     <p><strong>Looking for a camp?</strong>Add yourself to the pool and let us find a connection.</p>
     <a href="/forms/seeker">Submit a post \u2192</a>
   </div>
-  <div class="page-footer">
-    Rising Sparks is a grassroots collective, community-built, community-led.
-    &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>__OPT_OUT_NOTE__
-  </div>
+  __PAGE_FOOTER__
 """
 
 _SEEKERS_JS = """
@@ -1031,10 +1041,7 @@ _GEAR_BODY = """
     <p><strong>Have gear to share, or need something?</strong>Post it to the exchange.</p>
     <a href="/forms/infra">Post to exchange \u2192</a>
   </div>
-  <div class="page-footer">
-    Rising Sparks is a grassroots collective, community-built, community-led.
-    &nbsp;\u00b7&nbsp;<a href="/community/transparency">Open stats \u2192</a>&nbsp;\u00b7&nbsp;<a href="__COMMUNITY_FEEDBACK_URL__">Send Feedback \u2192</a>__OPT_OUT_NOTE__
-  </div>
+  __PAGE_FOOTER__
 """
 
 _GEAR_JS = """
@@ -1132,7 +1139,7 @@ loadGear();
 def _build_home_page(base_url: str) -> str:
     nav = _nav_html("home")
     feedback_url = _community_feedback_url()
-    opt_out_note = _opt_out_note()
+    footer_html = _page_footer_html(feedback_url=feedback_url)
     analytics_tags = _google_analytics_tags()
     meta_tags = _page_meta_tags(
         title="Rising Sparks — Find Your Community",
@@ -1153,7 +1160,9 @@ def _build_home_page(base_url: str) -> str:
         + "  <style>" + _NAV_CSS + _BROWSE_CSS + _HOME_EXTRA_CSS + "</style>\n"
         + "</head>\n<body>\n"
         + nav + "\n"
-        + _HOME_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url).replace("__OPT_OUT_NOTE__", opt_out_note)
+        + _HOME_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url).replace(
+            "__PAGE_FOOTER__", footer_html
+        )
         + "<script>\n" + _TAXONOMY_JS + _HOME_JS + "\n</script>\n"
         + "</body>\n</html>"
     )
@@ -1161,7 +1170,7 @@ def _build_home_page(base_url: str) -> str:
 
 def _build_camps_page(base_url: str) -> str:
     feedback_url = _community_feedback_url()
-    opt_out_note = _opt_out_note()
+    footer_html = _page_footer_html(feedback_url=feedback_url)
     nav = _nav_html("camps")
     analytics_tags = _google_analytics_tags()
     meta_tags = _page_meta_tags(
@@ -1183,7 +1192,7 @@ def _build_camps_page(base_url: str) -> str:
         + '<main class="page-wrap">\n'
         + '  <div class="page-header"><h1>Camps &amp; projects</h1>'
         + '<p class="sub">Active camps and projects looking for contributors this season.</p></div>\n'
-        + _CAMPS_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url).replace("__OPT_OUT_NOTE__", opt_out_note)
+        + _CAMPS_BODY.replace("__PAGE_FOOTER__", footer_html)
         + "</main>\n"
         + "<script>\n" + _TAXONOMY_JS + _CAMPS_JS + "\n</script>\n"
         + "</body>\n</html>"
@@ -1192,7 +1201,7 @@ def _build_camps_page(base_url: str) -> str:
 
 def _build_seekers_page(base_url: str) -> str:
     feedback_url = _community_feedback_url()
-    opt_out_note = _opt_out_note()
+    footer_html = _page_footer_html(feedback_url=feedback_url)
     nav = _nav_html("seekers")
     analytics_tags = _google_analytics_tags()
     meta_tags = _page_meta_tags(
@@ -1214,7 +1223,7 @@ def _build_seekers_page(base_url: str) -> str:
         + '<main class="page-wrap">\n'
         + '  <div class="page-header"><h1>Builders &amp; seekers</h1>'
         + '<p class="sub">People looking for their camp or project this season.</p></div>\n'
-        + _SEEKERS_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url).replace("__OPT_OUT_NOTE__", opt_out_note)
+        + _SEEKERS_BODY.replace("__PAGE_FOOTER__", footer_html)
         + "</main>\n"
         + "<script>\n" + _TAXONOMY_JS + _SEEKERS_JS + "\n</script>\n"
         + "</body>\n</html>"
@@ -1223,7 +1232,7 @@ def _build_seekers_page(base_url: str) -> str:
 
 def _build_gear_page(base_url: str) -> str:
     feedback_url = _community_feedback_url()
-    opt_out_note = _opt_out_note()
+    footer_html = _page_footer_html(feedback_url=feedback_url)
     nav = _nav_html("gear")
     analytics_tags = _google_analytics_tags()
     meta_tags = _page_meta_tags(
@@ -1245,7 +1254,7 @@ def _build_gear_page(base_url: str) -> str:
         + '<main class="page-wrap">\n'
         + '  <div class="page-header"><h1>Gear exchange</h1>'
         + "<p class=\"sub\">Gear, structures, and equipment \u2014 what the community needs and what\u2019s available.</p></div>\n"
-        + _GEAR_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url).replace("__OPT_OUT_NOTE__", opt_out_note)
+        + _GEAR_BODY.replace("__PAGE_FOOTER__", footer_html)
         + "</main>\n"
         + "<script>\n" + _TAXONOMY_JS + _GEAR_JS + "\n</script>\n"
         + "</body>\n</html>"
@@ -2496,6 +2505,7 @@ async def _build_discovery_payload(
     tab_value = tab if tab in allowed_tabs else "mentorship_camps"
 
     stmt = select(Post)
+    is_infra_tab = tab_value in ("infra_seeking", "infra_offering")
     if tab_value == "mentorship_camps":
         stmt = stmt.where(
             Post.status == PostStatus.INDEXED,
@@ -2508,22 +2518,27 @@ async def _build_discovery_payload(
             Post.role == PostRole.SEEKER,
             or_(Post.post_type == PostType.MENTORSHIP, Post.post_type.is_(None)),
         )
-    elif tab_value == "infra_seeking":
+    else:  # infra_seeking or infra_offering — no infra_role filter; infer in Python
         stmt = stmt.where(
             Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}),
             Post.post_type == PostType.INFRASTRUCTURE,
-            Post.infra_role == InfraRole.SEEKING,
-        )
-    else:  # infra_offering
-        stmt = stmt.where(
-            Post.status.in_({PostStatus.INDEXED, PostStatus.NEEDS_REVIEW}),
-            Post.post_type == PostType.INFRASTRUCTURE,
-            Post.infra_role == InfraRole.OFFERING,
         )
     occurred_at_expr = func.coalesce(Post.source_created_at, Post.detected_at)
-    stmt = stmt.order_by(occurred_at_expr.desc(), Post.detected_at.desc()).limit(limit)
+    # Fetch extra rows for infra tabs so Python-side role inference still yields `limit` results
+    fetch_limit = limit * 4 if is_infra_tab else limit
+    stmt = stmt.order_by(occurred_at_expr.desc(), Post.detected_at.desc()).limit(fetch_limit)
 
-    posts = (await session.exec(stmt)).all()
+    all_posts = (await session.exec(stmt)).all()
+
+    # For infra tabs, filter by inferred role (covers posts where infra_role is NULL)
+    if is_infra_tab:
+        target_role = InfraRole.SEEKING if tab_value == "infra_seeking" else InfraRole.OFFERING
+        posts = [
+            p for p in all_posts
+            if _infer_infra_role(p.post_type, p.infra_role, p.title, p.raw_text) == target_role
+        ][:limit]
+    else:
+        posts = list(all_posts)
 
     now = datetime.now(UTC)
     items: list[dict[str, Any]] = []
