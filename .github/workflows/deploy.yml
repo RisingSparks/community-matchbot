@@ -21,7 +21,6 @@ jobs:
     env:
       DEPLOY_PATH: /home/${{ secrets.DEPLOY_USER }}/burning-man-matchbot
       COMMUNITY_FEEDBACK_EMAIL: ${{ vars.COMMUNITY_FEEDBACK_EMAIL }}
-      COMMUNITY_FEEDBACK_URL: ${{ vars.COMMUNITY_FEEDBACK_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
