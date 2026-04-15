@@ -128,6 +128,10 @@ Optional CTA config in `.env`:
 - `COMMUNITY_FEEDBACK_EMAIL=you@example.com` (uses `mailto:` feedback link)
 - `COMMUNITY_FEEDBACK_URL=/forms/` (fallback URL when email is blank)
 
+For production deploys, these can also be set as GitHub Actions environment variables on the
+`production` environment. The deploy workflow syncs them into the remote `.env` before
+restarting containers.
+
 ## CLI Overview
 
 Top-level command groups:
