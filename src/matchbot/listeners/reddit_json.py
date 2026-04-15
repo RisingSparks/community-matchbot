@@ -28,6 +28,7 @@ from matchbot.extraction.openai_extractor import OpenAIExtractor
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
 from matchbot.storage.raw_store import RawStore
+from matchbot.title_utils import build_source_title
 
 logger = logging.getLogger(__name__)
 
@@ -282,8 +283,8 @@ async def _ingest_reddit_json_item(
     # Persist the raw API payload before any transformation or truncation.
     _get_raw_store().save("reddit", datetime.now(UTC).date().isoformat(), post_id, data)
 
-    title = (data.get("title") or "")[:500]
     body = (data.get("selftext") or "")[:2000]
+    title = build_source_title(data.get("title") or "", body, max_len=500)
     kw_result = keyword_filter(title, body)
     if dry_run:
         return ("dryrun_matched" if kw_result.tier != "no_match" else "dryrun_skipped"), extractor

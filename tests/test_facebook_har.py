@@ -17,7 +17,7 @@ from matchbot.importers.facebook_har import (
     parse_facebook_post_fields,
     parse_har_file,
 )
-from matchbot.title_utils import build_post_title
+from matchbot.title_utils import build_post_title, build_source_title
 from scripts.backfill_facebook import (
     _build_group_batches,
     _clean_group_title,
@@ -205,6 +205,10 @@ def test_parse_facebook_post_fields_filters_member_welcome_noise():
 def test_build_post_title_prefers_first_non_empty_line():
     raw_text = "\n\nHERE is looking for campers\nWe are a small camp with openings"
     assert build_post_title(raw_text) == "HERE is looking for campers"
+
+
+def test_build_source_title_prefers_explicit_source_title():
+    assert build_source_title("Looking for campmates", "Body first line") == "Looking for campmates"
 
 
 def test_parse_har_file(tmp_path):

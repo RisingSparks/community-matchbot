@@ -21,7 +21,7 @@ from matchbot.extraction.openai_extractor import OpenAIExtractor
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
 from matchbot.storage.raw_store import RawStore
-from matchbot.title_utils import build_post_title
+from matchbot.title_utils import build_source_title
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +152,7 @@ async def _handle_feed_change(value: dict) -> None:
             author_display_name=sender_name,
             source_url=permalink,
             source_community=f"Facebook Group: {group_id}",
-            title=build_post_title(message),
+            title=build_source_title("", message),
             raw_text=message[:2000],
             status=PostStatus.RAW,
         )

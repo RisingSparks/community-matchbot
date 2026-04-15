@@ -9,7 +9,7 @@ import typer
 
 from matchbot.settings import get_settings
 from matchbot.storage.raw_store import RawStore
-from matchbot.title_utils import build_post_title
+from matchbot.title_utils import build_source_title
 
 app = typer.Typer(help="Raw data management commands.")
 logger = logging.getLogger(__name__)
@@ -77,8 +77,8 @@ async def _replay_one(platform: str, post_id: str, payload: dict) -> None:
             _build_source_url,
             _source_created_at_from_json,
         )
-        title = (payload.get("title") or "")[:500]
         raw_text = (payload.get("selftext") or "")[:2000]
+        title = build_source_title(payload.get("title") or "", raw_text, max_len=500)
         author_id = payload.get("author_fullname") or payload.get("author") or "unknown"
         author_display = payload.get("author") or author_id
         source_url = _build_source_url(payload.get("permalink") or payload.get("url") or "")
@@ -86,8 +86,8 @@ async def _replay_one(platform: str, post_id: str, payload: dict) -> None:
         source_created_at = _source_created_at_from_json(payload)
 
     elif platform == "discord":
-        title = (payload.get("content") or "")[:80]
         raw_text = (payload.get("content") or "")[:2000]
+        title = build_source_title("", raw_text)
         author_id = payload.get("author_id") or ""
         author_display = payload.get("author_display_name") or ""
         source_url = payload.get("jump_url") or ""
@@ -95,8 +95,8 @@ async def _replay_one(platform: str, post_id: str, payload: dict) -> None:
         source_created_at = None
 
     else:  # facebook
-        title = build_post_title(payload.get("message") or "")
         raw_text = (payload.get("message") or "")[:2000]
+        title = build_source_title("", raw_text)
         author_id = (payload.get("from") or {}).get("id") or ""
         author_display = (payload.get("from") or {}).get("name") or ""
         source_url = payload.get("permalink_url") or ""

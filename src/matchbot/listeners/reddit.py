@@ -21,6 +21,7 @@ from matchbot.listeners.reddit_json import _build_source_url
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
 from matchbot.storage.raw_store import RawStore
+from matchbot.title_utils import build_source_title
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +107,7 @@ async def _handle_submission(submission, session: AsyncSession) -> Post | None:
         author_display_name=str(submission.author) if submission.author else "unknown",
         source_url=_build_source_url(submission.permalink),
         source_community=submission.subreddit.display_name,
-        title=submission.title[:500],
+        title=build_source_title(submission.title or "", raw_text, max_len=500),
         raw_text=raw_text,
         source_created_at=_source_created_at_from_submission(submission),
         status=PostStatus.RAW,
