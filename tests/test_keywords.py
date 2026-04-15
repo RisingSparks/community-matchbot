@@ -153,6 +153,7 @@ class TestMentorshipFalsePositives:
         assert not (result.matched and result.tier == "hard_match"), (
             f"Unexpectedly hard-matched as mentorship seeker: reasons={result.reasons}"
         )
+        assert result.tier == "no_match"
 
     def test_session_contributor_post_only_soft_matches(self):
         result = keyword_filter(
@@ -166,3 +167,32 @@ class TestMentorshipFalsePositives:
         )
         assert result.matched is False
         assert result.tier == "soft_match"
+
+    def test_ticket_sales_discussion_post_is_no_match(self):
+        result = keyword_filter(
+            "Poor ticket sales this year..and other ramblings...",
+            (
+                "Camp lead here, 11 year burner. Really curious what people's thoughts are on "
+                "ticket sales this year so far (2026). We didn't use our Stewards sale "
+                "allocation this year by half, which is the first time in forever. Harbinger "
+                "of doom? Reflective of the shit economy? Reduced international travel? "
+                "Younger or newer burners not wanting to build/strike but just to party?\n\n"
+                "I know many of my campers are trying for Ticket Aid.\n"
+                "I also feel many Burners are waiting for aftermarket tickets resales this "
+                "year for a cheaper price.\n"
+                "I've always held the view that VP's are where the value are.\n"
+                "I know this is not just our camp experiencing this. Last year we had no "
+                "issues filling our roster."
+            ),
+        )
+        assert result.matched is False
+        assert result.tier == "no_match"
+        assert result.reasons == ("discussion_suppressor",)
+
+    def test_newer_burners_does_not_count_as_experience_signal(self):
+        result = keyword_filter(
+            "Camp growth discussion",
+            "Our camp is seeing newer burners show up, but this is just general discussion.",
+        )
+        assert result.matched is False
+        assert result.tier == "no_match"

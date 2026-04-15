@@ -159,15 +159,16 @@ def keyword_filter(title: str, body: str) -> KeywordResult:
             reasons=("camp_regex",),
         )
 
-    score, reasons = _score_mentorship_signals(text)
-    if score >= 8:
+    if _any_match(text, _MENTORSHIP_DISCUSSION_SUPPRESSOR_PATTERNS):
         return KeywordResult(
-            matched=True,
+            matched=False,
             candidate_role=PostRole.UNKNOWN,
-            tier="hard_match",
-            score=score,
-            reasons=tuple(reasons),
+            tier="no_match",
+            score=0,
+            reasons=("discussion_suppressor",),
         )
+
+    score, reasons = _score_mentorship_signals(text)
     if score >= 3:
         return KeywordResult(
             matched=False,
@@ -228,7 +229,7 @@ _TARGET_OBJECT_PATTERNS: dict[str, list[str]] = {
     "experience": [
         r"\bfirst[\s.\-]?time[r]?\b",
         r"\bfirst\s+burn\b",
-        r"\bnew(?:bie|comer)?\b",
+        r"\bnew(?:bie|comer)\b",
         r"\bI\s+have\s+experience\b",
         r"\bI[' ]?ve\s+done\b",
         r"\bI\s+can\b",
@@ -264,6 +265,31 @@ _TARGET_OBJECT_PATTERNS: dict[str, list[str]] = {
 }
 
 
+_MENTORSHIP_DISCUSSION_SUPPRESSOR_PATTERNS = [
+    r"\bticket\s+aid\b",
+    r"\btickets?\b",
+    r"\bstewards?\s+sale\b",
+    r"\bvehicle\s+passes?\b",
+    r"\bvp'?s\b",
+    r"\bresales?\b",
+    r"\baftermarket\b",
+    r"\ballocation\b",
+    r"\broster\b",
+    r"\bfill(?:ing)?\s+our\s+roster\b",
+    r"\bcamp\s+lead\b",
+    r"\bcamp\s+logistics?\b",
+    r"\bcamp\s+operations?\b",
+    r"\battendance\s+trends?\b",
+    r"\bwhat\s+people'?s\s+thoughts?\s+are\b",
+    r"\bcurious\s+what\s+people\s+think\b",
+    r"\bcurious\s+the\s+dynamic\b",
+    r"\bramblings?\b",
+    r"\bharbinger\s+of\s+doom\b",
+    r"\bshit\s+economy\b",
+    r"\binternational\s+travel\b",
+]
+
+
 def _score_mentorship_signals(text: str) -> tuple[int, list[str]]:
     score = 0
     reasons: list[str] = []
@@ -272,7 +298,7 @@ def _score_mentorship_signals(text: str) -> tuple[int, list[str]]:
         text,
         _TARGET_OBJECT_PATTERNS["camp_object"],
         _TARGET_OBJECT_PATTERNS["join_verb"],
-        8,
+        12,
     ):
         score += 5
         reasons.append("object_join_proximity")
