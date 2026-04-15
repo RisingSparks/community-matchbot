@@ -677,6 +677,14 @@ _HOME_EXTRA_CSS = """
   .mobile-intake-banner__row { flex-direction: column; align-items: stretch; }
   .mobile-intake-banner__cta { width: 100%; }
 }
+.see-more-btn {
+  display: inline-block; padding: 10px 24px; background: transparent;
+  border: 1.5px solid var(--sun); color: var(--ink); border-radius: 999px;
+  font-family: "Oswald", "Anton", Impact, sans-serif; font-size: 14px;
+  font-weight: 500; cursor: pointer; text-decoration: none;
+  transition: background 0.15s, color 0.15s, transform 0.12s;
+}
+.see-more-btn:hover { background: var(--sun); color: #000; transform: translateY(-1px); }
 """
 
 _HOME_BODY = """
@@ -764,8 +772,11 @@ _HOME_BODY = """
     </section>
     <section class="recent-section">
       <div class="section-label">Recent Posts</div>
-      <div class="card-grid" id="recent-grid">
+      <div class="card-grid recent-posts-grid" id="recent-grid">
         <div class="loading-state">Loading\u2026</div>
+      </div>
+      <div id="recent-more-container" style="display:none; margin-top:16px; text-align:center;">
+        <button id="recent-more-btn" class="see-more-btn">See more recent posts \u2192</button>
       </div>
     </section>
     <div class="page-cta">
@@ -777,6 +788,39 @@ _HOME_BODY = """
 """
 
 _HOME_JS = """
+let allRecent = [];
+
+function renderRecent(limit = null) {
+  const grid = document.getElementById('recent-grid');
+  const items = limit ? allRecent.slice(0, limit) : allRecent;
+  grid.innerHTML = items.map(({item, type}) => {
+    const title = type === 'camp'
+      ? esc(item.name || item.title || 'Camp or Project')
+      : esc(item.title || (item.contributions && item.contributions.length ? humanLabel(CONTRIB_LABELS, item.contributions[0]) : 'Seeker'));
+    return renderListingCard({
+      mode: 'compact',
+      title,
+      snippet: item.snippet,
+      platform: item.platform,
+      occurredAt: item.occurred_at,
+      detectedAt: item.detected_at,
+      sourceUrl: item.source_url,
+      tagHtml: '<div class="tag-row">' + vibeTags(item.vibes, 2) + contribTags(item.contributions, 2) + '</div>',
+    });
+  }).join('');
+  
+  const container = document.getElementById('recent-more-container');
+  if (limit && allRecent.length > limit) {
+    container.style.display = 'block';
+  } else {
+    container.style.display = 'none';
+  }
+}
+
+document.getElementById('recent-more-btn').addEventListener('click', () => {
+  renderRecent(null);
+});
+
 async function loadHome() {
   try {
     const [mRes, lRes] = await Promise.all([
@@ -824,30 +868,17 @@ async function loadHome() {
         + '</div>'
       + '</div>'
     ].join('');
-    const recent = [
-      ...(listings.camps || []).slice(0, 2).map(c => ({item: c, type: 'camp'})),
-      ...(listings.seekers || []).slice(0, 2).map(s => ({item: s, type: 'seeker'})),
-    ].slice(0, 4);
-    const grid = document.getElementById('recent-grid');
-    if (!recent.length) {
-      grid.innerHTML = emptyState('Nothing recent yet', 'Check back soon \u2014 or submit a post to join the pool.');
+    
+    allRecent = [
+      ...(listings.camps || []).map(c => ({item: c, type: 'camp'})),
+      ...(listings.seekers || []).map(s => ({item: s, type: 'seeker'})),
+    ].sort((a, b) => new Date(b.item.occurred_at) - new Date(a.item.occurred_at));
+
+    if (!allRecent.length) {
+      document.getElementById('recent-grid').innerHTML = emptyState('Nothing recent yet', 'Check back soon \u2014 or submit a post to join the pool.');
       return;
     }
-    grid.innerHTML = recent.map(({item, type}) => {
-      const title = type === 'camp'
-        ? esc(item.name || item.title || 'Camp or Project')
-        : esc(item.title || (item.contributions && item.contributions.length ? humanLabel(CONTRIB_LABELS, item.contributions[0]) : 'Seeker'));
-      return renderListingCard({
-        mode: 'compact',
-        title,
-        snippet: item.snippet,
-        platform: item.platform,
-        occurredAt: item.occurred_at,
-        detectedAt: item.detected_at,
-        sourceUrl: item.source_url,
-        tagHtml: '<div class="tag-row">' + vibeTags(item.vibes, 2) + contribTags(item.contributions, 2) + '</div>',
-      });
-    }).join('');
+    renderRecent(4);
   } catch(e) {
     document.getElementById('recent-grid').innerHTML = '<p style="color:#6a6264;padding:24px">Could not load listings.</p>';
   }
