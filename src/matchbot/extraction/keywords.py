@@ -88,10 +88,10 @@ _INFRA_OFFERING_PATTERNS = [
 # ---------------------------------------------------------------------------
 
 _NOISE_PATTERNS = [
-    r"let'?s\s+welcome\s+our\s+new\s+members",
-    r"welcome\s+our\s+new(?:est)?\s+members",
-    r"please\s+welcome\s+our\s+new\s+members",
-    r"welcome\s+to\s+the\s+group",
+    r"\blet'?s\s+welcome\s+our\s+new\s+members\b",
+    r"\bwelcome\s+our\s+new(?:est)?\s+members\b",
+    r"\bplease\s+welcome\s+our\s+new\s+members\b",
+    r"\bwelcome\s+to\s+the\s+group\b",
 ]
 
 
