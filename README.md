@@ -93,17 +93,23 @@ uv run python scripts/backfill_reddit_json.py --since-date 2026-01-01 --dry-run
 
 Backfill historical Facebook group posts from a HAR export or the bundled Chrome extension capture:
 
-```bash
-uv run python scripts/backfill_facebook.py ./fb_posts.json \
-  --dry-run
+1. **Capture**: Use the Chrome extension in `extensions/fb-group-collector/` (Load Unpacked in Developer Mode) to capture GraphQL responses while scrolling the group, or export a HAR file from DevTools.
+2. **Upload**: Run the backfill script on the captured file.
 
-uv run python scripts/backfill_facebook.py ./fb_posts.json \
-  --no-extract
+```bash
+# Dry run to verify parsing and deduplication
+uv run python scripts/backfill_facebook.py ./fb_posts.json --dry-run
+
+# Real upload (without AI extraction for speed)
+uv run python scripts/backfill_facebook.py ./fb_posts.json --no-extract
+
+# Real upload with AI extraction
+uv run python scripts/backfill_facebook.py ./fb_posts.json --group-name "My Group"
 ```
 
 Pass `--group-name` and `--group-id` only if you need to override missing or incorrect metadata.
 
-See `docs/PLATFORM_SETUP.md` for the step-by-step Facebook backfill workflow.
+See `docs/PLATFORM_SETUP.md` for the detailed step-by-step Facebook backfill workflow.
 
 Enable verbose logs with either:
 

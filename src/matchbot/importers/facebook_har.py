@@ -19,6 +19,7 @@ from matchbot.db.engine import dispose_engine, get_session, is_disconnect_error
 from matchbot.db.models import Platform, Post, PostStatus
 from matchbot.extraction import process_post
 from matchbot.extraction.anthropic_extractor import AnthropicExtractor
+from matchbot.extraction.keywords import is_noise_post
 from matchbot.extraction.openai_extractor import OpenAIExtractor
 from matchbot.settings import get_settings
 from matchbot.title_utils import build_source_title
@@ -34,18 +35,6 @@ _COMMENT_NODE_KEYS = {
     "community_comment_signal_renderer",
     "group_comment_info",
 }
-_NOISE_PATTERNS = (
-    "let's welcome our new members",
-    "lets welcome our new members",
-    "welcome our new members",
-    "welcome our newest members",
-    "please welcome our new members",
-)
-
-
-def _looks_like_noise_post(text: str) -> bool:
-    normalized = " ".join(text.lower().split())
-    return any(pattern in normalized for pattern in _NOISE_PATTERNS)
 
 
 def _extract_story_message_text(node: dict) -> str:
@@ -195,7 +184,7 @@ def parse_facebook_post_fields(node: dict) -> dict | None:
     if not raw_text:
         return None
 
-    if _looks_like_noise_post(raw_text):
+    if is_noise_post("", raw_text):
         return None
 
     # ID extraction

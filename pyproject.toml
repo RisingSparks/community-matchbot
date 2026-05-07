@@ -45,6 +45,7 @@ dev = [
     "respx>=0.21.0",
     "ruff>=0.15.1",
     "types-pyyaml>=6.0.12",
+    "isort",
 ]
 
 [project.scripts]

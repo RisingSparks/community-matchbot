@@ -1,0 +1,6 @@
+{
+
+  "isort.importStrategy": "fromEnvironment",
+  "isort.interpreter": ["/Users/peter/github/burning-man-matchbot/.venv/bin/python"]
+
+}

@@ -17,6 +17,7 @@ from matchbot.db.engine import get_session
 from matchbot.db.models import OptOut, Platform, Post, PostStatus
 from matchbot.extraction import process_post
 from matchbot.extraction.anthropic_extractor import AnthropicExtractor
+from matchbot.extraction.keywords import is_noise_post
 from matchbot.extraction.openai_extractor import OpenAIExtractor
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
@@ -120,6 +121,10 @@ async def _handle_feed_change(value: dict) -> None:
     sender_name = sender.get("name", "")
 
     if not message:
+        return
+
+    if is_noise_post("", message):
+        logger.info("Ignoring Facebook noise post from group %s", group_id)
         return
 
     async with get_session() as session:

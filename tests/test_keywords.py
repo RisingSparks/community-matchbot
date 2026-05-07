@@ -122,6 +122,26 @@ class TestNoMatch:
         assert result.matched is False
 
 
+class TestNoiseSuppression:
+    def test_welcome_new_members(self):
+        result = keyword_filter("Let's welcome our new members!", "")
+        assert result.matched is False
+        assert result.tier == "no_match"
+        assert result.reasons == ("noise_suppression",)
+
+    def test_welcome_our_newest_members(self):
+        result = keyword_filter("", "Welcome our newest members to the group!")
+        assert result.matched is False
+        assert result.tier == "no_match"
+        assert result.reasons == ("noise_suppression",)
+
+    def test_welcome_to_the_group_noise(self):
+        result = keyword_filter("Welcome to the group", "Glad to have you here")
+        assert result.matched is False
+        assert result.tier == "no_match"
+        assert result.reasons == ("noise_suppression",)
+
+
 class TestAmbiguousRole:
     def test_both_patterns_returns_unknown(self):
         result = keyword_filter(

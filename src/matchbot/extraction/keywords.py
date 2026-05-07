@@ -83,6 +83,25 @@ _INFRA_OFFERING_PATTERNS = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Noise / Suppression patterns
+# ---------------------------------------------------------------------------
+
+_NOISE_PATTERNS = [
+    r"let'?s\s+welcome\s+our\s+new\s+members",
+    r"welcome\s+our\s+new(?:est)?\s+members",
+    r"please\s+welcome\s+our\s+new\s+members",
+    r"welcome\s+to\s+the\s+group",
+]
+
+
+def is_noise_post(title: str, body: str) -> bool:
+    """Return True if the post looks like an automated 'Welcome new members' or similar noise."""
+    text = f"{title}\n{body}".lower()
+    normalized = " ".join(text.split())
+    return _any_match(normalized, _NOISE_PATTERNS)
+
+
 @dataclass
 class KeywordResult:
     matched: bool
@@ -104,6 +123,15 @@ def keyword_filter(title: str, body: str) -> KeywordResult:
     - For mentorship: candidate_role is always unknown; the LLM owns seeker/camp classification
     - For infrastructure: infra_role seeking | offering
     """
+    if is_noise_post(title, body):
+        return KeywordResult(
+            matched=False,
+            candidate_role=PostRole.UNKNOWN,
+            tier="no_match",
+            score=0,
+            reasons=("noise_suppression",),
+        )
+
     text = f"{title}\n{body}".lower()
 
     # Check infrastructure patterns first (more specific)
