@@ -217,7 +217,7 @@ This is the preferred approach because it does not synthesize scrolls or clicks.
 4. Import the capture:
 
 ```bash
-uv run python scripts/backfill_facebook.py ~/Downloads/burning-man-matchbot/data/raw/facebook/fb_posts_2026-03-22.json \
+uv run python scripts/backfill_facebook.py ~/Downloads/burning-man-matchbot/data/raw/facebook/*.json \
   --dry-run
 ```
 
@@ -226,7 +226,7 @@ The importer copies external capture files into `data/raw/facebook/` inside the 
 If the dry run looks right, import for real:
 
 ```bash
-uv run python scripts/backfill_facebook.py ~/Downloads/burning-man-matchbot/data/raw/facebook/fb_posts_2026-03-22.json \
+uv run python scripts/backfill_facebook.py ~/Downloads/burning-man-matchbot/data/raw/facebook/*.json \
   --no-extract
 ```
 
@@ -235,7 +235,7 @@ Use `--no-extract` if you want to ingest the raw posts first and run extraction 
 Useful options:
 
 ```bash
-uv run python scripts/backfill_facebook.py ~/Downloads/burning-man-matchbot/data/raw/facebook/fb_posts_2026-03-22.json \
+uv run python scripts/backfill_facebook.py ~/Downloads/burning-man-matchbot/data/raw/facebook/*.json \
   --since-date 2026-01-01 \
   --sleep-seconds 0.5
 ```
