@@ -561,7 +561,7 @@ _SEEKER_FORM_HTML = f"""<!DOCTYPE html>
     </div>
 
     <div class="form-card">
-      <div class="form-section-label">Logistics</div>
+      <div class="form-section-label">Admin & Timing</div>
 
       <div class="field-row">
         <div class="field">
@@ -647,13 +647,13 @@ _CAMP_FORM_HTML = f"""<!DOCTYPE html>
 
       <div class="field">
         <label>Who are you looking for?</label>
-        <input type="text" name="contributions" placeholder="build, art, kitchen, sound, logistics&#8230;">
+        <input type="text" name="contributions" placeholder="build, art, kitchen, sound, camp admin&#8230;">
         <div class="hint">Roles, skills, or types of contribution you need — or are open to mentoring.</div>
       </div>
     </div>
 
     <div class="form-card">
-      <div class="form-section-label">Logistics</div>
+      <div class="form-section-label">Admin & Timing</div>
 
       <div class="field-row">
         <div class="field">
@@ -848,7 +848,7 @@ async def seeker_form(request: Request) -> str:
         title="Find a Camp or Art Project | Rising Sparks",
         description=(
             "Share your skills, interests, and availability to find aligned camps or art "
-            "projects through MatchBot's human-reviewed discovery flow."
+            "projects through Rising Sparks' human-reviewed discovery flow."
         ),
         path="/forms/seeker",
         base_url=str(request.base_url),
@@ -878,7 +878,7 @@ async def infra_form(request: Request) -> str:
         title="Share Infrastructure Needs or Offers | Rising Sparks",
         description=(
             "Post infrastructure needs or offers for shade, power, transport, tools, kitchen, "
-            "and other camp logistics through MatchBot."
+            "and other camp logistics needs through MatchBot."
         ),
         path="/forms/infra",
         base_url=str(request.base_url),

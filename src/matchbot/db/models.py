@@ -57,7 +57,7 @@ class Platform:
 
 class PostType:
     MENTORSHIP = "mentorship"      # camp-finding / seeker matching
-    INFRASTRUCTURE = "infrastructure"  # gear / logistics exchange ("Bitch n Swap")
+    INFRASTRUCTURE = "infrastructure"  # gear / camp_admin exchange ("Bitch n Swap")
 
 
 class InfraRole:

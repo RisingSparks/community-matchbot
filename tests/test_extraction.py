@@ -10,8 +10,10 @@ from sqlmodel import select
 
 from matchbot.db.models import Platform, Post, PostRole, PostStatus, Profile
 from matchbot.extraction import process_post
+from matchbot.extraction.keywords import keyword_filter
 from matchbot.extraction.prompts import SYSTEM_PROMPT
 from matchbot.extraction.schemas import ExtractedPost
+from matchbot.taxonomy import normalize_contribution_types
 
 # ---------------------------------------------------------------------------
 # ExtractedPost schema validation
@@ -65,6 +67,21 @@ class TestExtractedPostSchema:
     def test_display_title_is_trimmed_and_normalized(self):
         ep = ExtractedPost(display_title="  Looking   for   campers   in 2026  ")
         assert ep.display_title == "Looking for campers in 2026"
+
+
+class TestTaxonomyCompatibility:
+    def test_legacy_contribution_labels_normalize_to_camp_admin(self):
+        assert normalize_contribution_types(["admin", "logistics", "camp_admin"]) == [
+            "camp_admin"
+        ]
+
+    def test_camp_logistics_is_still_suppressed(self):
+        result = keyword_filter(
+            "Camp logistics and roster planning",
+            "We need someone to organize the camp logistics for our crew.",
+        )
+        assert result.tier == "no_match"
+        assert "discussion_suppressor" in result.reasons
 
 
 # ---------------------------------------------------------------------------
@@ -126,7 +143,10 @@ async def test_process_post_uses_llm_role_for_camp_recruiting_post(db_session, m
         platform_post_id="camp001",
         platform_author_id="fearless_dp",
         author_display_name="fearless_dp",
-        title="Looking for people to wear lab coats and make strangers fill out fake paperwork in the desert",
+        title=(
+            "Looking for people to wear lab coats and make strangers fill out fake "
+            "paperwork in the desert"
+        ),
         raw_text=(
             "Something is being built in garages around the Bay Area. "
             "The Cognitive Research Institute is a new interactive camp coming to Black Rock City "
@@ -460,7 +480,9 @@ async def test_process_post_allows_debaucherous_vibe_as_canonical_taxonomy(
 
 
 @pytest.mark.asyncio
-async def test_process_post_preserves_unknown_role_when_llm_returns_unknown(db_session, mock_extractor):
+async def test_process_post_preserves_unknown_role_when_llm_returns_unknown(
+    db_session, mock_extractor
+):
     post = Post(
         platform=Platform.REDDIT,
         platform_post_id="role001",

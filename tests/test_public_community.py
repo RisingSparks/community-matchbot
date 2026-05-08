@@ -851,7 +851,7 @@ def test_community_order_book_for_skills_and_vibes(monkeypatch, tmp_path) -> Non
                         status=PostStatus.INDEXED,
                         infra_role="seeking",
                         infra_categories="power",
-                        contribution_types="logistics",
+                        contribution_types="camp_admin",
                         vibes="party",
                         detected_at=now - timedelta(hours=8),
                     ),

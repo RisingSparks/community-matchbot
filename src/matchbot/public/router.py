@@ -375,7 +375,7 @@ const VIBE_LABELS = {
 const CONTRIB_LABELS = {
   build:'Build', art:'Art', art_support:'Art Support', fabrication:'Fabrication',
   kitchen_food:'Kitchen & Food', medic:'Medical', sound:'Sound & Audio',
-  lighting:'Lighting', tech:'Tech', logistics:'Logistics', greeter:'Greeters',
+  lighting:'Lighting', tech:'Tech', camp_admin:'Camp Admin', greeter:'Greeters',
   ranger:'Rangers', fire:'Fire Safety', photography:'Photography',
   video:'Video', performance:'Performance', decor:'Decor'
 };
@@ -853,17 +853,17 @@ async function loadHome() {
       + '</div>',
       '<div class="snapshot-group">'
         + '<h2>Infrastructure Exchange</h2>'
-        + '<p>Gear, logistics, and support posts that are active in the pool.</p>'
+        + '<p>Gear, camp admin, and support posts that are active in the pool.</p>'
         + '<div class="snapshot-grid">'
           + '<a href="/community/gear?view=needs#need-panel" class="snapshot-card snapshot-link" aria-label="Browse infrastructure needs">'
             + '<span class="snapshot-lbl">Infra Needs</span>'
             + '<span class="snapshot-num">' + fmt(m.active_infra_seeking) + '</span>'
-            + '<p class="snapshot-desc">Indexed or reviewable posts seeking gear, logistics, or support</p>'
+            + '<p class="snapshot-desc">Indexed or reviewable posts seeking gear, camp admin, or support</p>'
           + '</a>'
           + '<a href="/community/gear?view=offers#offer-panel" class="snapshot-card snapshot-link" aria-label="Browse infrastructure offers">'
             + '<span class="snapshot-lbl">Infra Offers</span>'
             + '<span class="snapshot-num">' + fmt(m.active_infra_offering) + '</span>'
-            + '<p class="snapshot-desc">Indexed or reviewable posts offering gear, logistics, or support</p>'
+            + '<p class="snapshot-desc">Indexed or reviewable posts offering gear, camp admin, or support</p>'
           + '</a>'
         + '</div>'
       + '</div>'
@@ -1053,7 +1053,7 @@ _GEAR_BODY = """
       <div class="gear-panel-head">
         <div class="section-label">Infra Needs</div>
         <h2>What people need</h2>
-        <p>Camps and crews looking for gear, structures, or logistics support.</p>
+        <p>Camps and crews looking for gear, structures, or camp admin support.</p>
       </div>
       <div class="filter-row" id="need-filters" role="group" aria-label="Filter gear needs by category"></div>
       <div id="need-grid"><div class="loading-state">Loading needs\u2026</div></div>
@@ -2273,17 +2273,17 @@ _COMMUNITY_HTML = """
         ),
         poolGroup(
           "Infrastructure Exchange",
-          "Gear, logistics, and support signals that are active in the pool.",
+          "Gear, camp admin, and support signals that are active in the pool.",
           [
             poolMetric(
               "Infra Needs",
               infraSeeking,
-              "Indexed or reviewable posts seeking gear, logistics, or support"
+              "Indexed or reviewable posts seeking gear, camp admin, or support"
             ),
             poolMetric(
               "Infra Offers",
               infraOffering,
-              "Indexed or reviewable posts offering gear, logistics, or support"
+              "Indexed or reviewable posts offering gear, camp admin, or support"
             ),
           ]
         ),
