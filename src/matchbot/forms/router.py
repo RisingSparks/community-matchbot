@@ -647,7 +647,7 @@ _CAMP_FORM_HTML = f"""<!DOCTYPE html>
 
       <div class="field">
         <label>Who are you looking for?</label>
-        <input type="text" name="contributions" placeholder="build, art, kitchen, sound, camp_admin&#8230;">
+        <input type="text" name="contributions" placeholder="build, art, kitchen, sound, camp admin&#8230;">
         <div class="hint">Roles, skills, or types of contribution you need — or are open to mentoring.</div>
       </div>
     </div>
@@ -878,7 +878,7 @@ async def infra_form(request: Request) -> str:
         title="Share Infrastructure Needs or Offers | Rising Sparks",
         description=(
             "Post infrastructure needs or offers for shade, power, transport, tools, kitchen, "
-            "and other camp admin needs through MatchBot."
+            "and other camp logistics needs through MatchBot."
         ),
         path="/forms/infra",
         base_url=str(request.base_url),

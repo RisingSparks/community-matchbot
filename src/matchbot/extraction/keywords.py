@@ -105,10 +105,10 @@ def is_noise_post(title: str, body: str) -> bool:
 @dataclass
 class KeywordResult:
     matched: bool
-    candidate_role: str          # PostRole value (kept for compatibility; mentorship defaults unknown)
+    candidate_role: str  # PostRole value (kept for compatibility; mentorship defaults unknown)
     post_type: str = PostType.MENTORSHIP  # mentorship | infrastructure
-    infra_role: str | None = None         # seeking | offering (infra path only)
-    tier: str = "no_match"                # hard_match | soft_match | no_match
+    infra_role: str | None = None  # seeking | offering (infra path only)
+    tier: str = "no_match"  # hard_match | soft_match | no_match
     score: int = 0
     reasons: tuple[str, ...] = ()
 
@@ -305,6 +305,7 @@ _MENTORSHIP_DISCUSSION_SUPPRESSOR_PATTERNS = [
     r"\broster\b",
     r"\bfill(?:ing)?\s+our\s+roster\b",
     r"\bcamp\s+lead\b",
+    r"\bcamp\s+logistics?\b",
     r"\bcamp\s+admins?\b",
     r"\bcamp\s+operations?\b",
     r"\battendance\s+trends?\b",

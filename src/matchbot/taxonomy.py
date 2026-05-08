@@ -21,8 +21,19 @@ INFRASTRUCTURE_CONDITIONS: frozenset[str] = frozenset(
     _taxonomy.get("infrastructure_conditions", [])
 )
 
+# Preserve compatibility with historical labels that were renamed in taxonomy.yaml.
+CONTRIBUTION_TYPE_ALIASES: dict[str, str] = {
+    "admin": "camp_admin",
+    "logistics": "camp_admin",
+}
 
-def _canonicalize_terms(raw: list[str], allowed: frozenset[str]) -> tuple[list[str], list[str]]:
+
+def _canonicalize_terms(
+    raw: list[str],
+    allowed: frozenset[str],
+    *,
+    aliases: dict[str, str] | None = None,
+) -> tuple[list[str], list[str]]:
     canonical: list[str] = []
     other: list[str] = []
     seen_canonical: set[str] = set()
@@ -32,6 +43,8 @@ def _canonicalize_terms(raw: list[str], allowed: frozenset[str]) -> tuple[list[s
         cleaned = value.strip().lower()
         if not cleaned:
             continue
+        if aliases is not None:
+            cleaned = aliases.get(cleaned, cleaned)
         if cleaned in allowed:
             if cleaned not in seen_canonical:
                 canonical.append(cleaned)
@@ -56,13 +69,13 @@ def split_vibes(raw: list[str]) -> tuple[list[str], list[str]]:
 
 def normalize_contribution_types(raw: list[str]) -> list[str]:
     """Return only taxonomy-valid contribution type values, lowercased."""
-    canonical, _ = _canonicalize_terms(raw, CONTRIBUTION_TYPES)
+    canonical, _ = _canonicalize_terms(raw, CONTRIBUTION_TYPES, aliases=CONTRIBUTION_TYPE_ALIASES)
     return canonical
 
 
 def split_contribution_types(raw: list[str]) -> tuple[list[str], list[str]]:
     """Return (canonical_values, unmapped_values) for contribution labels."""
-    return _canonicalize_terms(raw, CONTRIBUTION_TYPES)
+    return _canonicalize_terms(raw, CONTRIBUTION_TYPES, aliases=CONTRIBUTION_TYPE_ALIASES)
 
 
 def normalize_infra_categories(raw: list[str]) -> list[str]:
