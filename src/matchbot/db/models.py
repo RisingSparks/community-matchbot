@@ -129,6 +129,12 @@ class Post(SQLModel, table=True):
     status: str = Field(default=PostStatus.RAW, index=True)
     expires_at: datetime | None = Field(default=None)
     opted_out: bool = Field(default=False)
+    skipped_reason: str | None = Field(default=None)
+
+    # Deduplication
+    content_hash: str | None = Field(default=None, index=True)
+    minhash_sigs: str | None = Field(default=None)  # Serialized MinHash signature
+    parent_post_id: str | None = Field(default=None, foreign_key="post.id", index=True)
 
     # Extraction results
     role: str | None = Field(default=None)
