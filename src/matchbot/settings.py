@@ -69,6 +69,10 @@ class Settings(BaseSettings):
         description="Database backend to use: 'sqlite' or 'neon'.",
     )
     db_path: str = Field(default="matchbot.db")
+    log_file: str = Field(
+        default="data/logs/matchbot.log",
+        description="Path to persistent log file.",
+    )
     neon_database_url: str = Field(
         default="",
         description=(

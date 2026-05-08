@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import warnings
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 from matchbot.settings import get_settings
 
@@ -41,12 +43,31 @@ def configure_logging(verbose: bool | None = None) -> bool:
 
     Returns the effective verbose mode.
     """
+    settings = get_settings()
     if verbose is None:
-        verbose = get_settings().verbose
+        verbose = settings.verbose
 
     # Keep root at INFO so third-party DEBUG output stays quiet.
     logging.basicConfig(level=logging.INFO, format=_LOG_FORMAT, force=True)
     logging.captureWarnings(True)
+
+    root_logger = logging.getLogger()
+
+    # Add rotating file handler
+    log_path = Path(settings.log_file)
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = RotatingFileHandler(
+            log_path,
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=5,
+            encoding="utf-8",
+        )
+        file_handler.setFormatter(logging.Formatter(_LOG_FORMAT))
+        root_logger.addHandler(file_handler)
+    except Exception as e:
+        # Fallback if file logging fails (e.g. permission issues)
+        logging.getLogger(_APP_LOGGER).error("Failed to setup file logging: %s", e)
 
     app_logger = logging.getLogger(_APP_LOGGER)
     app_logger.setLevel(logging.DEBUG if verbose else logging.INFO)

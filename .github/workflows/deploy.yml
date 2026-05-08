@@ -109,10 +109,10 @@ jobs:
               echo "No container found for matchbot service"
               exit 1
             fi
-            echo "Waiting for container to become healthy (up to 3 min)..."
-            for i in $(seq 1 36); do
+            echo "Waiting for container to become healthy (up to 1 min)..."
+            for i in $(seq 1 12); do
               STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$CONTAINER_ID" 2>/dev/null || echo "unknown")
-              echo "  [$i/36] $STATUS"
+              echo "  [$i/12] $STATUS"
               if [ "$STATUS" = "healthy" ]; then
                 echo "Container healthy after $((i * 5))s"
                 exit 0

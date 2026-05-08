@@ -197,3 +197,5 @@ gha-creds-*.json
 # Raw scraped platform data — opt in to commit by removing these lines
 data/raw/*
 !data/raw/.gitkeep
+data/logs/*
+!data/logs/.gitkeep
