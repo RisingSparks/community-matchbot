@@ -20,6 +20,7 @@ from matchbot.db.engine import dispose_engine
 from matchbot.db.migrations import upgrade_db_to_head
 from matchbot.listeners.discord_bot import run_discord_bot
 from matchbot.listeners.reddit import run_reddit_inbox_listener, run_reddit_listener
+from matchbot.listeners.supervisor import run_forever
 from matchbot.log_config import configure_logging
 from matchbot.server import create_app
 from matchbot.settings import get_settings
@@ -48,25 +49,46 @@ async def main() -> None:
 
     logger.info("Starting all listeners…")
 
+    listener_tasks: list[asyncio.Task[None]] = []
     try:
-        async with asyncio.TaskGroup() as tg:
-            if not settings.reddit_enabled:
-                logger.info("Reddit disabled (REDDIT_ENABLED=false) — skipping Reddit listeners.")
-            elif not settings.reddit_configured:
-                logger.info("Reddit credentials not set — skipping Reddit listeners.")
-            else:
-                tg.create_task(run_reddit_listener(), name="reddit-listener")
-                tg.create_task(run_reddit_inbox_listener(), name="reddit-inbox-listener")
+        server_task = asyncio.create_task(server.serve(), name="facebook-webhook")
 
-            if not settings.discord_enabled:
-                logger.info("Discord disabled (DISCORD_ENABLED=false) — skipping Discord listener.")
-            elif not settings.discord_configured:
-                logger.info("Discord credentials not set — skipping Discord listener.")
-            else:
-                tg.create_task(run_discord_bot(), name="discord-bot")
+        if not settings.reddit_enabled:
+            logger.info("Reddit disabled (REDDIT_ENABLED=false) — skipping Reddit listeners.")
+        elif not settings.reddit_configured:
+            logger.info("Reddit credentials not set — skipping Reddit listeners.")
+        else:
+            listener_tasks.append(
+                asyncio.create_task(
+                    run_forever("reddit-listener", run_reddit_listener),
+                    name="reddit-listener",
+                )
+            )
+            listener_tasks.append(
+                asyncio.create_task(
+                    run_forever("reddit-inbox-listener", run_reddit_inbox_listener),
+                    name="reddit-inbox-listener",
+                )
+            )
 
-            tg.create_task(server.serve(), name="facebook-webhook")
+        if not settings.discord_enabled:
+            logger.info("Discord disabled (DISCORD_ENABLED=false) — skipping Discord listener.")
+        elif not settings.discord_configured:
+            logger.info("Discord credentials not set — skipping Discord listener.")
+        else:
+            listener_tasks.append(
+                asyncio.create_task(
+                    run_forever("discord-bot", run_discord_bot),
+                    name="discord-bot",
+                )
+            )
+
+        await server_task
     finally:
+        for task in listener_tasks:
+            task.cancel()
+        if listener_tasks:
+            await asyncio.gather(*listener_tasks, return_exceptions=True)
         await dispose_engine()
 
 
