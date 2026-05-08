@@ -233,6 +233,8 @@ def _post_to_dict(post: Post, age_hours: float | None = None) -> dict[str, Any]:
         "contact_method": post.contact_method,
         "extraction_confidence": post.extraction_confidence,
         "extraction_method": post.extraction_method,
+        "content_hash": post.content_hash,
+        "parent_post_id": post.parent_post_id,
         "post_type": post.post_type,
         "infra_role": post.infra_role,
         "infra_categories": post.infra_categories_list(),
@@ -370,8 +372,15 @@ async def get_post(
     if not post:
         raise HTTPException(404, "Post not found")
     events = (await session.exec(select(Event).where(Event.post_id == post_id))).all()
+    
+    # Fetch duplicates if this is a canonical post
+    duplicates = (
+        await session.exec(select(Post).where(Post.parent_post_id == post_id))
+    ).all()
+    
     d = _post_to_dict(post)
     d["events"] = [_event_to_dict(e) for e in events]
+    d["duplicates"] = [_post_to_dict(dup) for dup in duplicates]
     return d
 
 

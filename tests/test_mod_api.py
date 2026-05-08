@@ -220,6 +220,42 @@ async def test_post_detail_returns_events(mod_client, db_session):
     assert data["events"][0]["event_type"] == "test_event"
 
 
+async def test_post_detail_returns_duplicates(mod_client, db_session):
+    # Create canonical post
+    post1 = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="canonical_1",
+        platform_author_id="u1",
+        title="Canonical",
+        raw_text="Original text",
+        status=PostStatus.INDEXED,
+    )
+    db_session.add(post1)
+    await db_session.commit()
+    await db_session.refresh(post1)
+
+    # Create duplicate post
+    post2 = Post(
+        platform=Platform.FACEBOOK,
+        platform_post_id="duplicate_1",
+        platform_author_id="u2",
+        title="Duplicate",
+        raw_text="Original text",
+        status=PostStatus.SKIPPED,
+        parent_post_id=post1.id,
+    )
+    db_session.add(post2)
+    await db_session.commit()
+
+    resp = await mod_client.get(f"/api/mod/posts/{post1.id}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["id"] == post1.id
+    assert len(data["duplicates"]) == 1
+    assert data["duplicates"][0]["platform"] == Platform.FACEBOOK
+    assert data["duplicates"][0]["platform_post_id"] == "duplicate_1"
+
+
 # ---------------------------------------------------------------------------
 # Approve tests
 # ---------------------------------------------------------------------------

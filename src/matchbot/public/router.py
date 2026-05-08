@@ -90,6 +90,26 @@ def _page_meta_tags(*, title: str, description: str, path: str, base_url: str) -
     )
 
 
+async def _load_cross_platforms_map(
+    session: AsyncSession,
+    post_ids: list[str],
+) -> dict[str, list[str]]:
+    if not post_ids:
+        return {}
+
+    dups = (
+        await session.exec(
+            select(Post.parent_post_id, Post.platform).where(Post.parent_post_id.in_(post_ids))
+        )
+    ).all()
+    cross_platforms: dict[str, set[str]] = {}
+    for parent_post_id, platform in dups:
+        if parent_post_id is None:
+            continue
+        cross_platforms.setdefault(parent_post_id, set()).add(platform)
+    return {post_id: sorted(platforms) for post_id, platforms in cross_platforms.items()}
+
+
 async def _run_with_db_retry[T](
     operation_name: str,
     callback: Callable[[AsyncSession], Awaitable[T]],
@@ -408,10 +428,18 @@ function timeAgo(iso) {
   if (hours >= 1) return hours + 'h ago';
   return 'recently';
 }
-function platformBadge(p) {
+function platformBadge(p, others) {
   const labels = {reddit:'Reddit', discord:'Discord', facebook:'Facebook', manual:'Form'};
   const cls = ['reddit','discord','facebook','manual'].includes(p) ? p : 'manual';
-  return '<span class="platform-badge platform-badge--' + cls + '">' + esc(labels[p] || p) + '</span>';
+  let html = '<span class="platform-badge platform-badge--' + cls + '">' + esc(labels[p] || p) + '</span>';
+  
+  if (others && others.length) {
+    others.forEach(o => {
+       const oCls = ['reddit','discord','facebook','manual'].includes(o) ? o : 'manual';
+       html += '<span class="platform-badge platform-badge--' + oCls + '" style="margin-left:-8px; border:2px solid var(--brand-cream); opacity:0.8" title="Also posted on ' + esc(labels[o] || o) + '"></span>';
+    });
+  }
+  return html;
 }
 function vibeTags(vibes, max) {
   return (vibes || []).slice(0, max || 3).map(v =>
@@ -457,7 +485,7 @@ function renderListingCard(options) {
   const snippet = snippetBlock(options.snippet || '', options.mode || 'browse');
   return '<article class="listing-card ' + snippet.cardClass + '">'
     + '<div class="listing-card__meta">'
-    + platformBadge(options.platform)
+    + platformBadge(options.platform, options.crossPlatforms)
     + '<span class="card-age">' + timeAgo(options.occurredAt || options.detectedAt) + '</span>'
     + '</div>'
     + '<div class="listing-card__body">'
@@ -805,6 +833,7 @@ function renderRecent(limit = null) {
       occurredAt: item.occurred_at,
       detectedAt: item.detected_at,
       sourceUrl: item.source_url,
+      crossPlatforms: item.cross_platforms,
       tagHtml: '<div class="tag-row">' + vibeTags(item.vibes, 2) + contribTags(item.contributions, 2) + '</div>',
     });
   }).join('');
@@ -911,6 +940,7 @@ function buildCampCard(item) {
     occurredAt: item.occurred_at,
     detectedAt: item.detected_at,
     sourceUrl: item.source_url,
+    crossPlatforms: item.cross_platforms,
     tagHtml: '<div class="tag-row">' + vibeTags(vibes, 3) + contribTags(contribs, 2) + '</div>',
   });
 }
@@ -992,6 +1022,7 @@ function buildSeekerCard(item) {
     occurredAt: item.occurred_at,
     detectedAt: item.detected_at,
     sourceUrl: item.source_url,
+    crossPlatforms: item.cross_platforms,
     tagHtml: '<div class="tag-row">' + vibeTags(vibes, 3) + contribTags(contribs, 2) + '</div>',
   });
 }
@@ -1096,6 +1127,7 @@ function buildGearCard(item) {
     occurredAt: item.occurred_at,
     detectedAt: item.detected_at,
     sourceUrl: item.source_url,
+    crossPlatforms: item.cross_platforms,
     tagHtml: '<div class="tag-row">' + infraTags(cats, 3) + conditionTag(item.condition) + '</div>',
     detailHtml: item.quantity
       ? '<p style="margin:0;font-size:13px;color:#6a6264">Qty: ' + esc(item.quantity) + '</p>'
@@ -2666,7 +2698,12 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "error": "Failed to load community listings.",
         }
 
-    def _camp_card(post: Post) -> dict[str, Any]:
+    cross_platforms_by_post_id = await _load_cross_platforms_map(
+        session,
+        [post.id for post in camps_rows + seekers_rows + active_infra_rows],
+    )
+
+    async def _camp_card(post: Post) -> dict[str, Any]:
         occurred_at = (post.source_created_at or post.detected_at).replace(tzinfo=UTC).isoformat()
         return {
             "id": post.id,
@@ -2679,9 +2716,10 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "source_url": post.source_url or "",
             "occurred_at": occurred_at,
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
+            "cross_platforms": cross_platforms_by_post_id.get(post.id, []),
         }
 
-    def _seeker_card(post: Post) -> dict[str, Any]:
+    async def _seeker_card(post: Post) -> dict[str, Any]:
         occurred_at = (post.source_created_at or post.detected_at).replace(tzinfo=UTC).isoformat()
         return {
             "id": post.id,
@@ -2693,9 +2731,10 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "source_url": post.source_url or "",
             "occurred_at": occurred_at,
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
+            "cross_platforms": cross_platforms_by_post_id.get(post.id, []),
         }
 
-    def _gear_card(post: Post) -> dict[str, Any]:
+    async def _gear_card(post: Post) -> dict[str, Any]:
         occurred_at = (post.source_created_at or post.detected_at).replace(tzinfo=UTC).isoformat()
         return {
             "id": post.id,
@@ -2709,6 +2748,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "source_url": post.source_url or "",
             "occurred_at": occurred_at,
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
+            "cross_platforms": cross_platforms_by_post_id.get(post.id, []),
         }
 
     gear_seeking_rows: list[Post] = []
@@ -2728,10 +2768,10 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             break
 
     return {
-        "camps": [_camp_card(p) for p in camps_rows],
-        "seekers": [_seeker_card(p) for p in seekers_rows],
-        "gear_seeking": [_gear_card(p) for p in gear_seeking_rows],
-        "gear_offering": [_gear_card(p) for p in gear_offering_rows],
+        "camps": [await _camp_card(p) for p in camps_rows],
+        "seekers": [await _seeker_card(p) for p in seekers_rows],
+        "gear_seeking": [await _gear_card(p) for p in gear_seeking_rows],
+        "gear_offering": [await _gear_card(p) for p in gear_offering_rows],
         "updated_at": now.isoformat(),
     }
 

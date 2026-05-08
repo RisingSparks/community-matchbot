@@ -33,6 +33,7 @@ dependencies = [
     # YAML
     "pyyaml>=6.0.2",
     "asyncpg>=0.31.0",
+    "datasketch>=1.10.0",
 ]
 
 [dependency-groups]

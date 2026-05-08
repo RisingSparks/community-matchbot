@@ -12,6 +12,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from matchbot.db.models import Event, Post, PostStatus, PostType
 from matchbot.db.profiles import sync_profile_from_post
 from matchbot.extraction.base import LLMExtractor
+from matchbot.extraction.dedup import find_canonical_post
 from matchbot.extraction.keywords import keyword_filter
 from matchbot.extraction.schemas import ExtractedPost
 from matchbot.log_config import log_exception
@@ -140,11 +141,30 @@ async def process_post(
     if _should_refresh_title_from_body(post):
         post.title = build_post_title(post.raw_text)
 
+    # --- 0. Deduplication ---
+    canonical = await find_canonical_post(session, post)
+    if canonical:
+        post.status = PostStatus.SKIPPED
+        post.skipped_reason = "duplicate"
+        post.parent_post_id = canonical.id
+        post.extraction_method = "dedup"
+        session.add(post)
+        await _append_event(
+            session,
+            post,
+            "post_deduplicated",
+            {"parent_post_id": canonical.id, "parent_source_url": canonical.source_url},
+        )
+        await session.commit()
+        await session.refresh(post)
+        return post
+
     # --- 1. Keyword filter ---
     kw_result = keyword_filter(post.title, post.raw_text)
 
     if kw_result.tier == "no_match":
         post.status = PostStatus.SKIPPED
+        post.skipped_reason = "keyword_filter"
         # SKIPPED means we intentionally did not classify the post.
         post.post_type = None
         post.extraction_method = "keyword"

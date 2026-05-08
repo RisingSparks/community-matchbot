@@ -4,6 +4,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
+import pytest
 from sqlalchemy.exc import DBAPIError
 
 from matchbot.db import engine as engine_module
@@ -1376,6 +1377,35 @@ def test_community_listings_keep_longer_snippets_for_browse_cards(monkeypatch, t
         assert "professional background in coaching" in snippet
     finally:
         _reset_engine()
+
+
+@pytest.mark.asyncio
+async def test_load_cross_platforms_map_batches_lookup() -> None:
+    calls: list[object] = []
+
+    class FakeResult:
+        def all(self) -> list[tuple[str, str]]:
+            return [
+                ("parent-1", Platform.REDDIT),
+                ("parent-1", Platform.DISCORD),
+                ("parent-2", Platform.FACEBOOK),
+            ]
+
+    class FakeSession:
+        async def exec(self, stmt):
+            calls.append(stmt)
+            return FakeResult()
+
+    result = await public_router._load_cross_platforms_map(
+        FakeSession(),
+        ["parent-1", "parent-2"],
+    )
+
+    assert len(calls) == 1
+    assert result == {
+        "parent-1": [Platform.DISCORD, Platform.REDDIT],
+        "parent-2": [Platform.FACEBOOK],
+    }
 
 
 def test_community_discovery_api_blocks_javascript_source_urls(monkeypatch, tmp_path) -> None:
