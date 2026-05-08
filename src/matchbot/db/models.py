@@ -129,6 +129,7 @@ class Post(SQLModel, table=True):
     status: str = Field(default=PostStatus.RAW, index=True)
     expires_at: datetime | None = Field(default=None)
     opted_out: bool = Field(default=False)
+    skipped_reason: str | None = Field(default=None)
 
     # Deduplication
     content_hash: str | None = Field(default=None, index=True)

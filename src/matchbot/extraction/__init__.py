@@ -145,6 +145,7 @@ async def process_post(
     canonical = await find_canonical_post(session, post)
     if canonical:
         post.status = PostStatus.SKIPPED
+        post.skipped_reason = "duplicate"
         post.parent_post_id = canonical.id
         post.extraction_method = "dedup"
         session.add(post)
@@ -163,6 +164,7 @@ async def process_post(
 
     if kw_result.tier == "no_match":
         post.status = PostStatus.SKIPPED
+        post.skipped_reason = "keyword_filter"
         # SKIPPED means we intentionally did not classify the post.
         post.post_type = None
         post.extraction_method = "keyword"
