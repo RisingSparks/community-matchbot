@@ -36,6 +36,11 @@ Rules:
   are null unless the post is clearly about borrowing/sharing a tangible item or
   teardown labor
 - Extract year ONLY if explicitly mentioned
+- Limit extractions: Select a MAXIMUM of 3 vibes that are the primary focus of the camp.
+- Limit extractions: Select a MAXIMUM of 3 contribution_types that the camp is EXPLICITLY asking for (do not tag tasks they are simply describing or offering as a service).
+- Tag guidelines:
+  - communal: Use ONLY if the post emphasizes strict shared living, mandatory communal meals, or a high time commitment. Do NOT use just because it's a camp.
+  - camp_admin: Use for supply chain, spreadsheets, inventory, or organizing. Do NOT use for physical labor (use build) or driving (use transport).
 - Set confidence < 0.5 for vague or ambiguous posts
 - availability_notes / dates_needed: use near-verbatim language from the post
 - contact_method: describe HOW to contact — NEVER include actual personal info
@@ -49,7 +54,7 @@ Rules:
 - Ticket-market discussion is null. Posts about ticket sales, steward allocations,
   Ticket Aid, vehicle passes, resale markets, or general attendance trends are not mentorship
   unless they explicitly recruit members or offer/seek gear
-- Camp operations discussion is null. Posts about camp logistics, roster stress,
+- Camp operations discussion is null. Posts about camp admin, roster stress,
   budgets, planning, or internal challenges are not mentorship unless they explicitly recruit
   or seek a camp/team match
 - One-off asks for professionals, speakers, panelists, therapists, facilitators, or session
@@ -157,6 +162,11 @@ Rules:
   repair, maintenance, installation, recommendations, or professional help are null
   unless the post is clearly about a tangible item exchange or teardown labor
 - Extract year only if explicitly mentioned
+- Limit extractions: Select a MAXIMUM of 3 vibes that are the primary focus of the camp.
+- Limit extractions: Select a MAXIMUM of 3 contribution_types that the camp is EXPLICITLY asking for (do not tag tasks they are simply describing or offering as a service).
+- Tag guidelines:
+  - communal: Use ONLY if the post emphasizes strict shared living, mandatory communal meals, or a high time commitment. Do NOT use just because it's a camp.
+  - camp_admin: Use for supply chain, spreadsheets, inventory, or organizing. Do NOT use for physical labor (use build) or driving (use transport).
 - Use near-verbatim language for availability_notes and dates_needed
 - contact_method should describe how to contact, never personal contact details
 - origin_location_* captures the author's real-world home location (not playa placement).
@@ -167,7 +177,7 @@ Rules:
 - Ticket-market discussion is null. Posts about ticket sales, steward allocations,
   Ticket Aid, vehicle passes, resale markets, or general attendance trends are not mentorship
   unless they explicitly recruit members or offer/seek gear
-- Camp operations discussion is null. Posts about camp logistics, roster stress,
+- Camp operations discussion is null. Posts about camp admin, roster stress,
   budgets, planning, or internal challenges are not mentorship unless they explicitly recruit
   or seek a camp/team match
 - One-off asks for professionals, speakers, panelists, therapists, facilitators, or session
