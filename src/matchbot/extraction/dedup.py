@@ -61,6 +61,23 @@ def deserialize_minhash(sig_str: str, num_perm: int = 128) -> MinHash:
     return m
 
 
+def get_dedup_text(post: Post) -> str:
+    """Return the best available text for deduplication.
+
+    Prefer the original body, but fall back to the derived/effective title so
+    title-only posts still participate in fingerprinting.
+    """
+    raw_text = post.raw_text.strip()
+    if raw_text:
+        return raw_text
+
+    title = post.effective_title.strip()
+    if title:
+        return title
+
+    return post.title.strip()
+
+
 async def find_canonical_post(
     session: AsyncSession,
     post: Post,
@@ -72,12 +89,13 @@ async def find_canonical_post(
     
     Returns the oldest matching post (canonical) or None if unique.
     """
-    if not post.raw_text:
+    dedup_text = get_dedup_text(post)
+    if not dedup_text:
         return None
 
     # 1. Exact Match via Hash
     if not post.content_hash:
-        post.content_hash = generate_content_hash(post.raw_text)
+        post.content_hash = generate_content_hash(dedup_text)
     
     exact_q = select(Post).where(
         Post.content_hash == post.content_hash,
@@ -92,7 +110,7 @@ async def find_canonical_post(
 
     # 2. Fuzzy Match via MinHash/LSH
     if not post.minhash_sigs:
-        m_new = compute_minhash(post.raw_text)
+        m_new = compute_minhash(dedup_text)
         post.minhash_sigs = serialize_minhash(m_new)
     else:
         m_new = deserialize_minhash(post.minhash_sigs)

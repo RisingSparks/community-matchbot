@@ -1,11 +1,11 @@
 import pytest
-from sqlmodel import select
-from matchbot.db.models import Post, PostStatus, Platform
-from matchbot.extraction import process_post
-from matchbot.extraction.dedup import generate_content_hash, compute_minhash
-from matchbot.extraction.anthropic_extractor import AnthropicExtractor
 
+from matchbot.db.models import Platform, Post, PostStatus
+from matchbot.extraction import process_post
+from matchbot.extraction.anthropic_extractor import AnthropicExtractor
+from matchbot.extraction.dedup import generate_content_hash, get_dedup_text
 from matchbot.extraction.schemas import ExtractedPost
+
 
 @pytest.mark.asyncio
 async def test_exact_deduplication(db_session, mocker):
@@ -67,6 +67,54 @@ async def test_exact_deduplication(db_session, mocker):
     assert post2.extraction_method == "dedup"
     assert post2.extraction_method == "dedup"
 
+
+@pytest.mark.asyncio
+async def test_title_only_posts_participate_in_dedup(db_session, mocker):
+    mock_extractor = mocker.Mock(spec=AnthropicExtractor)
+    mock_extractor.provider_name.return_value = "mock"
+    mock_extractor.extract = mocker.AsyncMock(
+        return_value=ExtractedPost(
+            confidence=1.0,
+            role="seeker",
+            post_type="mentorship",
+            vibes=[],
+            contribution_types=[],
+        )
+    )
+
+    title_only = "Seeking a theme camp with art and build energy"
+
+    post1 = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="title1",
+        raw_text="",
+        title=title_only,
+        status=PostStatus.RAW,
+    )
+    db_session.add(post1)
+    await db_session.commit()
+
+    await process_post(db_session, post1, mock_extractor)
+
+    post2 = Post(
+        platform=Platform.DISCORD,
+        platform_post_id="title2",
+        raw_text="",
+        title=title_only,
+        status=PostStatus.RAW,
+    )
+    db_session.add(post2)
+    await db_session.commit()
+
+    await process_post(db_session, post2, mock_extractor)
+
+    assert post1.content_hash == generate_content_hash(title_only)
+    assert get_dedup_text(post1) == title_only
+    assert post2.status == PostStatus.SKIPPED
+    assert post2.parent_post_id == post1.id
+    assert post2.extraction_method == "dedup"
+
+
 @pytest.mark.asyncio
 async def test_fuzzy_deduplication(db_session, mocker):
     mock_extractor = mocker.Mock(spec=AnthropicExtractor)
@@ -79,8 +127,14 @@ async def test_fuzzy_deduplication(db_session, mocker):
         contribution_types=[]
     ))
     
-    text1 = "Looking for a theme camp to join! I am an artist and a builder. I have been to the burn 5 times."
-    text2 = "Looking for a theme camp to join! I'm an artist and a builder. I've been to the burn 5 times." # Slightly different
+    text1 = (
+        "Looking for a theme camp to join! I am an artist and a builder. "
+        "I have been to the burn 5 times."
+    )
+    text2 = (
+        "Looking for a theme camp to join! I'm an artist and a builder. "
+        "I've been to the burn 5 times."
+    )  # Slightly different
     
     post1 = Post(
         platform=Platform.REDDIT,
@@ -107,7 +161,7 @@ async def test_fuzzy_deduplication(db_session, mocker):
     await process_post(db_session, post2, mock_extractor)
 
     # Text2 should be fuzzy matched to Text1 (Jaccard > 0.7)
-    assert post2.status == PostStatus.SKIPPED, f"Similarity was {similarity}"
+    assert post2.status == PostStatus.SKIPPED
     assert post2.parent_post_id == post1.id
     assert post2.extraction_method == "dedup"
 

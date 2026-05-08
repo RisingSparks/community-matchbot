@@ -90,6 +90,26 @@ def _page_meta_tags(*, title: str, description: str, path: str, base_url: str) -
     )
 
 
+async def _load_cross_platforms_map(
+    session: AsyncSession,
+    post_ids: list[str],
+) -> dict[str, list[str]]:
+    if not post_ids:
+        return {}
+
+    dups = (
+        await session.exec(
+            select(Post.parent_post_id, Post.platform).where(Post.parent_post_id.in_(post_ids))
+        )
+    ).all()
+    cross_platforms: dict[str, set[str]] = {}
+    for parent_post_id, platform in dups:
+        if parent_post_id is None:
+            continue
+        cross_platforms.setdefault(parent_post_id, set()).add(platform)
+    return {post_id: sorted(platforms) for post_id, platforms in cross_platforms.items()}
+
+
 async def _run_with_db_retry[T](
     operation_name: str,
     callback: Callable[[AsyncSession], Awaitable[T]],
@@ -2678,12 +2698,10 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "error": "Failed to load community listings.",
         }
 
-    async def _get_cross_platforms(post_id: str) -> list[str]:
-        # Fetch platforms of duplicates
-        dups = (await session.exec(select(Post.platform).where(Post.parent_post_id == post_id))).all()
-        if not dups:
-            return []
-        return sorted(list(set(dups)))
+    cross_platforms_by_post_id = await _load_cross_platforms_map(
+        session,
+        [post.id for post in camps_rows + seekers_rows + active_infra_rows],
+    )
 
     async def _camp_card(post: Post) -> dict[str, Any]:
         occurred_at = (post.source_created_at or post.detected_at).replace(tzinfo=UTC).isoformat()
@@ -2698,7 +2716,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "source_url": post.source_url or "",
             "occurred_at": occurred_at,
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
-            "cross_platforms": await _get_cross_platforms(post.id),
+            "cross_platforms": cross_platforms_by_post_id.get(post.id, []),
         }
 
     async def _seeker_card(post: Post) -> dict[str, Any]:
@@ -2713,7 +2731,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "source_url": post.source_url or "",
             "occurred_at": occurred_at,
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
-            "cross_platforms": await _get_cross_platforms(post.id),
+            "cross_platforms": cross_platforms_by_post_id.get(post.id, []),
         }
 
     async def _gear_card(post: Post) -> dict[str, Any]:
@@ -2730,7 +2748,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "source_url": post.source_url or "",
             "occurred_at": occurred_at,
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
-            "cross_platforms": await _get_cross_platforms(post.id),
+            "cross_platforms": cross_platforms_by_post_id.get(post.id, []),
         }
 
     gear_seeking_rows: list[Post] = []

@@ -9,15 +9,20 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import UTC, datetime, timedelta
 
 import typer
-from sqlmodel import select, or_
+from datasketch import MinHashLSH
+from sqlmodel import or_, select
 
 from matchbot.db.engine import get_session
 from matchbot.db.models import Event, Post, PostStatus
-from matchbot.extraction.dedup import generate_content_hash, compute_minhash, serialize_minhash, deserialize_minhash
-from datasketch import MinHashLSH
+from matchbot.extraction.dedup import (
+    compute_minhash,
+    deserialize_minhash,
+    generate_content_hash,
+    get_dedup_text,
+    serialize_minhash,
+)
 
 app = typer.Typer(add_completion=False)
 logger = logging.getLogger("matchbot.backfill_dedup")
@@ -40,17 +45,19 @@ async def _main_async(*, dry_run: bool, window_days: int, threshold: float) -> N
             await session.exec(
                 select(Post).where(
                     or_(Post.content_hash.is_(None), Post.minhash_sigs.is_(None)),
-                    Post.raw_text.is_not(None)
                 )
             )
         ).all()
         
         logger.info("Filling missing hashes/sigs for %d posts...", len(posts_missing_sigs))
         for post in posts_missing_sigs:
+            dedup_text = get_dedup_text(post)
+            if not dedup_text:
+                continue
             if not post.content_hash:
-                post.content_hash = generate_content_hash(post.raw_text)
+                post.content_hash = generate_content_hash(dedup_text)
             if not post.minhash_sigs:
-                m = compute_minhash(post.raw_text)
+                m = compute_minhash(dedup_text)
                 post.minhash_sigs = serialize_minhash(m)
             session.add(post)
         
@@ -59,13 +66,7 @@ async def _main_async(*, dry_run: bool, window_days: int, threshold: float) -> N
             logger.info("Hashes/sigs saved.")
 
         # 2. Re-fetch all posts ordered by detected_at to process them chronologically
-        all_posts = (
-            await session.exec(
-                select(Post)
-                .where(Post.raw_text.is_not(None))
-                .order_by(Post.detected_at.asc())
-            )
-        ).all()
+        all_posts = (await session.exec(select(Post).order_by(Post.detected_at.asc()))).all()
 
         processed_canonicals = [] # List of (id, content_hash, minhash_obj)
         deduped_count = 0
@@ -75,7 +76,10 @@ async def _main_async(*, dry_run: bool, window_days: int, threshold: float) -> N
         # We'll use a sliding window for fuzzy match to avoid memory bloat if DB is huge,
         # but for backfill we might just want to check against all previous if it's small enough.
         # Let's use LSH for performance.
-        lsh = MinHashLSH(threshold=threshold * 0.8, num_perm=128) # Slightly lower threshold for LSH recall
+        lsh = MinHashLSH(
+            threshold=threshold * 0.8,
+            num_perm=128,
+        )  # Slightly lower threshold for LSH recall
 
         for post in all_posts:
             # If already has a parent, it was either processed by the new pipeline or 
@@ -84,10 +88,17 @@ async def _main_async(*, dry_run: bool, window_days: int, threshold: float) -> N
                 # Add to LSH if it's not actually the parent (shouldn't happen with detected_at.asc)
                 continue
 
+            dedup_text = get_dedup_text(post)
+            if not dedup_text:
+                continue
+
             m_new = deserialize_minhash(post.minhash_sigs)
             
             # Check Exact Match
-            exact_parent = next((p for p in processed_canonicals if p['hash'] == post.content_hash), None)
+            exact_parent = next(
+                (p for p in processed_canonicals if p["hash"] == post.content_hash),
+                None,
+            )
             
             # Check Fuzzy Match via LSH
             fuzzy_parent_id = None
@@ -127,11 +138,13 @@ async def _main_async(*, dry_run: bool, window_days: int, threshold: float) -> N
                 deduped_count += 1
             else:
                 # This is a new canonical post
-                processed_canonicals.append({
-                    'id': post.id,
-                    'hash': post.content_hash,
-                    'minhash': m_new
-                })
+                processed_canonicals.append(
+                    {
+                        "id": post.id,
+                        "hash": post.content_hash,
+                        "minhash": m_new,
+                    }
+                )
                 lsh.insert(post.id, m_new)
 
         if not dry_run:
