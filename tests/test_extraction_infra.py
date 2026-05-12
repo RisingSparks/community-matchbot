@@ -44,7 +44,7 @@ class TestExtractedPostInfraSchema:
     def test_unknown_infra_categories_dropped(self):
         ep = ExtractedPost(infra_categories=["power", "jetpack_fuel"])
         assert "power" in ep.infra_categories
-        assert "jetpack_fuel" in ep.infra_categories
+        assert "jetpack_fuel" in ep.infra_categories_other
 
     def test_invalid_condition_preserved(self):
         ep = ExtractedPost(condition="perfect")
@@ -63,6 +63,10 @@ class TestExtractedPostInfraSchema:
         ep = ExtractedPost(infra_categories=["POWER", "Shade"])
         assert "power" in ep.infra_categories
         assert "shade" in ep.infra_categories
+
+    def test_shelter_synonyms_collapse_to_shade(self):
+        ep = ExtractedPost(infra_categories=["gazebo", "canopy", "structure"])
+        assert ep.infra_categories == ["shade"]
 
     def test_invalid_post_type_becomes_none(self):
         ep = ExtractedPost(post_type="weirdstuff")

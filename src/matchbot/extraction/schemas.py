@@ -1,6 +1,7 @@
 from pydantic import BaseModel, field_validator, model_validator
 
 from matchbot.db.models import PostType
+from matchbot.taxonomy import split_infra_categories
 
 
 class ExtractedPost(BaseModel):
@@ -150,6 +151,11 @@ class ExtractedPost(BaseModel):
     def clear_non_seeker_intent(self) -> "ExtractedPost":
         if self.role != "seeker":
             self.seeker_intent = None
+        infra_categories, infra_categories_other = split_infra_categories(
+            self.infra_categories + self.infra_categories_other
+        )
+        self.infra_categories = infra_categories
+        self.infra_categories_other = infra_categories_other
         return self
 
     @field_validator(
