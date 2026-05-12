@@ -93,9 +93,13 @@ class TestCampPatterns:
 
     def test_recruiting_post_does_not_get_role_from_regex(self):
         result = keyword_filter(
-            "Looking for people to wear lab coats and make strangers fill out fake paperwork in the desert",
             (
-                "The Cognitive Research Institute is a new interactive camp coming to Black Rock City "
+                "Looking for people to wear lab coats and make strangers fill out fake paperwork "
+                "in the desert"
+            ),
+            (
+                "The Cognitive Research Institute is a new interactive camp coming to "
+                "Black Rock City "
                 "in 2026, and we're looking for a few more people who want to build it with us."
             ),
         )
@@ -120,6 +124,15 @@ class TestNoMatch:
     def test_tangential_camp_word(self):
         result = keyword_filter("Camping gear review", "I reviewed my tent and sleeping bag")
         assert result.matched is False
+
+    def test_rv_rental_is_suppressed(self):
+        result = keyword_filter(
+            "LA-Based RV Rental – Playa-Ready",
+            "Renting out my RV for Burning Man 2026, based in LA.",
+        )
+        assert result.matched is False
+        assert result.tier == "no_match"
+        assert result.reasons == ("rv_rental_suppression",)
 
 
 class TestNoiseSuppression:

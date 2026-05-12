@@ -337,7 +337,11 @@ def test_intake_landing_page():
     assert "/favicon.ico" in response.text
     assert "/site.webmanifest" in response.text
     assert '<link rel="canonical" href="http://testserver/forms/">' in response.text
-    assert 'property="og:title" content="Rising Sparks | Community Finder for Camps, Art Projects, and Infra"' in response.text
+    assert (
+        'property="og:title" content="Rising Sparks | Community Finder for Camps, '
+        'Art Projects, and Infra"'
+        in response.text
+    )
     assert "/forms/seeker" in response.text
     assert "/forms/camp" in response.text
     assert "/forms/infra" in response.text
@@ -355,8 +359,14 @@ def test_intake_seeker_form_renders():
     assert "Find a Camp or Art Project" in response.text
     assert "/favicon.ico" in response.text
     assert '<link rel="canonical" href="http://testserver/forms/seeker">' in response.text
-    assert 'name="description" content="Share your skills, interests, and availability to find aligned camps or art projects through Rising Sparks&#x27; human-reviewed discovery flow."' in response.text
+    assert (
+        'name="description" content="Share your skills, interests, and availability '
+        'to find aligned camps or art projects through Rising Sparks&#x27; '
+        'human-reviewed discovery flow."'
+        in response.text
+    )
     assert 'name="display_name"' in response.text
+    assert 'name="homebase"' in response.text
 
 
 def test_intake_camp_form_renders():
@@ -403,6 +413,7 @@ def test_intake_seeker_submit_redirects():
         data={
             "display_name": "TestBurner",
             "bio": "I love to build and cook.",
+            "homebase": "Portland, OR",
             "vibes": "art, build_focused",
             "contributions": "build, kitchen",
             "year": "2026",
@@ -465,6 +476,35 @@ async def test_intake_camp_submit_persists_source_url(db_session):
     ).one()
     assert post.source_url == "https://solarcircus.example/camp"
     assert "URL: https://solarcircus.example/camp" in post.raw_text
+
+
+@pytest.mark.asyncio
+async def test_intake_seeker_submit_persists_homebase(db_session):
+    from matchbot.forms.router import seeker_submit
+
+    response = await seeker_submit(
+        display_name="TestBurner",
+        bio="I love to build and cook.",
+        homebase="Portland, OR",
+        vibes="art, build_focused",
+        contributions="build, kitchen",
+        year="2026",
+        availability_notes="Available build week",
+        contact_method="DM on Reddit",
+        session=db_session,
+    )
+
+    assert response.status_code == 303
+    post = (
+        await db_session.exec(
+            select(Post).where(
+                Post.platform == Platform.MANUAL,
+                Post.platform_author_id == "TestBurner",
+            )
+        )
+    ).one()
+    assert post.origin_location_raw == "Portland, OR"
+    assert "Homebase: Portland, OR" in post.raw_text
 
 
 def test_intake_infra_submit_redirects():

@@ -108,7 +108,7 @@ through that decision tree, not for browsing or administration.
 - Vibes and contribution_types: multi-select chip pickers (constrained to
   taxonomy — never free text for these fields)
 - Role: 3-way toggle — seeker / camp-or-art-project / unknown
-- Free-text fields (camp/project name, quantity, condition, notes): simple text inputs
+- Free-text fields (camp/project name, homebase/hometown, quantity, condition, notes): simple text inputs
 - Infrastructure fields (infra_role, infra_categories) shown only for
   infrastructure-type posts
 - Moderator can add an optional note to any action (audit trail)

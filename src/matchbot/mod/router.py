@@ -95,6 +95,11 @@ class OverrideFields(BaseModel):
     contribution_types: list[str] | None = None
     camp_name: str | None = None
     year: int | None = None
+    origin_location_raw: str | None = None
+    origin_location_city: str | None = None
+    origin_location_state: str | None = None
+    origin_location_county: str | None = None
+    origin_location_zip: str | None = None
     infra_role: str | None = None
     infra_categories: list[str] | None = None
     quantity: str | None = None
@@ -176,6 +181,16 @@ def _apply_mod_overrides(post: Post, body: OverrideFields) -> None:
         post.camp_name = body.camp_name
     if body.year is not None:
         post.year = body.year
+    if body.origin_location_raw is not None:
+        post.origin_location_raw = body.origin_location_raw
+    if body.origin_location_city is not None:
+        post.origin_location_city = body.origin_location_city
+    if body.origin_location_state is not None:
+        post.origin_location_state = body.origin_location_state
+    if body.origin_location_county is not None:
+        post.origin_location_county = body.origin_location_county
+    if body.origin_location_zip is not None:
+        post.origin_location_zip = body.origin_location_zip
     if body.infra_role is not None:
         post.infra_role = body.infra_role
     if body.infra_categories is not None:
@@ -229,6 +244,11 @@ def _post_to_dict(post: Post, age_hours: float | None = None) -> dict[str, Any]:
         "camp_size_min": post.camp_size_min,
         "camp_size_max": post.camp_size_max,
         "year": post.year,
+        "origin_location_raw": post.origin_location_raw,
+        "origin_location_city": post.origin_location_city,
+        "origin_location_state": post.origin_location_state,
+        "origin_location_county": post.origin_location_county,
+        "origin_location_zip": post.origin_location_zip,
         "availability_notes": post.availability_notes,
         "contact_method": post.contact_method,
         "extraction_confidence": post.extraction_confidence,

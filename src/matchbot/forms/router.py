@@ -548,6 +548,12 @@ _SEEKER_FORM_HTML = f"""<!DOCTYPE html>
       </div>
 
       <div class="field">
+        <label>Homebase / hometown</label>
+        <input type="text" name="homebase" maxlength="120" placeholder="City, state, or region">
+        <div class="hint">Optional. We store this as your homebase so moderators can see where you are coming from.</div>
+      </div>
+
+      <div class="field">
         <label>Vibes you&#8217;re looking for</label>
         <input type="text" name="vibes" placeholder="art, build_focused, sober, late-night, wellness&#8230;">
         <div class="hint">Comma-separated tags. e.g. loud, family_friendly, workshop, party</div>
@@ -918,6 +924,7 @@ async def intake_thanks(request: Request) -> str:
 async def seeker_submit(
     display_name: Annotated[str, Form()],
     bio: Annotated[str, Form()] = "",
+    homebase: Annotated[str, Form()] = "",
     vibes: Annotated[str, Form()] = "",
     contributions: Annotated[str, Form()] = "",
     year: Annotated[str, Form()] = "",
@@ -929,6 +936,8 @@ async def seeker_submit(
     body_parts = []
     if bio:
         body_parts.append(bio)
+    if homebase:
+        body_parts.append(f"Homebase: {homebase}")
     if vibes:
         body_parts.append(f"Vibes: {vibes}")
     if contributions:
@@ -957,6 +966,7 @@ async def seeker_submit(
         status=PostStatus.RAW,
         post_type=PostType.MENTORSHIP,
         role=PostRole.SEEKER,
+        origin_location_raw=homebase or None,
         year=year_int,
         availability_notes=availability_notes or None,
         contact_method=contact_method or None,

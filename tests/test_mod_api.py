@@ -213,11 +213,35 @@ async def test_post_detail_returns_events(mod_client, db_session):
     assert data["vibes_other"] == []
     assert data["contribution_types"] == []
     assert data["contribution_types_other"] == []
+    assert data["origin_location_raw"] is None
     assert data["infra_categories_other"] == []
     assert data["condition_other"] is None
     assert data["dates_needed"] is None
     assert len(data["events"]) == 1
     assert data["events"][0]["event_type"] == "test_event"
+
+
+async def test_edit_updates_origin_location_raw(mod_client, db_session):
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="edit_homebase",
+        platform_author_id="u1",
+        title="Edit homebase",
+        raw_text="text",
+        status=PostStatus.NEEDS_REVIEW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    resp = await mod_client.post(
+        f"/api/mod/posts/{post.id}/edit",
+        json={"origin_location_raw": "Austin, TX"},
+    )
+    assert resp.status_code == 200
+
+    await db_session.refresh(post)
+    assert post.origin_location_raw == "Austin, TX"
 
 
 async def test_post_detail_returns_duplicates(mod_client, db_session):

@@ -224,6 +224,7 @@ Embedded in match responses. Key fields:
 | `vibes` | string[] | Normalized vibe tags |
 | `contribution_types` | string[] | Normalized contribution tags |
 | `camp_name` | string \| null | Camp or project name if known |
+| `origin_location_raw` | string \| null | Homebase / hometown if known |
 | `post_type` | string | `mentorship` or `infrastructure` |
 | `infra_role` | string \| null | `seeking` or `offering` (infra only) |
 | `infra_categories` | string[] | Gear/infra categories |

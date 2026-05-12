@@ -110,6 +110,30 @@ async def test_process_post_keyword_no_match_skips(db_session, mock_extractor):
 
 
 @pytest.mark.asyncio
+async def test_process_post_rv_rental_skips(db_session, mock_extractor):
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="rv001",
+        title="LA-Based RV Rental – Playa-Ready",
+        raw_text=(
+            "Renting out my RV for Burning Man 2026, based in LA. "
+            "This thing already survived the playa in 2025."
+        ),
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    result = await process_post(db_session, post, mock_extractor)
+
+    assert result.status == PostStatus.SKIPPED
+    assert result.skipped_reason == "keyword_filter"
+    assert result.post_type is None
+    mock_extractor.extract.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_process_post_soft_match_mentorship_continues_to_llm(db_session, mock_extractor):
     post = Post(
         platform=Platform.REDDIT,
