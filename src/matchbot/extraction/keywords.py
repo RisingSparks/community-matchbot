@@ -87,12 +87,7 @@ _RV_RENTAL_SUPPRESSOR_PATTERNS = [
     r"\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler|recreational\s+vehicle)s?\b.{0,80}\b(?:rent|rental|for\s+rent|for\s+sale|available)\b",
     r"\b(?:rent|rental|available)\b.{0,40}\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler)\b",
     r"\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler|recreational\s+vehicle)s?\b.{0,80}\b(?:pickup|delivery|deposit|sleeps)\b",
-    r"\b(?:playa[- ]ready|camp[- ]ready)\b.{0,80}\b(?:rv|motorhome|camper|trailer|rig)\b",
-    (
-        r"\b(?:several|fleet|other options|we have other options|visit us on instagram|"
-        r"message me for details|dm for info)\b.{0,80}\b(?:rv|motorhome|motorhomes|camper|"
-        r"trailer|rigs)\b"
-    ),
+    r"\b(?:playa[- ]ready|camp[- ]ready)\b.{0,80}\b(?:rv|motorhome|camper)\b",
 ]
 
 _RV_RENTAL_LISTING_PATTERNS = [
