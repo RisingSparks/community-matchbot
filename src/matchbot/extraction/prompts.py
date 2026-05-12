@@ -35,8 +35,14 @@ Rules:
   cleaning, repair, maintenance, installation, consulting, or professional help
   are null unless the post is clearly about borrowing/sharing a tangible item or
   teardown labor
+- Selling physical infra is in-scope. Treat "for sale" / "selling" posts for
+  gear, tools, shade, power, and similar items as infrastructure offering.
 - RV, motorhome, camper, and travel-trailer rentals are null. They are vehicle
   rentals, not infrastructure exchange posts.
+- If the post is offering gear, extract the offer style in infra_offer_type:
+  sell, rent, lend, give, swap, or unknown.
+- Extract pickup_location, delivery_available, dimensions, parts_included, and
+  setup_notes when they are explicitly stated in the post.
 - Extract year ONLY if explicitly mentioned
 - Limit extractions: Select a MAXIMUM of 3 vibes that are the primary focus of the camp.
 - Limit extractions: Select a MAXIMUM of 3 contribution_types that the camp is EXPLICITLY asking for
@@ -110,9 +116,15 @@ Output schema:
   "contact_method": string | null,
 
   "infra_role": "seeking" | "offering" | null,
+  "infra_offer_type": "sell" | "rent" | "lend" | "give" | "swap" | "unknown" | null,
   "infra_categories": [string, ...],
   "infra_categories_other": [string, ...],
   "quantity": string | null,
+  "pickup_location": string | null,
+  "delivery_available": boolean | null,
+  "dimensions": string | null,
+  "parts_included": string | null,
+  "setup_notes": string | null,
   "condition": string | null,
   "condition_other": string | null,
   "dates_needed": string | null
@@ -120,8 +132,9 @@ Output schema:
 
 For mentorship posts: fill role, vibes, contribution_types, camp_name, etc.
 Leave infra fields null/empty.
-For infrastructure posts: fill infra_role, infra_categories, quantity,
-condition, dates_needed. Leave mentorship fields null/empty.
+For infrastructure posts: fill infra_role, infra_offer_type, infra_categories,
+quantity, pickup_location, delivery_available, dimensions, parts_included,
+setup_notes, condition, dates_needed. Leave mentorship fields null/empty.
 For null posts: leave all fields at their defaults — only extraction_notes
 is useful to explain why the post was skipped.
 Use *_other fields only when the post expresses a real concept that does not
@@ -166,8 +179,14 @@ Rules:
   selling, or sharing physical gear/items. Service requests/offers like cleaning,
   repair, maintenance, installation, recommendations, or professional help are null
   unless the post is clearly about a tangible item exchange or teardown labor
+- Selling physical infra is in-scope. Treat "for sale" / "selling" posts for
+  gear, tools, shade, power, and similar items as infrastructure offering.
 - RV, motorhome, camper, and travel-trailer rentals are null. They are vehicle
   rentals, not infrastructure exchange posts.
+- If the post is offering gear, extract the offer style in infra_offer_type:
+  sell, rent, lend, give, swap, or unknown.
+- Extract pickup_location, delivery_available, dimensions, parts_included, and
+  setup_notes when they are explicitly stated in the post.
 - Extract year only if explicitly mentioned
 - Limit extractions: Select a MAXIMUM of 3 vibes that are the primary focus of the camp.
 - Limit extractions: Select a MAXIMUM of 3 contribution_types that the camp is EXPLICITLY asking for

@@ -105,6 +105,11 @@ def _infer_post_type_from_extraction(post: Post, extracted: ExtractedPost) -> st
             value is not None
             for value in (
                 extracted.quantity,
+                extracted.pickup_location,
+                extracted.delivery_available,
+                extracted.dimensions,
+                extracted.parts_included,
+                extracted.setup_notes,
                 extracted.condition,
                 extracted.condition_other,
                 extracted.dates_needed,
@@ -248,9 +253,15 @@ async def process_post(
             update={
                 "post_type": None,
                 "infra_role": None,
+                "infra_offer_type": None,
                 "infra_categories": [],
                 "infra_categories_other": [],
                 "quantity": None,
+                "pickup_location": None,
+                "delivery_available": None,
+                "dimensions": None,
+                "parts_included": None,
+                "setup_notes": None,
                 "condition": None,
                 "condition_other": None,
                 "dates_needed": None,
@@ -312,9 +323,15 @@ async def process_post(
 
     # Infrastructure fields
     post.infra_role = extracted.infra_role
+    post.infra_offer_type = extracted.infra_offer_type
     post.infra_categories = _join_pipe(valid_infra_categories)
     post.infra_categories_other = _join_pipe(infra_categories_other)
     post.quantity = extracted.quantity
+    post.pickup_location = extracted.pickup_location
+    post.delivery_available = extracted.delivery_available
+    post.dimensions = extracted.dimensions
+    post.parts_included = extracted.parts_included
+    post.setup_notes = extracted.setup_notes
     post.condition = valid_condition
     post.condition_other = condition_other
     post.dates_needed = extracted.dates_needed
@@ -346,6 +363,7 @@ async def process_post(
             "role": post.role,
             "seeker_intent": post.seeker_intent,
             "infra_role": post.infra_role,
+            "infra_offer_type": post.infra_offer_type,
             "vibes_other": vibe_other,
             "contribution_types_other": contribution_other,
             "infra_categories_other": infra_categories_other,

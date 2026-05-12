@@ -148,7 +148,8 @@ class Post(SQLModel, table=True):
     camp_size_max: int | None = Field(default=None)
     year: int | None = Field(default=None)
     location_preference: str | None = Field(default=None)
-    origin_location_raw: str | None = Field(default=None)   # verbatim from post, e.g. "Oklahoma" or "Portland, OR"
+    origin_location_raw: str | None = Field(default=None)   # verbatim from post, e.g. "Oklahoma" or
+                                                            # "Portland, OR"
     origin_location_city: str | None = Field(default=None)
     origin_location_state: str | None = Field(default=None)  # 2-letter code preferred, e.g. "OR"
     origin_location_county: str | None = Field(default=None)
@@ -166,9 +167,16 @@ class Post(SQLModel, table=True):
 
     # Infrastructure-specific fields (post_type == infrastructure)
     infra_role: str | None = Field(default=None)          # seeking | offering
+    infra_offer_type: str | None = Field(default=None)    # sell | rent | lend | give | swap |
+                                                          # unknown
     infra_categories: str = Field(default="")             # pipe-delimited infra category list
     infra_categories_other: str = Field(default="")       # pipe-delimited unmapped infra labels
     quantity: str | None = Field(default=None)            # e.g. "2 units", "approx 50ft"
+    pickup_location: str | None = Field(default=None)
+    delivery_available: bool | None = Field(default=None)
+    dimensions: str | None = Field(default=None)
+    parts_included: str | None = Field(default=None)
+    setup_notes: str | None = Field(default=None)
     condition: str | None = Field(default=None)           # new | good | fair | worn | needs_repair
     condition_other: str | None = Field(default=None)     # raw unmapped condition term
     dates_needed: str | None = Field(default=None)        # near-verbatim from post

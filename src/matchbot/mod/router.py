@@ -101,8 +101,14 @@ class OverrideFields(BaseModel):
     origin_location_county: str | None = None
     origin_location_zip: str | None = None
     infra_role: str | None = None
+    infra_offer_type: str | None = None
     infra_categories: list[str] | None = None
     quantity: str | None = None
+    pickup_location: str | None = None
+    delivery_available: bool | None = None
+    dimensions: str | None = None
+    parts_included: str | None = None
+    setup_notes: str | None = None
     condition: str | None = None
     dates_needed: str | None = None
 
@@ -193,10 +199,22 @@ def _apply_mod_overrides(post: Post, body: OverrideFields) -> None:
         post.origin_location_zip = body.origin_location_zip
     if body.infra_role is not None:
         post.infra_role = body.infra_role
+    if body.infra_offer_type is not None:
+        post.infra_offer_type = body.infra_offer_type
     if body.infra_categories is not None:
         post.infra_categories = "|".join(normalize_infra_categories(body.infra_categories))
     if body.quantity is not None:
         post.quantity = body.quantity
+    if body.pickup_location is not None:
+        post.pickup_location = body.pickup_location
+    if body.delivery_available is not None:
+        post.delivery_available = body.delivery_available
+    if body.dimensions is not None:
+        post.dimensions = body.dimensions
+    if body.parts_included is not None:
+        post.parts_included = body.parts_included
+    if body.setup_notes is not None:
+        post.setup_notes = body.setup_notes
     if body.condition is not None:
         post.condition = body.condition
     if body.dates_needed is not None:
@@ -257,9 +275,15 @@ def _post_to_dict(post: Post, age_hours: float | None = None) -> dict[str, Any]:
         "parent_post_id": post.parent_post_id,
         "post_type": post.post_type,
         "infra_role": post.infra_role,
+        "infra_offer_type": post.infra_offer_type,
         "infra_categories": post.infra_categories_list(),
         "infra_categories_other": post.infra_categories_other_list(),
         "quantity": post.quantity,
+        "pickup_location": post.pickup_location,
+        "delivery_available": post.delivery_available,
+        "dimensions": post.dimensions,
+        "parts_included": post.parts_included,
+        "setup_notes": post.setup_notes,
         "condition": post.condition,
         "condition_other": post.condition_other,
         "dates_needed": post.dates_needed,

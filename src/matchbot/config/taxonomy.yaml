@@ -58,6 +58,12 @@ infrastructure_categories:
   - gray_water     # evap ponds, pumps, storage, plumbing
   - lighting       # LED strips, fixtures, dimmers, cabling
   - sound_gear     # speakers, amps, mixers, cables
+  - scaffolding    # scaffold towers, platforms, risers
+  - shower         # shower stalls, shower kits, wash stations
+  - gazebo         # gazebos, pavilions, outdoor shelter frames
+  - canopy         # pop-up tents, canopies, awnings, simple shelter frames
+  - structure      # large temporary structures, towers, frames
+  - parts          # spare parts, hardware bundles, extra components
   - storage        # bins, shelving, pallets
   - communication  # radios, cable runs, networking
   - safety         # first aid, fire extinguishers, safety gear

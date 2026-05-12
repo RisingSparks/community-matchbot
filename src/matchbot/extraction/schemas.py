@@ -24,7 +24,8 @@ class ExtractedPost(BaseModel):
     contribution_types: list[str] = []
     contribution_types_other: list[str] = []
     location_preference: str | None = None
-    origin_location_raw: str | None = None    # verbatim geographic origin, e.g. "Oklahoma" or "Portland, OR"
+    origin_location_raw: str | None = None    # verbatim geographic origin, e.g. "Oklahoma" or
+                                               # "Portland, OR"
     origin_location_city: str | None = None
     origin_location_state: str | None = None  # 2-letter US code preferred, e.g. "OR"
     origin_location_county: str | None = None
@@ -34,9 +35,15 @@ class ExtractedPost(BaseModel):
 
     # --- infrastructure / "Bitch n Swap" fields ---
     infra_role: str | None = None          # seeking | offering
+    infra_offer_type: str | None = None    # sell | rent | lend | give | swap | unknown
     infra_categories: list[str] = []       # from INFRASTRUCTURE_CATEGORIES
     infra_categories_other: list[str] = []
     quantity: str | None = None            # "2 units", "~50 ft"
+    pickup_location: str | None = None
+    delivery_available: bool | None = None
+    dimensions: str | None = None
+    parts_included: str | None = None
+    setup_notes: str | None = None
     condition: str | None = None           # from INFRASTRUCTURE_CONDITIONS
     condition_other: str | None = None
     dates_needed: str | None = None        # near-verbatim from post
@@ -74,6 +81,15 @@ class ExtractedPost(BaseModel):
             return None
         return v if v in {"seeking", "offering"} else None
 
+    @field_validator("infra_offer_type")
+    @classmethod
+    def validate_infra_offer_type(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        cleaned = v.strip().lower()
+        allowed = {"sell", "rent", "lend", "give", "swap", "unknown"}
+        return cleaned if cleaned in allowed else None
+
     @field_validator("vibes")
     @classmethod
     def validate_vibes(cls, v: list[str]) -> list[str]:
@@ -96,6 +112,26 @@ class ExtractedPost(BaseModel):
             return None
         cleaned = v.strip().lower()
         return cleaned or None
+
+    @field_validator("pickup_location", "dimensions", "parts_included", "setup_notes")
+    @classmethod
+    def validate_free_text(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        cleaned = " ".join(v.split()).strip()
+        return cleaned or None
+
+    @field_validator("delivery_available", mode="before")
+    @classmethod
+    def validate_delivery_available(cls, v: bool | str | None) -> bool | None:
+        if v is None or isinstance(v, bool):
+            return v
+        cleaned = v.strip().lower()
+        if cleaned in {"true", "yes", "y", "1"}:
+            return True
+        if cleaned in {"false", "no", "n", "0"}:
+            return False
+        return None
 
     @field_validator("confidence")
     @classmethod

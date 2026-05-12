@@ -110,6 +110,26 @@ class TestCampPatterns:
         assert result.candidate_role == PostRole.UNKNOWN
 
 
+class TestInfraSellingAndStructures:
+    def test_scaffolding_sale_detects_infra(self):
+        result = keyword_filter(
+            "Playa proven scaffolding tower for sale",
+            "Only used 1 year, great shape, delivery included.",
+        )
+        assert result.matched is True
+        assert result.post_type == "infrastructure"
+        assert result.infra_role == "offering"
+
+    def test_shower_stall_listing_detects_infra(self):
+        result = keyword_filter(
+            "Still missing your shower setup?? I got these.",
+            "Which camp needs these super efficient shower stalls? Still available.",
+        )
+        assert result.matched is True
+        assert result.post_type == "infrastructure"
+        assert result.infra_role == "offering"
+
+
 class TestNoMatch:
     def test_generic_post(self):
         result = keyword_filter("What to bring to Burning Man", "packing list advice needed")

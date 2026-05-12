@@ -20,13 +20,20 @@ class TestExtractedPostInfraSchema:
         ep = ExtractedPost(
             post_type="infrastructure",
             infra_role="seeking",
+            infra_offer_type="rent",
             infra_categories=["power", "shade"],
             quantity="1 unit",
+            pickup_location="Reno, NV",
+            delivery_available=True,
+            dimensions="20 feet tall",
+            parts_included="outriggers",
+            setup_notes="stake and strap it down",
             condition="good",
             confidence=0.9,
         )
         assert ep.post_type == "infrastructure"
         assert ep.infra_role == "seeking"
+        assert ep.infra_offer_type == "rent"
         assert "power" in ep.infra_categories
         assert ep.condition == "good"
 
@@ -94,6 +101,33 @@ class TestKeywordFilterInfra:
         result = keyword_filter(
             "Bitch n Swap - giving away tarp",
             "I have surplus gear — giving away shade tarp free to a good home.",
+        )
+        assert result.matched is True
+        assert result.post_type == PostType.INFRASTRUCTURE
+        assert result.infra_role == "offering"
+
+    def test_selling_infra_offering(self):
+        result = keyword_filter(
+            "Selling shade structure",
+            "For sale: good condition canopy and shade walls.",
+        )
+        assert result.matched is True
+        assert result.post_type == PostType.INFRASTRUCTURE
+        assert result.infra_role == "offering"
+
+    def test_scaffolding_for_sale_is_infra(self):
+        result = keyword_filter(
+            "Playa proven scaffolding tower for sale",
+            "Have extra parts and delivery included. Message me for details.",
+        )
+        assert result.matched is True
+        assert result.post_type == PostType.INFRASTRUCTURE
+        assert result.infra_role == "offering"
+
+    def test_shower_stalls_are_infra(self):
+        result = keyword_filter(
+            "Need shower setup?? I got these.",
+            "Which camp needs these super efficient shower stalls? Still available.",
         )
         assert result.matched is True
         assert result.post_type == PostType.INFRASTRUCTURE
@@ -220,6 +254,49 @@ async def test_process_post_infra_offering(db_session, mock_extractor):
     assert result.infra_role == "offering"
     assert "shade" in result.infra_categories_list()
     assert result.condition == "good"
+
+
+@pytest.mark.asyncio
+async def test_process_post_infra_selling_offering(db_session, mock_extractor):
+    """Selling infra should still be treated as an infrastructure offering."""
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="infra_sell_1",
+        title="Selling shade structure",
+        raw_text="For sale: good condition canopy and shade walls.",
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        post_type="infrastructure",
+        infra_role="offering",
+        infra_offer_type="sell",
+        infra_categories=["shade"],
+        quantity="1 canopy",
+        pickup_location="Spanish Springs, NV",
+        delivery_available=True,
+        dimensions="20 ft tall",
+        parts_included="outriggers, straps",
+        setup_notes="must stake down",
+        condition="good",
+        confidence=0.92,
+    )
+
+    result = await process_post(db_session, post, mock_extractor)
+
+    assert result.status == PostStatus.INDEXED
+    assert result.post_type == PostType.INFRASTRUCTURE
+    assert result.infra_role == "offering"
+    assert result.infra_offer_type == "sell"
+    assert result.condition == "good"
+    assert result.pickup_location == "Spanish Springs, NV"
+    assert result.delivery_available is True
+    assert result.dimensions == "20 ft tall"
+    assert result.parts_included == "outriggers, straps"
+    assert result.setup_notes == "must stake down"
 
 
 @pytest.mark.asyncio

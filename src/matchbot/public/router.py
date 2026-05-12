@@ -1129,9 +1129,15 @@ function buildGearCard(item) {
     sourceUrl: item.source_url,
     crossPlatforms: item.cross_platforms,
     tagHtml: '<div class="tag-row">' + infraTags(cats, 3) + conditionTag(item.condition) + '</div>',
-    detailHtml: item.quantity
-      ? '<p style="margin:0;font-size:13px;color:#6a6264">Qty: ' + esc(item.quantity) + '</p>'
-      : '',
+    detailHtml: [
+      item.infra_offer_type ? '<p style="margin:0;font-size:13px;color:#6a6264">Offer: ' + esc(item.infra_offer_type) + '</p>' : '',
+      item.quantity ? '<p style="margin:0;font-size:13px;color:#6a6264">Qty: ' + esc(item.quantity) + '</p>' : '',
+      item.pickup_location ? '<p style="margin:0;font-size:13px;color:#6a6264">Pickup: ' + esc(item.pickup_location) + '</p>' : '',
+      item.delivery_available !== null && item.delivery_available !== undefined ? '<p style="margin:0;font-size:13px;color:#6a6264">Delivery: ' + (item.delivery_available ? 'yes' : 'no') + '</p>' : '',
+      item.dimensions ? '<p style="margin:0;font-size:13px;color:#6a6264">Size: ' + esc(item.dimensions) + '</p>' : '',
+      item.parts_included ? '<p style="margin:0;font-size:13px;color:#6a6264">Parts: ' + esc(item.parts_included) + '</p>' : '',
+      item.setup_notes ? '<p style="margin:0;font-size:13px;color:#6a6264">Setup: ' + esc(item.setup_notes) + '</p>' : '',
+    ].filter(Boolean).join(''),
   });
 }
 
@@ -2626,6 +2632,12 @@ async def _build_discovery_payload(
         else:
             item["infra_categories"] = [v for v in (post.infra_categories or "").split("|") if v]
             item["quantity"] = post.quantity
+            item["infra_offer_type"] = post.infra_offer_type
+            item["pickup_location"] = post.pickup_location
+            item["delivery_available"] = post.delivery_available
+            item["dimensions"] = post.dimensions
+            item["parts_included"] = post.parts_included
+            item["setup_notes"] = post.setup_notes
             item["condition"] = post.condition
             item["dates_needed"] = post.dates_needed
         items.append(item)
@@ -2736,12 +2748,33 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
 
     async def _gear_card(post: Post) -> dict[str, Any]:
         occurred_at = (post.source_created_at or post.detected_at).replace(tzinfo=UTC).isoformat()
+        detail_parts = []
+        if post.infra_offer_type:
+            detail_parts.append(f"Offer: {post.infra_offer_type}")
+        if post.quantity:
+            detail_parts.append(f"Qty: {post.quantity}")
+        if post.pickup_location:
+            detail_parts.append(f"Pickup: {post.pickup_location}")
+        if post.delivery_available is not None:
+            detail_parts.append(f"Delivery: {'yes' if post.delivery_available else 'no'}")
+        if post.dimensions:
+            detail_parts.append(f"Size: {post.dimensions}")
+        if post.parts_included:
+            detail_parts.append(f"Parts: {post.parts_included}")
+        if post.setup_notes:
+            detail_parts.append(f"Setup: {post.setup_notes}")
         return {
             "id": post.id,
             "infra_role": post.infra_role or "",
             "title": post.effective_title,
             "categories": _split_pipe_values(post.infra_categories),
             "quantity": post.quantity or "",
+            "infra_offer_type": post.infra_offer_type or "",
+            "pickup_location": post.pickup_location or "",
+            "delivery_available": post.delivery_available,
+            "dimensions": post.dimensions or "",
+            "parts_included": post.parts_included or "",
+            "setup_notes": post.setup_notes or "",
             "condition": post.condition or "",
             "snippet": _sanitize_text(post.raw_text or post.title or "", max_len=900),
             "platform": post.platform,
@@ -2749,6 +2782,7 @@ async def _build_listings_payload(session: AsyncSession) -> dict[str, Any]:
             "occurred_at": occurred_at,
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
             "cross_platforms": cross_platforms_by_post_id.get(post.id, []),
+            "detail_line": " · ".join(detail_parts),
         }
 
     gear_seeking_rows: list[Post] = []

@@ -27,6 +27,30 @@ CONTRIBUTION_TYPE_ALIASES: dict[str, str] = {
     "logistics": "camp_admin",
 }
 
+INFRASTRUCTURE_CATEGORY_ALIASES: dict[str, str] = {
+    "scaffold": "scaffolding",
+    "scaffolds": "scaffolding",
+    "scaffold tower": "scaffolding",
+    "scaffold towers": "scaffolding",
+    "shower stall": "shower",
+    "shower stalls": "shower",
+    "showers": "shower",
+    "gazebos": "gazebo",
+    "pavilion": "gazebo",
+    "pavilions": "gazebo",
+    "canopies": "canopy",
+    "awning": "canopy",
+    "awnings": "canopy",
+    "temporary structure": "structure",
+    "temporary structures": "structure",
+    "structure": "structure",
+    "structures": "structure",
+    "parts bundle": "parts",
+    "spare parts": "parts",
+    "hardware bundle": "parts",
+    "hardware bundles": "parts",
+}
+
 
 def _canonicalize_terms(
     raw: list[str],
@@ -80,13 +104,21 @@ def split_contribution_types(raw: list[str]) -> tuple[list[str], list[str]]:
 
 def normalize_infra_categories(raw: list[str]) -> list[str]:
     """Return only taxonomy-valid infrastructure category values, lowercased."""
-    canonical, _ = _canonicalize_terms(raw, INFRASTRUCTURE_CATEGORIES)
+    canonical, _ = _canonicalize_terms(
+        raw,
+        INFRASTRUCTURE_CATEGORIES,
+        aliases=INFRASTRUCTURE_CATEGORY_ALIASES,
+    )
     return canonical
 
 
 def split_infra_categories(raw: list[str]) -> tuple[list[str], list[str]]:
     """Return (canonical_values, unmapped_values) for infra category labels."""
-    return _canonicalize_terms(raw, INFRASTRUCTURE_CATEGORIES)
+    return _canonicalize_terms(
+        raw,
+        INFRASTRUCTURE_CATEGORIES,
+        aliases=INFRASTRUCTURE_CATEGORY_ALIASES,
+    )
 
 
 def normalize_condition(raw: str | None) -> str | None:
