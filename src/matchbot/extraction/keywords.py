@@ -82,6 +82,34 @@ _INFRA_OFFERING_PATTERNS = [
     r"\b(?:generator|shade|tarp|canopy|trailer|truck|tool|kitchen|stove)\b.{0,40}\b(?:available|for\s+loan|to\s+borrow|to\s+rent|free)\b",
 ]
 
+_RV_RENTAL_SUPPRESSOR_PATTERNS = [
+    r"\brenting\s+out\s+my\s+(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler)\b",
+    r"\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler|recreational\s+vehicle)s?\b.{0,80}\b(?:rent|rental|for\s+rent|for\s+sale|available)\b",
+    r"\b(?:rent|rental|available)\b.{0,40}\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler)\b",
+    r"\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler|recreational\s+vehicle)s?\b.{0,80}\b(?:pickup|delivery|deposit|sleeps)\b",
+    r"\b(?:playa[- ]ready|camp[- ]ready)\b.{0,80}\b(?:rv|motorhome|camper|trailer|rig)\b",
+    (
+        r"\b(?:several|fleet|other options|we have other options|visit us on instagram|"
+        r"message me for details|dm for info)\b.{0,80}\b(?:rv|motorhome|motorhomes|camper|"
+        r"trailer|rigs)\b"
+    ),
+]
+
+_RV_RENTAL_LISTING_PATTERNS = [
+    r"\brv\s+rentals?\b",
+    r"\bmotorhomes?\s+for\s+rent\b",
+    r"\bfor\s+sale\s+or\s+rent\b",
+    r"\bsale\s+or\s+rent\b",
+    r"\brv\s+for\s+rent\b",
+    r"\brv\s+to\s+rent\b",
+    r"\bmotorhomes?\s+available\s+for\s+rent\b",
+    r"\brvs?\s+available\b",
+    r"\bavailable\s+for\s+rent\b",
+    r"\bavailable\s+to\s+rent\b",
+    r"\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler|recreational\s+vehicle)s?\s+rental(?:s)?\b",
+    r"\bclass\s+[ac]\s+motorhomes?\b",
+    r"\bclass\s+[ac]\s+gas\s+motorhomes?\b",
+]
 
 # ---------------------------------------------------------------------------
 # Noise / Suppression patterns
@@ -135,6 +163,15 @@ def keyword_filter(title: str, body: str) -> KeywordResult:
     text = f"{title}\n{body}".lower()
 
     # Check infrastructure patterns first (more specific)
+    if _looks_like_rv_rental_listing(text):
+        return KeywordResult(
+            matched=False,
+            candidate_role=PostRole.UNKNOWN,
+            tier="no_match",
+            score=0,
+            reasons=("rv_rental_suppression",),
+        )
+
     infra_seeking = _any_match(text, _INFRA_SEEKING_PATTERNS)
     infra_offering = _any_match(text, _INFRA_OFFERING_PATTERNS)
 
@@ -213,6 +250,12 @@ def keyword_filter(title: str, body: str) -> KeywordResult:
         score=score,
         reasons=tuple(reasons),
     )
+
+
+def _looks_like_rv_rental_listing(text: str) -> bool:
+    if _any_match(text, _RV_RENTAL_LISTING_PATTERNS):
+        return True
+    return _any_match(text, _RV_RENTAL_SUPPRESSOR_PATTERNS)
 
 
 def _any_match(text: str, patterns: list[str]) -> bool:

@@ -1,6 +1,8 @@
 """Tests for keyword pre-filter (no LLM calls)."""
 
 
+import pytest
+
 from matchbot.db.models import PostRole
 from matchbot.extraction.keywords import keyword_filter
 
@@ -130,6 +132,43 @@ class TestNoMatch:
             "LA-Based RV Rental – Playa-Ready",
             "Renting out my RV for Burning Man 2026, based in LA.",
         )
+        assert result.matched is False
+        assert result.tier == "no_match"
+        assert result.reasons == ("rv_rental_suppression",)
+
+    @pytest.mark.parametrize(
+        "title, body",
+        [
+            ("rv rental", ""),
+            ("rv rentals", ""),
+            ("rv for rent", ""),
+            ("rv to rent", ""),
+            ("rent an rv", ""),
+            ("rent a rv", ""),
+            ("renting out my rv", ""),
+            ("looking to rent a rv", ""),
+            ("looking to rent an rv", ""),
+            ("motorhome for rent", ""),
+            ("motorhomes for rent", ""),
+            ("motorhomes available for rent", ""),
+            ("available for rent", ""),
+            ("available to rent", ""),
+            ("for sale or rent", ""),
+            ("sale or rent", ""),
+            ("class c motorhome", ""),
+            ("class c motorhomes", ""),
+            ("class a motorhome", ""),
+            ("class a gas motorhomes", ""),
+            ("playa-ready rv", ""),
+            ("playa ready rv", ""),
+            ("burning man rv rental", ""),
+            ("burning man rv rentals", ""),
+            ("rv rental group", ""),
+            ("rvs available", ""),
+        ],
+    )
+    def test_common_rv_rental_phrases_are_suppressed(self, title, body):
+        result = keyword_filter(title, body)
         assert result.matched is False
         assert result.tier == "no_match"
         assert result.reasons == ("rv_rental_suppression",)

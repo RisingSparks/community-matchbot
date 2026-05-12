@@ -35,6 +35,8 @@ Rules:
   cleaning, repair, maintenance, installation, consulting, or professional help
   are null unless the post is clearly about borrowing/sharing a tangible item or
   teardown labor
+- RV, motorhome, camper, and travel-trailer rentals are null. They are vehicle
+  rentals, not infrastructure exchange posts.
 - Extract year ONLY if explicitly mentioned
 - Limit extractions: Select a MAXIMUM of 3 vibes that are the primary focus of the camp.
 - Limit extractions: Select a MAXIMUM of 3 contribution_types that the camp is EXPLICITLY asking for
@@ -164,6 +166,8 @@ Rules:
   selling, or sharing physical gear/items. Service requests/offers like cleaning,
   repair, maintenance, installation, recommendations, or professional help are null
   unless the post is clearly about a tangible item exchange or teardown labor
+- RV, motorhome, camper, and travel-trailer rentals are null. They are vehicle
+  rentals, not infrastructure exchange posts.
 - Extract year only if explicitly mentioned
 - Limit extractions: Select a MAXIMUM of 3 vibes that are the primary focus of the camp.
 - Limit extractions: Select a MAXIMUM of 3 contribution_types that the camp is EXPLICITLY asking for
