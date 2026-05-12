@@ -7,7 +7,6 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 WORKDIR /app
 
 # Enable bytecode compilation
-ENV UV_COMPILE_BYTECODE=1
 # Disable progress bars for cleaner logs
 ENV UV_NO_PROGRESS=1
 

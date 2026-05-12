@@ -87,6 +87,13 @@ jobs:
             rm -f "$tmp_file"
           EOF
 
+      - name: Prune Docker build cache
+        run: |
+          ssh -p "${{ secrets.DEPLOY_SSH_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" <<'EOF'
+            set -euo pipefail
+            docker builder prune -af
+          EOF
+
       - name: Deploy on host
         run: |
           ssh -p "${{ secrets.DEPLOY_SSH_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" <<'EOF'
