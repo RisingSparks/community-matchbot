@@ -98,10 +98,10 @@ Backfill historical Facebook group posts from a HAR export or the bundled Chrome
 
 ```bash
 # Dry run to verify parsing and deduplication
-uv run python scripts/backfill_facebook.py ./fb_posts.json --dry-run
+uv run python scripts/backfill_facebook.py data/raw/facebook/*.json --dry-run
 
 # Real upload (without AI extraction for speed)
-uv run python scripts/backfill_facebook.py ./fb_posts.json --no-extract
+uv run python scripts/backfill_facebook.py data/raw/facebook/*.json --no-extract
 
 # Real upload with AI extraction
 uv run python scripts/backfill_facebook.py ./fb_posts.json --group-name "My Group"
