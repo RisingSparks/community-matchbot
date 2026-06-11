@@ -161,7 +161,8 @@ async def analyze_facebook_groups():
         )
 
     print("\n[NOTE] 'UNCLEAR' = posts with status RAW, NEEDS_REVIEW, or CLOSED_STALE")
-    print("[NOTE] Composite score = indexed_posts * (1 + recency_boost), where recency_boost")
+    print("[NOTE] Composite score = indexed_posts")
+    # print("[NOTE] Composite score = indexed_posts * (1 + recency_boost), where recency_boost")
     print("       is 0 for posts >60 days old, 1.0 for posts <1 day old.")
 
 
