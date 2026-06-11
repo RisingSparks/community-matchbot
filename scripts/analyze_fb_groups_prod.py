@@ -93,7 +93,7 @@ async def analyze_facebook_groups():
             "newest_post": newest_post,
             "oldest_post": oldest_post,
             "days_since_newest": days_since_newest,
-            "recency_score": recency_score,
+            # "recency_score": recency_score,
             "composite_score": composite_score,
         })
 
