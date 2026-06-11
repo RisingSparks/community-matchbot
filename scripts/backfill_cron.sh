@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-REPO_DIR="~/github/burning-man-matchbot"
+REPO_DIR="/Users/peter/github/burning-man-matchbot"
 LOG_FILE="$REPO_DIR/data/logs/matchbot.log"
 BACKFILL_LOG="/tmp/matchbot-backfill.log"
 
