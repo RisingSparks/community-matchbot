@@ -37,6 +37,9 @@ uv sync --dev
 ```bash
 # Run migrations
 uv run alembic upgrade head
+
+# Run arbitrary SQL queries on the active database (SQLite/Neon)
+uv run python scripts/query_db.py "SELECT * FROM post LIMIT 5;"
 ```
 
 ### 3. Running the Server (API & Listeners)

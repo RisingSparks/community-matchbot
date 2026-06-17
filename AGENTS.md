@@ -15,6 +15,7 @@
 - `uv run matchbot --help`: inspect CLI commands.
 - `uv run python scripts/run_listeners.py`: run Reddit, Discord, and FastAPI webhook listeners together.
 - `uv run alembic upgrade head`: apply DB migrations.
+- `uv run python scripts/query_db.py "SELECT ..."`: execute arbitrary SQL queries on the active database (SQLite/Neon).
 
 ## Coding Style & Naming Conventions
 - Python 3.12+; 4-space indentation; prefer type hints on public interfaces.

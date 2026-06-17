@@ -32,6 +32,9 @@ uv run matchbot queue send-feedback <id> [--dry-run]
 # Run migrations (required after adding new DB columns)
 uv run alembic upgrade head
 
+# Run arbitrary SQL queries on SQLite or production Neon Postgres
+uv run python scripts/query_db.py "SELECT count(*), status FROM post GROUP BY status;"
+
 # Start all platform listeners (Reddit, Discord, Facebook webhook, scheduler)
 uv run python scripts/run_listeners.py
 
