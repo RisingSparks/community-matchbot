@@ -37,8 +37,8 @@ Rules:
   teardown labor
 - Selling physical infra is in-scope. Treat "for sale" / "selling" posts for
   gear, tools, shade, power, and similar items as infrastructure offering.
-- RV, motorhome, camper, and travel-trailer rentals are null. They are vehicle
-  rentals, not infrastructure exchange posts.
+- RV, motorhome, camper, and travel-trailer rentals or sales are null. They are vehicle
+  rentals or sales, not infrastructure exchange posts.
 - If the post is offering gear, extract the offer style in infra_offer_type:
   sell, rent, lend, give, swap, or unknown.
 - Extract pickup_location, delivery_available, dimensions, parts_included, and
@@ -181,8 +181,8 @@ Rules:
   unless the post is clearly about a tangible item exchange or teardown labor
 - Selling physical infra is in-scope. Treat "for sale" / "selling" posts for
   gear, tools, shade, power, and similar items as infrastructure offering.
-- RV, motorhome, camper, and travel-trailer rentals are null. They are vehicle
-  rentals, not infrastructure exchange posts.
+- RV, motorhome, camper, and travel-trailer rentals or sales are null. They are vehicle
+  rentals or sales, not infrastructure exchange posts.
 - If the post is offering gear, extract the offer style in infra_offer_type:
   sell, rent, lend, give, swap, or unknown.
 - Extract pickup_location, delivery_available, dimensions, parts_included, and

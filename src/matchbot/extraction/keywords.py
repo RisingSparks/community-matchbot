@@ -127,18 +127,22 @@ _INFRA_OFFERING_PATTERNS = [
 
 _RV_RENTAL_SUPPRESSOR_PATTERNS = [
     r"\brenting\s+out\s+my\s+(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler)\b",
-    r"\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler|recreational\s+vehicle)s?\b.{0,80}\b(?:rent|rental|for\s+rent|for\s+sale|available)\b",
-    r"\b(?:rent|rental|available)\b.{0,40}\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler)\b",
+    r"\b(?:selling|sell)\s+my\s+(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler)\b",
+    r"\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler|recreational\s+vehicle)s?\b.{0,80}\b(?:rent|rental|for\s+rent|for\s+sale|sale|available)\b",
+    r"\b(?:rent|rental|available|for\s+sale|sale|sell|selling)\b.{0,40}\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler)\b",
     r"\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler|recreational\s+vehicle)s?\b.{0,80}\b(?:pickup|delivery|deposit|sleeps)\b",
     r"\b(?:playa[- ]ready|camp[- ]ready)\b.{0,80}\b(?:rv|motorhome|camper)\b",
 ]
 
 _RV_RENTAL_LISTING_PATTERNS = [
     r"\brv\s+rentals?\b",
+    r"\brv\s+sales?\b",
     r"\bmotorhomes?\s+for\s+rent\b",
+    r"\bmotorhomes?\s+for\s+sale\b",
     r"\bfor\s+sale\s+or\s+rent\b",
     r"\bsale\s+or\s+rent\b",
     r"\brv\s+for\s+rent\b",
+    r"\brv\s+for\s+sale\b",
     r"\brv\s+to\s+rent\b",
     r"\bmotorhomes?\s+available\s+for\s+rent\b",
     r"\brvs?\s+available\b",
