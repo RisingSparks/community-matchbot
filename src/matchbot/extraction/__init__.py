@@ -13,7 +13,7 @@ from matchbot.db.models import Event, Post, PostStatus, PostType
 from matchbot.db.profiles import sync_profile_from_post
 from matchbot.extraction.base import LLMExtractor
 from matchbot.extraction.dedup import find_canonical_post
-from matchbot.extraction.keywords import keyword_filter
+from matchbot.extraction.keywords import is_vehicle_sale_or_rental_listing, keyword_filter
 from matchbot.extraction.schemas import ExtractedPost
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
@@ -277,6 +277,35 @@ async def process_post(
         valid_condition = None
         condition_other = None
 
+    if (
+        extracted.post_type == PostType.INFRASTRUCTURE
+        and is_vehicle_sale_or_rental_listing(post.title, post.raw_text)
+    ):
+        extracted = extracted.model_copy(
+            update={
+                "post_type": None,
+                "infra_role": None,
+                "infra_offer_type": None,
+                "infra_categories": [],
+                "infra_categories_other": [],
+                "quantity": None,
+                "pickup_location": None,
+                "delivery_available": None,
+                "dimensions": None,
+                "parts_included": None,
+                "setup_notes": None,
+                "condition": None,
+                "condition_other": None,
+                "dates_needed": None,
+                "extraction_notes": extracted.extraction_notes
+                or "Vehicle sale/rental listing, not a gear exchange post.",
+            }
+        )
+        valid_infra_categories = []
+        infra_categories_other = []
+        valid_condition = None
+        condition_other = None
+
     # --- 5. Update Post fields ---
     post.post_type = extracted.post_type
     post.display_title = extracted.display_title
@@ -284,6 +313,19 @@ async def process_post(
     if post.post_type is None:
         # LLM determined the post is not relevant to camp-finding or gear exchange
         post.status = PostStatus.SKIPPED
+        post.infra_role = None
+        post.infra_offer_type = None
+        post.infra_categories = ""
+        post.infra_categories_other = ""
+        post.quantity = None
+        post.pickup_location = None
+        post.delivery_available = None
+        post.dimensions = None
+        post.parts_included = None
+        post.setup_notes = None
+        post.condition = None
+        post.condition_other = None
+        post.dates_needed = None
         post.extraction_confidence = extracted.confidence
         post.extraction_method = f"llm_{extractor.provider_name()}"
         # Deactivate any profile backed solely by this post (re-extraction flow)

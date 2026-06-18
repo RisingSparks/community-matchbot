@@ -1315,6 +1315,20 @@ def test_community_listings_include_active_infra_needs_review_and_inferred_roles
                         condition="good",
                         detected_at=now - timedelta(hours=2),
                     ),
+                    Post(
+                        platform=Platform.FACEBOOK,
+                        platform_post_id="stale_rv_sale",
+                        platform_author_id="rv_seller",
+                        source_url="https://facebook.com/stale_rv_sale",
+                        title="RV for sale",
+                        raw_text="Camp-ready RV sleeps 4. Delivery available.",
+                        post_type=PostType.INFRASTRUCTURE,
+                        status=PostStatus.INDEXED,
+                        infra_role="offering",
+                        infra_offer_type="sell",
+                        infra_categories="vehicles",
+                        detected_at=now - timedelta(hours=1),
+                    ),
                 ]
             )
             await session.commit()
@@ -1332,6 +1346,10 @@ def test_community_listings_include_active_infra_needs_review_and_inferred_roles
         assert "power" in payload["gear_seeking"][0]["categories"]
         assert payload["gear_offering"][0]["source_url"] == (
             "https://discord.com/channels/test/gear_offer_review"
+        )
+        assert all(
+            item["source_url"] != "https://facebook.com/stale_rv_sale"
+            for item in payload["gear_offering"]
         )
         assert "shade" in payload["gear_offering"][0]["categories"]
         assert payload["gear_offering"][0]["condition"] == "good"

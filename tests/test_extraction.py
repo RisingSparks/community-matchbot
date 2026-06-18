@@ -8,9 +8,9 @@ import httpx
 import pytest
 from sqlmodel import select
 
-from matchbot.db.models import Platform, Post, PostRole, PostStatus, Profile
+from matchbot.db.models import InfraRole, Platform, Post, PostRole, PostStatus, PostType, Profile
 from matchbot.extraction import process_post
-from matchbot.extraction.keywords import keyword_filter
+from matchbot.extraction.keywords import KeywordResult, keyword_filter
 from matchbot.extraction.prompts import SYSTEM_PROMPT
 from matchbot.extraction.schemas import ExtractedPost
 from matchbot.taxonomy import normalize_contribution_types
@@ -799,7 +799,7 @@ def test_system_prompt_marks_one_off_session_contributor_asks_as_null():
 
 @pytest.mark.asyncio
 async def test_infer_post_type_requires_signal(db_session, mock_extractor):
-    """When the LLM returns post_type='infrastructure' but there is no signal, the post is skipped."""
+    """LLM infrastructure classification without infra fields is skipped."""
     post = Post(
         platform=Platform.REDDIT,
         platform_post_id="nosignal001",
@@ -826,7 +826,7 @@ async def test_infer_post_type_requires_signal(db_session, mock_extractor):
 
 @pytest.mark.asyncio
 async def test_infer_post_type_accepts_infra_with_signal(db_session, mock_extractor):
-    """When the LLM returns post_type='infrastructure' and there is infra signal, the post is processed."""
+    """LLM infrastructure classification with infra fields is processed."""
     post = Post(
         platform=Platform.REDDIT,
         platform_post_id="withsignal001",
@@ -851,3 +851,49 @@ async def test_infer_post_type_accepts_infra_with_signal(db_session, mock_extrac
     assert result.status == PostStatus.INDEXED
     assert result.post_type == "infrastructure"
 
+
+@pytest.mark.asyncio
+async def test_process_post_vetoes_vehicle_sale_after_llm_extraction(
+    db_session, mock_extractor, monkeypatch
+):
+    """Vehicle listings are skipped even if a later extraction step classifies them as infra."""
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="rv_llm_veto_001",
+        title="Camp-ready RV for sale",
+        raw_text="Sleeps 4, delivery available, message me for details.",
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    monkeypatch.setattr(
+        "matchbot.extraction.keyword_filter",
+        lambda _title, _body: KeywordResult(
+            matched=True,
+            candidate_role=PostRole.UNKNOWN,
+            post_type=PostType.INFRASTRUCTURE,
+            infra_role=InfraRole.OFFERING,
+            tier="hard_match",
+            score=100,
+            reasons=("infra_regex",),
+        ),
+    )
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        post_type="infrastructure",
+        infra_role="offering",
+        infra_offer_type="sell",
+        infra_categories=["vehicles"],
+        quantity="1 RV",
+        pickup_location="Reno",
+        delivery_available=True,
+        confidence=0.9,
+    )
+
+    result = await process_post(db_session, post, mock_extractor)
+
+    assert result.status == PostStatus.SKIPPED
+    assert result.post_type is None
+    assert result.infra_role is None

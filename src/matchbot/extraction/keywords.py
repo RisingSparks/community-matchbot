@@ -319,6 +319,12 @@ def _looks_like_rv_rental_listing(text: str) -> bool:
     return _any_match(text, _RV_RENTAL_SUPPRESSOR_PATTERNS)
 
 
+def is_vehicle_sale_or_rental_listing(title: str, body: str) -> bool:
+    """Return True for RV/camper/trailer sale or rental listings that are out of scope."""
+    text = f"{title}\n{body}".lower()
+    return _looks_like_rv_rental_listing(text)
+
+
 def _any_match(text: str, patterns: list[str]) -> bool:
     return any(re.search(pattern, text) for pattern in patterns)
 

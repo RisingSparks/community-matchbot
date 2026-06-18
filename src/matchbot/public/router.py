@@ -26,7 +26,7 @@ from matchbot.branding import (
     build_meta_tags,
 )
 from matchbot.db.models import InfraRole, Match, MatchStatus, Post, PostRole, PostStatus, PostType
-from matchbot.extraction.keywords import keyword_filter
+from matchbot.extraction.keywords import is_vehicle_sale_or_rental_listing, keyword_filter
 from matchbot.log_config import log_exception
 from matchbot.settings import get_settings
 
@@ -3311,6 +3311,8 @@ def _infer_infra_role(
     raw_text: str | None,
 ) -> str | None:
     if post_type != PostType.INFRASTRUCTURE:
+        return None
+    if is_vehicle_sale_or_rental_listing(title or "", raw_text or ""):
         return None
     if infra_role in {"seeking", "offering"}:
         return infra_role
