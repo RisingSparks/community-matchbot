@@ -752,7 +752,7 @@ async def test_process_post_skips_when_llm_returns_null_post_type(db_session, mo
         title="Poor ticket sales this year and other ramblings",
         raw_text=(
             "Long rant about ticket prices. Anyone have thoughts on why fewer people "
-            "are going? Can someone spare some advice? Looking to borrow ideas."
+            "are going? Can someone spare some advice? Looking to borrow a generator."
         ),
         status=PostStatus.RAW,
     )
@@ -795,3 +795,59 @@ def test_system_prompt_marks_one_off_session_contributor_asks_as_null():
     assert "One-off asks for professionals" in SYSTEM_PROMPT
     assert "session" in SYSTEM_PROMPT
     assert "contributors are null unless" in SYSTEM_PROMPT
+
+
+@pytest.mark.asyncio
+async def test_infer_post_type_requires_signal(db_session, mock_extractor):
+    """When the LLM returns post_type='infrastructure' but there is no signal, the post is skipped."""
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="nosignal001",
+        title="Denver Fam?!?",
+        raw_text="Heading to Denver this weekend. Art recommendations?",
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        post_type="infrastructure",
+        confidence=0.85,
+        extraction_notes="Mistakenly classified without any signal.",
+        # no infra fields set!
+    )
+
+    result = await process_post(db_session, post, mock_extractor)
+
+    assert result.status == PostStatus.SKIPPED
+    assert result.post_type is None
+
+
+@pytest.mark.asyncio
+async def test_infer_post_type_accepts_infra_with_signal(db_session, mock_extractor):
+    """When the LLM returns post_type='infrastructure' and there is infra signal, the post is processed."""
+    post = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="withsignal001",
+        title="Need generator",
+        raw_text="Need a generator for camp build.",
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    mock_extractor.extract.return_value = ExtractedPost(
+        post_type="infrastructure",
+        confidence=0.85,
+        infra_role="seeking",
+        infra_categories=["power"],
+        extraction_notes="Valid infrastructure post.",
+    )
+
+    result = await process_post(db_session, post, mock_extractor)
+
+    assert result.status == PostStatus.INDEXED
+    assert result.post_type == "infrastructure"
+

@@ -72,9 +72,6 @@ def _is_service_like_infrastructure_post(
 
 
 def _infer_post_type_from_extraction(post: Post, extracted: ExtractedPost) -> str | None:
-    if extracted.post_type is not None:
-        return extracted.post_type
-
     mentorship_signal = (
         extracted.role in {"seeker", "camp"}
         or extracted.seeker_intent is not None
@@ -117,11 +114,17 @@ def _infer_post_type_from_extraction(post: Post, extracted: ExtractedPost) -> st
         )
     )
 
+    if extracted.post_type == PostType.MENTORSHIP:
+        return PostType.MENTORSHIP if mentorship_signal else None
+    if extracted.post_type == PostType.INFRASTRUCTURE:
+        return PostType.INFRASTRUCTURE if infra_signal else None
+
     if post.post_type == PostType.MENTORSHIP and mentorship_signal:
         return PostType.MENTORSHIP
     if post.post_type == PostType.INFRASTRUCTURE and infra_signal:
         return PostType.INFRASTRUCTURE
     return None
+
 
 
 async def process_post(

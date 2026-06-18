@@ -54,26 +54,22 @@ _CAMP_PATTERNS = [
 # Infrastructure / "Bitch n Swap" patterns
 # ---------------------------------------------------------------------------
 
+_INFRA_NOUNS = (
+    r"(?:generator|solar|power|shade|tarp|canopy|trailer|truck|tool|kitchen|stove|radio|speaker|"
+    r"scaffold(?:ing)?|shower(?:\s+stall(?:s)?)?|gazebo(?:s)?|temporary\s+structure(?:s)?|"
+    r"shade\s+structure(?:s)?|parts?|tent|fridge|freezer|rig)"
+)
+
 _INFRA_SEEKING_PATTERNS = [
-    (
-        r"\bneed(?:ing)?\s+(?:a\s+|an\s+)?(?:generator|solar|power|shade|tarp|canopy|"
-        r"trailer|truck|tool|kitchen|stove|radio|speaker|scaffold(?:ing)?|shower(?:\s+stall(?:s)?)?|"
-        r"gazebo(?:s)?|temporary\s+structure(?:s)?|shade\s+structure(?:s)?|parts?)\b"
-    ),
-    r"\blooking\s+(?:to\s+)?(?:borrow|rent)\b",
-    r"\biso\b.{0,40}\b(?:generator|shade|tarp|power|tool|trailer|truck|kitchen)\b",
-    (
-        r"\bwho\s+has\s+(?:a\s+|an\s+)?(?:generator|solar|shade|tarp|trailer|truck|tool|"
-        r"scaffold(?:ing)?|shower(?:\s+stall(?:s)?)?|gazebo(?:s)?|canopy(?:ies)?|parts?)\b"
-    ),
-    r"\banyone\s+(?:have|has|lending|renting)\b",
-    r"\bcan\s+someone\s+(?:lend|loan|spare|share)\b",
-    (
-        r"\bneeded?\s*:\s*(?:generator|shade|tarp|power|tool|trailer|truck|kitchen|speaker|"
-        r"radio|scaffold(?:ing)?|shower(?:\s+stall(?:s)?)?|gazebo(?:s)?|canopy(?:ies)?|parts?)\b"
-    ),
-    r"\blooking\s+for\s+(?:to\s+)?(?:borrow|rent|acquire)\b",
-    r"\bwanted\b.{0,30}\b(?:generator|shade|tarp|power|tool|trailer|truck|kitchen)\b",
+    rf"\bneed(?:ing)?\s+(?:a\s+|an\s+)?{_INFRA_NOUNS}\b",
+    rf"\blooking\s+(?:to\s+)?(?:borrow|rent)\b.{{0,40}}\b{_INFRA_NOUNS}\b",
+    rf"\biso\b.{{0,40}}\b{_INFRA_NOUNS}\b",
+    rf"\bwho\s+has\s+(?:a\s+|an\s+)?{_INFRA_NOUNS}\b",
+    rf"\banyone\s+(?:have|has|lending|renting)\b.{{0,40}}\b{_INFRA_NOUNS}\b",
+    rf"\bcan\s+someone\s+(?:lend|loan|spare|share)\b.{{0,40}}\b{_INFRA_NOUNS}\b",
+    rf"\bneeded?\s*:\s*{_INFRA_NOUNS}\b",
+    rf"\blooking\s+for\s+(?:to\s+)?(?:borrow|rent|acquire)\b.{{0,40}}\b{_INFRA_NOUNS}\b",
+    rf"\bwanted\b.{{0,30}}\b{_INFRA_NOUNS}\b",
     (
         r"\bseeking\s+(?:gear|equipment|tools?|shade|power|generator|scaffold(?:ing)?|"
         r"shower(?:\s+stall(?:s)?)?|gazebo(?:s)?|canopy(?:ies)?|parts?)\b"
@@ -81,26 +77,22 @@ _INFRA_SEEKING_PATTERNS = [
 ]
 
 _INFRA_OFFERING_PATTERNS = [
-    (
-        r"\bhave\s+(?:a\s+|an\s+|extra\s+|spare\s+)?(?:generator|solar|shade|tarp|canopy|"
-        r"trailer|truck|tool|kitchen|stove|radio|speaker|scaffold(?:ing)?|shower(?:\s+stall(?:s)?)?|"
-        r"gazebo(?:s)?|temporary\s+structure(?:s)?|shade\s+structure(?:s)?|parts?)\b"
-    ),
-    r"\boffering\s+(?:to\s+)?(?:lend|loan|share|rent|give|sell)\b",
-    r"\bcan\s+(?:lend|loan|share|spare)\b",
+    rf"\bhave\s+(?:a\s+|an\s+|extra\s+|spare\s+)?{_INFRA_NOUNS}\b",
+    rf"\boffering\s+(?:to\s+)?(?:lend|loan|share|rent|give|sell)\b.{{0,40}}\b{_INFRA_NOUNS}\b",
+    rf"\bcan\s+(?:lend|loan|share|spare)\b.{{0,40}}\b{_INFRA_NOUNS}\b",
     (
         r"\b(?:lending|loaning|sharing|renting|giving\s+away|selling(?:\s+my|\s+off)?)\b.{0,40}\b"
         r"(?:generator|shade|tarp|power|tool|trailer|truck|kitchen|scaffold(?:ing)?|"
         r"shower(?:\s+stall(?:s)?)?|gazebo(?:s)?|canopy(?:ies)?|parts?)\b"
     ),
-    r"\bfree\s+(?:to\s+)?(?:a\s+good\s+)?home\b",
-    r"\bswap\b.{0,30}\b(?:for|to|or)\b",
+    rf"\bfree\s+(?:to\s+)?(?:a\s+)?good\s+home\b.{{0,40}}\b{_INFRA_NOUNS}\b",
+    rf"\bswap\b.{{0,30}}\b(?:for|to|or)\b.{{0,40}}\b{_INFRA_NOUNS}\b",
     r"\bbitch\s+n\s+swap\b",
     (
         r"\bsurplus\b.{0,30}\b(?:generator|shade|tarp|power|tool|trailer|truck|kitchen|gear|"
         r"equipment|scaffold(?:ing)?|shower(?:\s+stall(?:s)?)?|gazebo(?:s)?|canopy(?:ies)?|parts?)\b"
     ),
-    r"\b(?:for|available)\s+(?:borrow|loan|rent|free)\b",
+    rf"\b(?:for|available)\s+(?:borrow|loan|rent|free)\b.{{0,40}}\b{_INFRA_NOUNS}\b",
     (
         r"\b(?:for\s+sale|sale)\b.{0,60}\b(?:generator|solar|shade|tarp|canopy|trailer|truck|"
         r"tool|kitchen|stove|radio|speaker|scaffold(?:ing)?|shower(?:\s+stall(?:s)?)?|gazebo(?:s)?|"
@@ -116,8 +108,8 @@ _INFRA_OFFERING_PATTERNS = [
         r"trailer|truck|tool|kitchen|stove|radio|speaker|scaffold(?:ing)?|shower(?:\s+stall(?:s)?)?|"
         r"gazebo(?:s)?|parts?|rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler)\b"
     ),
-    r"\bgiving\s+away\b",
-    r"\bavailable\s+to\s+(?:lend|loan|share|borrow)\b",
+    rf"\bgiving\s+away\b.{{0,40}}\b{_INFRA_NOUNS}\b",
+    rf"\bavailable\s+to\s+(?:lend|loan|share|borrow)\b.{{0,40}}\b{_INFRA_NOUNS}\b",
     (
         r"\b(?:generator|shade|tarp|canopy|trailer|truck|tool|kitchen|stove|scaffold(?:ing)?|"
         r"shower(?:\s+stall(?:s)?)?|gazebo(?:s)?|parts?)\b.{0,40}\b(?:available|for\s+loan|to\s+borrow|"
