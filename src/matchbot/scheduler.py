@@ -27,9 +27,9 @@ logger = logging.getLogger(__name__)
 # Configuration defaults (all overridable via settings in the future)
 # ---------------------------------------------------------------------------
 
-STALE_POST_DAYS: int = 60           # INDEXED posts older than this become CLOSED_STALE
-FEEDBACK_WINDOW_DAYS: int = 14      # Days after intro_sent_at to request feedback
-RETENTION_DAYS: int = 365           # Days after which raw_text is anonymised
+STALE_POST_DAYS: int = 60  # INDEXED posts older than this become CLOSED_STALE
+FEEDBACK_WINDOW_DAYS: int = 14  # Days after intro_sent_at to request feedback
+RETENTION_DAYS: int = 365  # Days after which raw_text is anonymised
 RETENTION_PLACEHOLDER: str = "[content removed for privacy]"
 
 

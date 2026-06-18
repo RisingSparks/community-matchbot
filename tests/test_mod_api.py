@@ -358,9 +358,7 @@ async def test_dismiss_requires_reason(mod_client, db_session):
     assert resp.status_code == 422
 
     # Invalid reason value
-    resp = await mod_client.post(
-        f"/api/mod/posts/{post.id}/dismiss", json={"reason": "bad-reason"}
-    )
+    resp = await mod_client.post(f"/api/mod/posts/{post.id}/dismiss", json={"reason": "bad-reason"})
     assert resp.status_code == 422
 
 
@@ -377,9 +375,7 @@ async def test_dismiss_transitions_to_skipped(mod_client, db_session):
     await db_session.commit()
     await db_session.refresh(post)
 
-    resp = await mod_client.post(
-        f"/api/mod/posts/{post.id}/dismiss", json={"reason": "spam"}
-    )
+    resp = await mod_client.post(f"/api/mod/posts/{post.id}/dismiss", json={"reason": "spam"})
     assert resp.status_code == 200
     data = resp.json()
     assert data["ok"] is True

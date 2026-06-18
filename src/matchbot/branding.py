@@ -74,7 +74,7 @@ def build_meta_tags(
         f'<meta property="og:type" content="{escape(og_type)}">',
         f'<meta property="og:title" content="{escaped_title}">',
         f'<meta property="og:description" content="{escaped_description}">',
-        f'<meta name="twitter:card" content="summary_large_image">',
+        '<meta name="twitter:card" content="summary_large_image">',
         f'<meta name="twitter:title" content="{escaped_title}">',
         f'<meta name="twitter:description" content="{escaped_description}">',
     ]

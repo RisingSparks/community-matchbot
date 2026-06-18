@@ -20,9 +20,13 @@ logger = logging.getLogger(__name__)
 
 @app.command("www-guide")
 def enrich_www_guide(
-    url: Annotated[str | None, typer.Option("--url", help="Guide API URL (overrides settings)")] = None,
+    url: Annotated[
+        str | None, typer.Option("--url", help="Guide API URL (overrides settings)")
+    ] = None,
     year: Annotated[int | None, typer.Option("--year", help="Burn year to tag records")] = None,
-    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview matches without writing")] = False,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Preview matches without writing")
+    ] = False,
 ) -> None:
     """Fetch WWW Guide camp data and enrich matched camp posts."""
 
@@ -35,7 +39,9 @@ def enrich_www_guide(
         guide_year = year or settings.www_guide_year
 
         if not guide_url:
-            rprint("[red]No WWW Guide URL configured. Set WWW_GUIDE_URL in .env or pass --url.[/red]")
+            rprint(
+                "[red]No WWW Guide URL configured. Set WWW_GUIDE_URL in .env or pass --url.[/red]"
+            )
             raise typer.Exit(1)
 
         rprint(f"[cyan]Fetching guide data from {guide_url} ...[/cyan]")
@@ -74,7 +80,9 @@ def enrich_www_guide(
         console.print(table)
 
         if dry_run:
-            rprint(f"[dim]--dry-run: {len(enriched)} posts would be updated, nothing written.[/dim]")
+            rprint(
+                f"[dim]--dry-run: {len(enriched)} posts would be updated, nothing written.[/dim]"
+            )
         else:
             rprint(f"[green]Enriched {len(enriched)} camp posts.[/green]")
 

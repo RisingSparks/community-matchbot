@@ -6,10 +6,10 @@ import asyncio
 import logging
 import re
 from collections import Counter
-from urllib.parse import urlparse
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse
@@ -20,9 +20,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from matchbot.branding import (
     BRAND_FONT_STYLESHEET,
+    FAVICON_LINK_TAGS,
     build_brand_logo_link,
     build_google_analytics_tags,
-    FAVICON_LINK_TAGS,
     build_meta_tags,
 )
 from matchbot.db.models import InfraRole, Match, MatchStatus, Post, PostRole, PostStatus, PostType
@@ -60,9 +60,7 @@ def _opt_out_note() -> str:
     email = settings.community_feedback_email
     if not email:
         return ""
-    return (
-        f'&nbsp;&middot;&nbsp;<a href="mailto:{email}">Don&#8217;t want your post here? Email us to opt out</a>'
-    )
+    return f'&nbsp;&middot;&nbsp;<a href="mailto:{email}">Don&#8217;t want your post here? Email us to opt out</a>'
 
 
 def _page_footer_html(*, feedback_url: str) -> str:
@@ -141,8 +139,11 @@ async def _run_with_db_retry[T](
 
 # ── Shared navigation & design for new community pages ──────────────────────
 
-_NAV_CSS = """
-@import url('""" + BRAND_FONT_STYLESHEET + """');
+_NAV_CSS = (
+    """
+@import url('"""
+    + BRAND_FONT_STYLESHEET
+    + """');
 
 :root { 
   --nav-h: 64px;
@@ -197,7 +198,7 @@ body { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom)); }
   }
 }
 """
-
+)
 
 
 def _nav_html(active: str) -> str:
@@ -1224,15 +1225,25 @@ def _build_home_page(base_url: str) -> str:
         '  <meta charset="utf-8">\n'
         '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"  {meta_tags}\n"
-        "  " + FAVICON_LINK_TAGS + "\n"
+        "  "
+        + FAVICON_LINK_TAGS
+        + "\n"
         + (f"  {analytics_tags}\n" if analytics_tags else "")
-        + "  <style>" + _NAV_CSS + _BROWSE_CSS + _HOME_EXTRA_CSS + "</style>\n"
+        + "  <style>"
+        + _NAV_CSS
+        + _BROWSE_CSS
+        + _HOME_EXTRA_CSS
+        + "</style>\n"
         + "</head>\n<body>\n"
-        + nav + "\n"
+        + nav
+        + "\n"
         + _HOME_BODY.replace("__COMMUNITY_FEEDBACK_URL__", feedback_url).replace(
             "__PAGE_FOOTER__", footer_html
         )
-        + "<script>\n" + _TAXONOMY_JS + _HOME_JS + "\n</script>\n"
+        + "<script>\n"
+        + _TAXONOMY_JS
+        + _HOME_JS
+        + "\n</script>\n"
         + "</body>\n</html>"
     )
 
@@ -1253,17 +1264,26 @@ def _build_camps_page(base_url: str) -> str:
         '  <meta charset="utf-8">\n'
         '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"  {meta_tags}\n"
-        "  " + FAVICON_LINK_TAGS + "\n"
+        "  "
+        + FAVICON_LINK_TAGS
+        + "\n"
         + (f"  {analytics_tags}\n" if analytics_tags else "")
-        + "  <style>" + _NAV_CSS + _BROWSE_CSS + "</style>\n"
+        + "  <style>"
+        + _NAV_CSS
+        + _BROWSE_CSS
+        + "</style>\n"
         + "</head>\n<body>\n"
-        + nav + "\n"
+        + nav
+        + "\n"
         + '<main class="page-wrap">\n'
         + '  <div class="page-header"><h1>Camps &amp; projects</h1>'
         + '<p class="sub">Active camps and projects looking for contributors this season.</p></div>\n'
         + _CAMPS_BODY.replace("__PAGE_FOOTER__", footer_html)
         + "</main>\n"
-        + "<script>\n" + _TAXONOMY_JS + _CAMPS_JS + "\n</script>\n"
+        + "<script>\n"
+        + _TAXONOMY_JS
+        + _CAMPS_JS
+        + "\n</script>\n"
         + "</body>\n</html>"
     )
 
@@ -1284,17 +1304,26 @@ def _build_seekers_page(base_url: str) -> str:
         '  <meta charset="utf-8">\n'
         '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"  {meta_tags}\n"
-        "  " + FAVICON_LINK_TAGS + "\n"
+        "  "
+        + FAVICON_LINK_TAGS
+        + "\n"
         + (f"  {analytics_tags}\n" if analytics_tags else "")
-        + "  <style>" + _NAV_CSS + _BROWSE_CSS + "</style>\n"
+        + "  <style>"
+        + _NAV_CSS
+        + _BROWSE_CSS
+        + "</style>\n"
         + "</head>\n<body>\n"
-        + nav + "\n"
+        + nav
+        + "\n"
         + '<main class="page-wrap">\n'
         + '  <div class="page-header"><h1>Builders &amp; seekers</h1>'
         + '<p class="sub">People looking for their camp or project this season.</p></div>\n'
         + _SEEKERS_BODY.replace("__PAGE_FOOTER__", footer_html)
         + "</main>\n"
-        + "<script>\n" + _TAXONOMY_JS + _SEEKERS_JS + "\n</script>\n"
+        + "<script>\n"
+        + _TAXONOMY_JS
+        + _SEEKERS_JS
+        + "\n</script>\n"
         + "</body>\n</html>"
     )
 
@@ -1315,33 +1344,47 @@ def _build_gear_page(base_url: str) -> str:
         '  <meta charset="utf-8">\n'
         '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"  {meta_tags}\n"
-        "  " + FAVICON_LINK_TAGS + "\n"
+        "  "
+        + FAVICON_LINK_TAGS
+        + "\n"
         + (f"  {analytics_tags}\n" if analytics_tags else "")
-        + "  <style>" + _NAV_CSS + _BROWSE_CSS + "</style>\n"
+        + "  <style>"
+        + _NAV_CSS
+        + _BROWSE_CSS
+        + "</style>\n"
         + "</head>\n<body>\n"
-        + nav + "\n"
+        + nav
+        + "\n"
         + '<main class="page-wrap">\n'
         + '  <div class="page-header"><h1>Gear exchange</h1>'
-        + "<p class=\"sub\">Gear, structures, and equipment \u2014 what the community needs and what\u2019s available.</p></div>\n"
+        + '<p class="sub">Gear, structures, and equipment \u2014 what the community needs and what\u2019s available.</p></div>\n'
         + _GEAR_BODY.replace("__PAGE_FOOTER__", footer_html)
         + "</main>\n"
-        + "<script>\n" + _TAXONOMY_JS + _GEAR_JS + "\n</script>\n"
+        + "<script>\n"
+        + _TAXONOMY_JS
+        + _GEAR_JS
+        + "\n</script>\n"
         + "</body>\n</html>"
     )
 
 
 # ── Existing community dashboard (moved to /transparency) ────────────────────
 
-_COMMUNITY_HTML = """
+_COMMUNITY_HTML = (
+    """
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Rising Sparks Community Dashboard</title>
-  """ + FAVICON_LINK_TAGS + """
+  """
+    + FAVICON_LINK_TAGS
+    + """
   <style>
-    @import url('""" + BRAND_FONT_STYLESHEET + """');
+    @import url('"""
+    + BRAND_FONT_STYLESHEET
+    + """');
     :root {
       --sand: #f7f3e9;
       --dust: #efe7d6;
@@ -2399,6 +2442,7 @@ _COMMUNITY_HTML = """
 </body>
 </html>
 """
+)
 
 
 def _render_transparency_page(base_url: str) -> str:
@@ -2603,7 +2647,8 @@ async def _build_discovery_payload(
     if is_infra_tab:
         target_role = InfraRole.SEEKING if tab_value == "infra_seeking" else InfraRole.OFFERING
         posts = [
-            p for p in all_posts
+            p
+            for p in all_posts
             if _infer_infra_role(p.post_type, p.infra_role, p.title, p.raw_text) == target_role
         ][:limit]
     else:
@@ -2615,9 +2660,9 @@ async def _build_discovery_payload(
         item: dict[str, Any] = {
             "post_id": post.id,
             "platform": post.platform,
-            "occurred_at": (
-                post.source_created_at or post.detected_at
-            ).replace(tzinfo=UTC).isoformat(),
+            "occurred_at": (post.source_created_at or post.detected_at)
+            .replace(tzinfo=UTC)
+            .isoformat(),
             "detected_at": post.detected_at.replace(tzinfo=UTC).isoformat(),
             "title": post.effective_title,
             "snippet": _sanitize_text(post.raw_text or post.title, max_len=160),
@@ -2834,9 +2879,7 @@ async def _build_matches_payload(
     status_value = status if status in allowed_statuses else "all"
     days_value = days if days in window_days else "30"
     since = (
-        None
-        if window_days[days_value] is None
-        else now - timedelta(days=window_days[days_value])
+        None if window_days[days_value] is None else now - timedelta(days=window_days[days_value])
     )
 
     where_clauses = []
@@ -3235,9 +3278,7 @@ def _build_live_feed(
                     "summary": _match_summary(match),
                     "score": round(match.score, 3),
                     "confidence": (
-                        round(match.confidence, 3)
-                        if match.confidence is not None
-                        else None
+                        round(match.confidence, 3) if match.confidence is not None else None
                     ),
                 }
             )
@@ -3250,9 +3291,7 @@ def _build_live_feed(
                     "summary": "Human-facilitated introduction sent.",
                     "score": round(match.score, 3),
                     "confidence": (
-                        round(match.confidence, 3)
-                        if match.confidence is not None
-                        else None
+                        round(match.confidence, 3) if match.confidence is not None else None
                     ),
                 }
             )
@@ -3357,14 +3396,8 @@ def _build_demand_rows(
             seeker_contrib_counts.update(contribution_values)
             seeker_vibe_counts.update(vibe_values)
 
-    top_contrib = [
-        {"name": name, "count": count}
-        for name, count in contrib_counts.most_common(10)
-    ]
-    top_vibes = [
-        {"name": name, "count": count}
-        for name, count in vibe_counts.most_common(10)
-    ]
+    top_contrib = [{"name": name, "count": count} for name, count in contrib_counts.most_common(10)]
+    top_vibes = [{"name": name, "count": count} for name, count in vibe_counts.most_common(10)]
 
     return {
         "top_contribution_types": top_contrib,
@@ -3492,9 +3525,7 @@ def _build_match_reason(match: Match, seeker: Post, camp: Post) -> str:
     shared_vibes = sorted(set(seeker.vibes_list()).intersection(camp.vibes_list()))
 
     if shared_contrib:
-        reasons.append(
-            f"Both mention {_human_list(shared_contrib[:3])} as contribution styles."
-        )
+        reasons.append(f"Both mention {_human_list(shared_contrib[:3])} as contribution styles.")
     else:
         reasons.append("No shared contribution tags were extracted.")
 

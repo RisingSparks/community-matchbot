@@ -59,16 +59,11 @@ async def test_handle_submission_strips_reddit_query_params(db_session, mock_ext
     import matchbot.listeners.reddit as rl
     from matchbot.extraction.schemas import ExtractedPost
 
-    mock_extractor.extract.return_value = ExtractedPost(
-        role="seeker", confidence=0.85
-    )
+    mock_extractor.extract.return_value = ExtractedPost(role="seeker", confidence=0.85)
 
     submission = _make_submission(
         sub_id="query001",
-        permalink=(
-            "/r/BurningMan/comments/query001/test/"
-            "?solution=abc123&js_challenge=1#foo"
-        ),
+        permalink=("/r/BurningMan/comments/query001/test/?solution=abc123&js_challenge=1#foo"),
     )
 
     with patch.object(rl, "_raw_store", MagicMock()):
@@ -98,11 +93,7 @@ async def test_handle_submission_deduplicates(db_session, mock_extractor):
     assert post1 is not None
     assert post2 is None  # skipped
     # Only one post in DB
-    posts = (
-        await db_session.exec(
-            select(Post).where(Post.platform_post_id == "dup001")
-        )
-    ).all()
+    posts = (await db_session.exec(select(Post).where(Post.platform_post_id == "dup001"))).all()
     assert len(posts) == 1
 
 
@@ -130,9 +121,7 @@ async def test_handle_submission_truncates_long_body(db_session, mock_extractor)
     import matchbot.listeners.reddit as rl
     from matchbot.extraction.schemas import ExtractedPost
 
-    mock_extractor.extract.return_value = ExtractedPost(
-        role="seeker", confidence=0.9
-    )
+    mock_extractor.extract.return_value = ExtractedPost(role="seeker", confidence=0.9)
 
     long_body = "I am looking for a camp. " * 200  # >2000 chars
     submission = _make_submission(

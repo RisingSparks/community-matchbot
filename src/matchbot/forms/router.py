@@ -36,8 +36,10 @@ from matchbot.db.models import Platform, Post, PostRole, PostStatus, PostType
 async def _get_session():
     """FastAPI-compatible async session dependency."""
     from matchbot.db.engine import get_engine
+
     async with AsyncSession(get_engine(), expire_on_commit=False) as session:
         yield session
+
 
 router = APIRouter(prefix="/forms", tags=["intake"])
 
@@ -50,12 +52,16 @@ def _clean_http_url(url: str) -> str:
     parsed = urlparse(candidate)
     return candidate if parsed.scheme in ("http", "https") else ""
 
+
 # ---------------------------------------------------------------------------
 # Minimal inline HTML — avoids external template file dependency
 # ---------------------------------------------------------------------------
 
-_BASE_CSS = """
-@import url('""" + BRAND_FONT_STYLESHEET + """');
+_BASE_CSS = (
+    """
+@import url('"""
+    + BRAND_FONT_STYLESHEET
+    + """');
 
 :root {
   --bg: #f7f3e9;
@@ -418,6 +424,7 @@ select {
   .brand-lockup__text { font-size: 1.3rem; }
 }
 """
+)
 
 _HEADER_HTML = (
     '<header class="site-header">'
@@ -460,6 +467,7 @@ def _with_meta(
     if analytics_tags:
         html = html.replace("</head>", f"  {analytics_tags}\n</head>", 1)
     return html
+
 
 _LANDING_HTML = f"""<!DOCTYPE html>
 <html lang="en">
@@ -1120,9 +1128,7 @@ def _schedule_extraction(post_id: str) -> None:
 
         settings = get_settings()
         extractor = (
-            AnthropicExtractor()
-            if settings.llm_provider == "anthropic"
-            else OpenAIExtractor()
+            AnthropicExtractor() if settings.llm_provider == "anthropic" else OpenAIExtractor()
         )
 
         async with AsyncSession(get_engine(), expire_on_commit=False) as session:

@@ -6,15 +6,15 @@ Run from project root: uv run python scripts/analyze_fb_groups_prod.py
 
 Requires: DATABASE_BACKEND=neon and NEON_DATABASE_URL set in .env
 """
+
 import asyncio
 from datetime import UTC, datetime
-from collections import defaultdict
 
 from sqlalchemy import case, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from matchbot.db.engine import get_engine
-from matchbot.db.models import Post, PostStatus, Platform
+from matchbot.db.models import Platform, Post, PostStatus
 
 
 async def analyze_facebook_groups():
@@ -81,28 +81,32 @@ async def analyze_facebook_groups():
 
         # Composite score: useful_posts * (1 + recency_boost)
         # This prioritizes both volume and freshness
-        composite_score = indexed_count # * (1 + recency_score)
+        composite_score = indexed_count  # * (1 + recency_score)
 
-        results.append({
-            "source_community": source_community,
-            "total_posts": total_posts,
-            "indexed": indexed_count,
-            "skipped": skipped_count,
-            "error": error_count,
-            "yield_pct": yield_pct,
-            "newest_post": newest_post,
-            "oldest_post": oldest_post,
-            "days_since_newest": days_since_newest,
-            # "recency_score": recency_score,
-            "composite_score": composite_score,
-        })
+        results.append(
+            {
+                "source_community": source_community,
+                "total_posts": total_posts,
+                "indexed": indexed_count,
+                "skipped": skipped_count,
+                "error": error_count,
+                "yield_pct": yield_pct,
+                "newest_post": newest_post,
+                "oldest_post": oldest_post,
+                "days_since_newest": days_since_newest,
+                # "recency_score": recency_score,
+                "composite_score": composite_score,
+            }
+        )
 
     # Sort by composite score (useful posts + freshness)
     results.sort(key=lambda r: r["composite_score"], reverse=True)
 
     # Display results
     print("\n" + "=" * 140)
-    print(f"{'GROUP':<50} {'TOTAL':>7} {'INDEXED':>8} {'YIELD%':>7} {'NEWEST':>12} {'DAYS OLD':>9} {'SCORE':>10}")
+    print(
+        f"{'GROUP':<50} {'TOTAL':>7} {'INDEXED':>8} {'YIELD%':>7} {'NEWEST':>12} {'DAYS OLD':>9} {'SCORE':>10}"
+    )
     print("=" * 140)
 
     for r in results:
@@ -153,12 +157,7 @@ async def analyze_facebook_groups():
     print("-" * 80)
     for r in results:
         unclear = r["total_posts"] - r["indexed"] - r["skipped"] - r["error"]
-        print(
-            f"{r['source_community']:<50} "
-            f"{r['skipped']:>8} "
-            f"{r['error']:>8} "
-            f"{unclear:>8}"
-        )
+        print(f"{r['source_community']:<50} {r['skipped']:>8} {r['error']:>8} {unclear:>8}")
 
     print("\n[NOTE] 'UNCLEAR' = posts with status RAW, NEEDS_REVIEW, or CLOSED_STALE")
     print("[NOTE] Composite score = indexed_posts")

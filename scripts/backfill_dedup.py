@@ -73,9 +73,7 @@ async def _main_async(*, dry_run: bool, window_days: int, threshold: float) -> N
         # 2. Re-fetch all posts ordered by detected_at to process them chronologically
         all_posts = (
             await session.exec(
-                select(Post)
-                .where(Post.detected_at >= cutoff)
-                .order_by(Post.detected_at.asc())
+                select(Post).where(Post.detected_at >= cutoff).order_by(Post.detected_at.asc())
             )
         ).all()
 

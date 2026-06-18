@@ -6,6 +6,7 @@ Writes one JSON file per scraped item to:
 Files are never overwritten — first write wins.
 This lets callers use exists() to cheaply skip re-scraping.
 """
+
 from __future__ import annotations
 
 import json

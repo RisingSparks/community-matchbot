@@ -416,12 +416,10 @@ async def get_post(
     if not post:
         raise HTTPException(404, "Post not found")
     events = (await session.exec(select(Event).where(Event.post_id == post_id))).all()
-    
+
     # Fetch duplicates if this is a canonical post
-    duplicates = (
-        await session.exec(select(Post).where(Post.parent_post_id == post_id))
-    ).all()
-    
+    duplicates = (await session.exec(select(Post).where(Post.parent_post_id == post_id))).all()
+
     d = _post_to_dict(post)
     d["events"] = [_event_to_dict(e) for e in events]
     d["duplicates"] = [_post_to_dict(dup) for dup in duplicates]
@@ -514,6 +512,7 @@ async def edit_post(
         and post.role in {"seeker", "camp"}
     ):
         from matchbot.matching.queue import propose_matches
+
         await propose_matches(session, post)
     return {"ok": True, "post_id": post.id}
 
@@ -526,6 +525,7 @@ async def list_unclear_posts(
 ) -> list[dict]:
     """Indexed posts where the LLM couldn't determine a role — for manual classification."""
     from sqlalchemy import or_
+
     q = (
         select(Post)
         .where(
@@ -570,9 +570,7 @@ async def _run_extraction(post_id: str) -> None:
     from matchbot.extraction.openai_extractor import OpenAIExtractor
 
     settings = get_settings()
-    extractor = (
-        AnthropicExtractor() if settings.llm_provider == "anthropic" else OpenAIExtractor()
-    )
+    extractor = AnthropicExtractor() if settings.llm_provider == "anthropic" else OpenAIExtractor()
     async with AsyncSession(get_engine(), expire_on_commit=False) as session:
         post = await session.get(Post, post_id)
         if post:
@@ -605,9 +603,7 @@ async def get_stats(
     needs_review_count = int(
         (
             await session.exec(
-                select(func.count())
-                .select_from(Post)
-                .where(Post.status == PostStatus.NEEDS_REVIEW)
+                select(func.count()).select_from(Post).where(Post.status == PostStatus.NEEDS_REVIEW)
             )
         ).one()
         or 0

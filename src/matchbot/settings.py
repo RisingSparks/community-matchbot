@@ -90,9 +90,7 @@ class Settings(BaseSettings):
         if self.database_backend == "neon":
             url = self.neon_database_url
             if not url:
-                raise ValueError(
-                    "DATABASE_BACKEND is 'neon' but NEON_DATABASE_URL is not set."
-                )
+                raise ValueError("DATABASE_BACKEND is 'neon' but NEON_DATABASE_URL is not set.")
             parsed = urlparse(url)
             if parsed.scheme not in ("postgresql", "postgres", "postgresql+asyncpg"):
                 raise ValueError(
@@ -100,9 +98,7 @@ class Settings(BaseSettings):
                     f"or 'postgresql+asyncpg://', got scheme: {parsed.scheme!r}"
                 )
             if not parsed.hostname:
-                raise ValueError(
-                    "NEON_DATABASE_URL must include a hostname (e.g. host.neon.tech)."
-                )
+                raise ValueError("NEON_DATABASE_URL must include a hostname (e.g. host.neon.tech).")
         return self
 
     @property

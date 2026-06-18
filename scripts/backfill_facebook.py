@@ -315,9 +315,7 @@ def _stage_input_file(path: Path, staging_dir: Path = _FACEBOOK_RAW_DIR) -> Path
     if destination.exists() and destination.resolve() != resolved_path:
         suffix = 2
         while True:
-            candidate = destination.with_name(
-                f"{destination.stem}-{suffix}{destination.suffix}"
-            )
+            candidate = destination.with_name(f"{destination.stem}-{suffix}{destination.suffix}")
             if not candidate.exists():
                 destination = candidate
                 break
@@ -378,6 +376,7 @@ def _infer_group_metadata(
         inferred_name = f"Facebook Group {inferred_group_id}"
 
     return inferred_name, inferred_group_id
+
 
 def _build_group_batches(
     parsed_files: list[dict[str, Any]],
@@ -499,9 +498,9 @@ async def _main_async(
     if since_date:
         try:
             parsed_since_date = datetime.strptime(since_date, "%Y-%m-%d").date()
-            since_datetime = datetime.combine(
-                parsed_since_date, time.min, tzinfo=UTC
-            ).replace(tzinfo=None)
+            since_datetime = datetime.combine(parsed_since_date, time.min, tzinfo=UTC).replace(
+                tzinfo=None
+            )
         except ValueError as exc:
             raise typer.BadParameter("--since-date must be in YYYY-MM-DD format") from exc
 

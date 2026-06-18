@@ -80,9 +80,12 @@ def _render_mentorship_intro(seeker: Post, camp: Post, platform: str) -> str:
     template = _jinja_env.get_template(template_name)
 
     shared_vibes = sorted(set(seeker.vibes_list()) & set(camp.vibes_list()))
-    shared_contrib = sorted(set(seeker.contribution_types_list()) & set(camp.contribution_types_list()))
+    shared_contrib = sorted(
+        set(seeker.contribution_types_list()) & set(camp.contribution_types_list())
+    )
 
     from matchbot.settings import get_settings
+
     settings = get_settings()
 
     context = {
@@ -104,9 +107,12 @@ def _render_mentorship_intro_camp(seeker: Post, camp: Post, platform: str) -> st
     template = _jinja_env.get_template(template_name)
 
     shared_vibes = sorted(set(seeker.vibes_list()) & set(camp.vibes_list()))
-    shared_contrib = sorted(set(seeker.contribution_types_list()) & set(camp.contribution_types_list()))
+    shared_contrib = sorted(
+        set(seeker.contribution_types_list()) & set(camp.contribution_types_list())
+    )
 
     from matchbot.settings import get_settings
+
     settings = get_settings()
 
     context = {
@@ -128,9 +134,12 @@ def _render_skills_intro(seeker: Post, camp: Post, platform: str) -> str:
     template = _jinja_env.get_template(template_name)
 
     shared_vibes = sorted(set(seeker.vibes_list()) & set(camp.vibes_list()))
-    shared_contrib = sorted(set(seeker.contribution_types_list()) & set(camp.contribution_types_list()))
+    shared_contrib = sorted(
+        set(seeker.contribution_types_list()) & set(camp.contribution_types_list())
+    )
 
     from matchbot.settings import get_settings
+
     settings = get_settings()
 
     context = {
@@ -152,9 +161,12 @@ def _render_skills_intro_camp(seeker: Post, camp: Post, platform: str) -> str:
     template = _jinja_env.get_template(template_name)
 
     shared_vibes = sorted(set(seeker.vibes_list()) & set(camp.vibes_list()))
-    shared_contrib = sorted(set(seeker.contribution_types_list()) & set(camp.contribution_types_list()))
+    shared_contrib = sorted(
+        set(seeker.contribution_types_list()) & set(camp.contribution_types_list())
+    )
 
     from matchbot.settings import get_settings
+
     settings = get_settings()
 
     context = {
@@ -177,11 +189,14 @@ def render_feedback(post: Post, other_post: Post, platform: str) -> str:
     template = _jinja_env.get_template(template_name)
 
     from matchbot.settings import get_settings
+
     settings = get_settings()
 
     context = {
         "username": post.author_display_name or post.platform_author_id or "burner",
-        "other_party": other_post.author_display_name or other_post.platform_author_id or "your connection",
+        "other_party": other_post.author_display_name
+        or other_post.platform_author_id
+        or "your connection",
         "moderator_name": settings.moderator_name,
     }
 
@@ -211,6 +226,7 @@ def _render_infra_intro(seeking: Post, offering: Post, platform: str) -> str:
     dates_context = " / ".join(dates_parts) if dates_parts else ""
 
     from matchbot.settings import get_settings
+
     settings = get_settings()
 
     context = {

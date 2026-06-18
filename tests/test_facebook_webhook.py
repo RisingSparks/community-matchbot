@@ -125,7 +125,9 @@ def test_facebook_post_valid_signature(client, app_secret):
 
     with (
         patch("matchbot.listeners.facebook.get_settings") as mock_settings,
-        patch("matchbot.listeners.facebook._handle_feed_change", new_callable=AsyncMock) as mock_handle,
+        patch(
+            "matchbot.listeners.facebook._handle_feed_change", new_callable=AsyncMock
+        ) as mock_handle,
     ):
         mock_settings.return_value.facebook_verify_token = "token"
         mock_settings.return_value.facebook_app_secret = app_secret
@@ -198,7 +200,9 @@ def test_facebook_post_non_feed_change_ignored(client, app_secret):
 
     with (
         patch("matchbot.listeners.facebook.get_settings") as mock_settings,
-        patch("matchbot.listeners.facebook._handle_feed_change", new_callable=AsyncMock) as mock_handle,
+        patch(
+            "matchbot.listeners.facebook._handle_feed_change", new_callable=AsyncMock
+        ) as mock_handle,
     ):
         mock_settings.return_value.facebook_verify_token = "token"
         mock_settings.return_value.facebook_app_secret = app_secret

@@ -1,5 +1,6 @@
 # src/matchbot/cli/cmd_data.py
 """CLI commands for raw data management and replay."""
+
 from __future__ import annotations
 
 import asyncio
@@ -77,6 +78,7 @@ async def _replay_one(platform: str, post_id: str, payload: dict) -> None:
             _build_source_url,
             _source_created_at_from_json,
         )
+
         raw_text = (payload.get("selftext") or "")[:2000]
         title = build_source_title(payload.get("title") or "", raw_text, max_len=500)
         author_id = payload.get("author_fullname") or payload.get("author") or "unknown"
@@ -189,16 +191,12 @@ def replay(
 
     if not ids:
         typer.echo(
-            f"No raw files found for platform={platform}"
-            + (f" date={date}" if date else "")
-            + "."
+            f"No raw files found for platform={platform}" + (f" date={date}" if date else "") + "."
         )
         raise typer.Exit()
 
     typer.echo(
-        f"Found {len(ids)} raw file(s) for {platform}"
-        + (f" on {date}" if date else "")
-        + "."
+        f"Found {len(ids)} raw file(s) for {platform}" + (f" on {date}" if date else "") + "."
     )
 
     # Batch DB lookup — one query for all IDs instead of N queries.

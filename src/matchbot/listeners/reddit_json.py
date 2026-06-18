@@ -293,9 +293,7 @@ async def _ingest_reddit_json_item(
     author_display = data.get("author") or author_id
     permalink = data.get("permalink") or ""
     source_url = _build_source_url(
-        permalink
-        or data.get("url_overridden_by_dest")
-        or data.get("url")
+        permalink or data.get("url_overridden_by_dest") or data.get("url")
     )
 
     if extractor is None:

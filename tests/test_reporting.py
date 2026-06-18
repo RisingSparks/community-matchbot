@@ -13,16 +13,28 @@ from matchbot.reporting.metrics import compute_metrics, export_matches_csv, expo
 async def _seed_scenario(session):
     """Create a known scenario: 2 seekers, 1 camp, matches in various states."""
     seeker1 = Post(
-        platform=Platform.REDDIT, platform_post_id="s1", role=PostRole.SEEKER,
-        status=PostStatus.INDEXED, vibes="art", contribution_types="build",
+        platform=Platform.REDDIT,
+        platform_post_id="s1",
+        role=PostRole.SEEKER,
+        status=PostStatus.INDEXED,
+        vibes="art",
+        contribution_types="build",
     )
     seeker2 = Post(
-        platform=Platform.DISCORD, platform_post_id="s2", role=PostRole.SEEKER,
-        status=PostStatus.INDEXED, vibes="music", contribution_types="sound_lighting",
+        platform=Platform.DISCORD,
+        platform_post_id="s2",
+        role=PostRole.SEEKER,
+        status=PostStatus.INDEXED,
+        vibes="music",
+        contribution_types="sound_lighting",
     )
     camp1 = Post(
-        platform=Platform.REDDIT, platform_post_id="c1", role=PostRole.CAMP,
-        status=PostStatus.INDEXED, vibes="art", contribution_types="build|kitchen_food",
+        platform=Platform.REDDIT,
+        platform_post_id="c1",
+        role=PostRole.CAMP,
+        status=PostStatus.INDEXED,
+        vibes="art",
+        contribution_types="build|kitchen_food",
     )
     session.add_all([seeker1, seeker2, camp1])
     await session.commit()
@@ -31,17 +43,23 @@ async def _seed_scenario(session):
     await session.refresh(camp1)
 
     match1 = Match(
-        seeker_post_id=seeker1.id, camp_post_id=camp1.id,
-        status=MatchStatus.ONBOARDED, score=0.85,
+        seeker_post_id=seeker1.id,
+        camp_post_id=camp1.id,
+        status=MatchStatus.ONBOARDED,
+        score=0.85,
     )
     match2 = Match(
-        seeker_post_id=seeker2.id, camp_post_id=camp1.id,
-        status=MatchStatus.INTRO_SENT, score=0.60,
+        seeker_post_id=seeker2.id,
+        camp_post_id=camp1.id,
+        status=MatchStatus.INTRO_SENT,
+        score=0.60,
         mismatch_reason=None,
     )
     match3 = Match(
-        seeker_post_id=seeker1.id, camp_post_id=camp1.id,
-        status=MatchStatus.DECLINED, score=0.45,
+        seeker_post_id=seeker1.id,
+        camp_post_id=camp1.id,
+        status=MatchStatus.DECLINED,
+        score=0.45,
         mismatch_reason="Different years",
     )
     # Deduplicate — use distinct seeker IDs for these

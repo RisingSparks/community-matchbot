@@ -60,9 +60,7 @@ async def test_handle_discord_message_creates_post(tmp_path, db_session, mock_ex
         mock_session_factory.return_value = mock_factory()
         await _handle_discord_message(msg)
 
-    posts = (
-        await db_session.exec(select(Post).where(Post.platform == Platform.DISCORD))
-    ).all()
+    posts = (await db_session.exec(select(Post).where(Post.platform == Platform.DISCORD))).all()
     assert len(posts) >= 1
     assert posts[0].author_display_name == "burner_user"
 
@@ -94,11 +92,7 @@ async def test_handle_discord_message_deduplicates(tmp_path, db_session, mock_ex
         await _handle_discord_message(msg)
         await _handle_discord_message(msg)
 
-    posts = (
-        await db_session.exec(
-            select(Post).where(Post.platform == Platform.DISCORD)
-        )
-    ).all()
+    posts = (await db_session.exec(select(Post).where(Post.platform == Platform.DISCORD))).all()
     assert len(posts) == 1  # deduplicated
 
 
@@ -122,9 +116,7 @@ async def test_handle_discord_message_no_keyword_match_skips(tmp_path, db_sessio
         mock_session_factory.return_value = mock_factory()
         await _handle_discord_message(msg)
 
-    posts = (
-        await db_session.exec(select(Post).where(Post.platform == Platform.DISCORD))
-    ).all()
+    posts = (await db_session.exec(select(Post).where(Post.platform == Platform.DISCORD))).all()
     if posts:
         assert posts[0].status == PostStatus.SKIPPED
         assert posts[0].post_type is None

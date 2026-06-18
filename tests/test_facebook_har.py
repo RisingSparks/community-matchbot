@@ -99,12 +99,12 @@ def test_find_post_nodes_depth_limit():
     for _ in range(25):
         curr["b"] = {}
         curr = curr["b"]
-    
+
     # Place a post at the bottom
     curr["id"] = "deep"
     curr["creation_time"] = 123
     curr["message"] = "too deep"
-    
+
     nodes = _find_post_nodes(obj)
     assert len(nodes) == 0  # Should be skipped due to depth limit
 
@@ -123,9 +123,9 @@ def test_parse_facebook_post_fields_graphql():
     assert fields["author_display_name"] == "User One"
     assert fields["raw_text"] == "Hello world"
     assert fields["source_url"] == "https://fb.com/123"
-    assert fields["source_created_at"] == datetime.fromtimestamp(
-        1700000000, tz=UTC
-    ).replace(tzinfo=None)
+    assert fields["source_created_at"] == datetime.fromtimestamp(1700000000, tz=UTC).replace(
+        tzinfo=None
+    )
 
 
 def test_parse_facebook_post_fields_webhook():
@@ -188,7 +188,10 @@ def test_parse_facebook_post_fields_story_shape():
     assert fields["platform_author_id"] == "633547488"
     assert fields["author_display_name"] == "Andre Mesquita"
     assert fields["raw_text"] == "Looking for a Home at Burning Man 2026?"
-    assert fields["source_url"] == "https://www.facebook.com/groups/252779754929418/posts/3040003819540317/"
+    assert (
+        fields["source_url"]
+        == "https://www.facebook.com/groups/252779754929418/posts/3040003819540317/"
+    )
 
 
 def test_parse_facebook_post_fields_filters_member_welcome_noise():
@@ -219,20 +222,22 @@ def test_parse_har_file(tmp_path):
                     "request": {"url": "https://www.facebook.com/api/graphql/"},
                     "response": {
                         "content": {
-                            "text": json.dumps({
-                                "id": "h1",
-                                "message": "har post",
-                                "creation_time": 1700000010,
-                            })
+                            "text": json.dumps(
+                                {
+                                    "id": "h1",
+                                    "message": "har post",
+                                    "creation_time": 1700000010,
+                                }
+                            )
                         }
-                    }
+                    },
                 }
             ]
         }
     }
     har_file = tmp_path / "test.har"
     har_file.write_text(json.dumps(har_content))
-    
+
     posts = parse_har_file(har_file)
     assert len(posts) == 1
     assert posts[0]["platform_post_id"] == "h1"
@@ -240,15 +245,17 @@ def test_parse_har_file(tmp_path):
 
 def test_parse_extension_json(tmp_path):
     ext_content = [
-        json.dumps({
-            "id": "e1",
-            "message": "ext post",
-            "creation_time": 1700000020,
-        })
+        json.dumps(
+            {
+                "id": "e1",
+                "message": "ext post",
+                "creation_time": 1700000020,
+            }
+        )
     ]
     ext_file = tmp_path / "test.json"
     ext_file.write_text(json.dumps(ext_content))
-    
+
     posts = parse_extension_json(ext_file)
     assert len(posts) == 1
     assert posts[0]["platform_post_id"] == "e1"
@@ -284,11 +291,13 @@ def test_parse_extension_json_with_record_objects(tmp_path):
         {
             "seq": 1,
             "capturedAt": "2026-03-22T12:00:00.000Z",
-            "text": json.dumps({
-                "id": "e2",
-                "message": "record post",
-                "creation_time": 1700000030,
-            }),
+            "text": json.dumps(
+                {
+                    "id": "e2",
+                    "message": "record post",
+                    "creation_time": 1700000030,
+                }
+            ),
         }
     ]
     ext_file = tmp_path / "test_records.json"
@@ -534,9 +543,7 @@ def test_build_group_batches_splits_multiple_group_files(tmp_path):
         },
     ]
 
-    batches = _build_group_batches(
-        parsed_files, group_name_override=None, group_id_override=None
-    )
+    batches = _build_group_batches(parsed_files, group_name_override=None, group_id_override=None)
 
     assert len(batches) == 2
     assert {(batch["group_name"], batch["group_id"]) for batch in batches} == {
@@ -566,9 +573,7 @@ def test_build_group_batches_splits_mixed_capture_by_group_token(tmp_path):
         }
     ]
 
-    batches = _build_group_batches(
-        parsed_files, group_name_override=None, group_id_override=None
-    )
+    batches = _build_group_batches(parsed_files, group_name_override=None, group_id_override=None)
 
     assert len(batches) == 2
     assert {(batch["group_name"], batch["group_id"], len(batch["posts"])) for batch in batches} == {
@@ -621,7 +626,7 @@ async def test_backfill_facebook_posts_dedup(db_session, monkeypatch, tmp_path):
             "source_url": "",
             "raw_text": "New content",
             "source_created_at": datetime.now(),
-        }
+        },
     ]
 
     counts = await backfill_facebook_posts(
@@ -643,7 +648,7 @@ async def test_backfill_facebook_posts_dedup(db_session, monkeypatch, tmp_path):
     assert "dup1" in post_ids
     assert "new1" in post_ids
     assert next(p for p in posts if p.platform_post_id == "new1").title == "New content"
-    
+
     engine_module._engine = None
 
 
@@ -672,7 +677,7 @@ async def test_backfill_facebook_posts_since_date(db_session, monkeypatch, tmp_p
             "source_url": "",
             "raw_text": "Recent",
             "source_created_at": datetime(2024, 1, 2),
-        }
+        },
     ]
 
     counts = await backfill_facebook_posts(
@@ -684,8 +689,9 @@ async def test_backfill_facebook_posts_since_date(db_session, monkeypatch, tmp_p
 
     assert counts["new_candidates"] == 1
     assert counts["before_cutoff"] == 1
-    
+
     from matchbot.db.engine import get_session as get_internal_session
+
     async with get_internal_session() as session:
         posts = (await session.exec(select(Post).where(Post.platform == Platform.FACEBOOK))).all()
     assert len(posts) == 1

@@ -44,7 +44,9 @@ def posts_list(
     role: Annotated[str | None, typer.Option("--role", help="seeker|camp")] = None,
     platform: Annotated[str | None, typer.Option("--platform")] = None,
     status: Annotated[str | None, typer.Option("--status")] = None,
-    post_type: Annotated[str | None, typer.Option("--type", help="mentorship|infrastructure")] = None,
+    post_type: Annotated[
+        str | None, typer.Option("--type", help="mentorship|infrastructure")
+    ] = None,
     limit: Annotated[int, typer.Option("--limit")] = 100,
 ) -> None:
     """List community signals (seekers and groups)."""
@@ -188,12 +190,7 @@ def posts_re_extract_many(
     """Re-analyze a filtered batch of signals."""
 
     async def _run(session):
-        q = (
-            select(Post)
-            .where(Post.status == status)
-            .order_by(Post.detected_at.desc())
-            .limit(limit)
-        )
+        q = select(Post).where(Post.status == status).order_by(Post.detected_at.desc()).limit(limit)
         if role:
             q = q.where(Post.role == role)
         if platform:
@@ -272,10 +269,7 @@ def posts_re_extract_many(
                 f"[cyan]Re-analyzing {total} signal(s) with concurrency={max_concurrency}...[/cyan]"
             )
             results = await asyncio.gather(
-                *(
-                    _re_extract_one(post.id, idx, total)
-                    for idx, post in enumerate(posts, start=1)
-                )
+                *(_re_extract_one(post.id, idx, total) for idx, post in enumerate(posts, start=1))
             )
             updated = sum(1 for result in results if result.status == "updated")
             skipped = [result for result in results if result.status == "skipped"]
@@ -314,7 +308,6 @@ def posts_flag(
             rprint(f"  Note: {note}")
 
     _db.with_session(_run)
-
 
 
 # ---------------------------------------------------------------------------
@@ -403,7 +396,10 @@ async def _resolve_post(session: AsyncSession, post_id: str) -> Post | None:
 
     rows = (
         await session.exec(
-            select(Post).where(Post.id.startswith(post_id)).order_by(Post.detected_at.desc()).limit(2)
+            select(Post)
+            .where(Post.id.startswith(post_id))
+            .order_by(Post.detected_at.desc())
+            .limit(2)
         )
     ).all()
     if not rows:
@@ -442,12 +438,18 @@ async def _write_event(
 def posts_edit(
     post_id: str,
     role: Annotated[str | None, typer.Option("--role", help="seeker|camp|unknown")] = None,
-    vibes: Annotated[str | None, typer.Option("--vibes", help="Pipe-delimited, e.g. 'art|music'")] = None,
-    contribution_types: Annotated[str | None, typer.Option("--contribution-types", help="Pipe-delimited")] = None,
+    vibes: Annotated[
+        str | None, typer.Option("--vibes", help="Pipe-delimited, e.g. 'art|music'")
+    ] = None,
+    contribution_types: Annotated[
+        str | None, typer.Option("--contribution-types", help="Pipe-delimited")
+    ] = None,
     camp_name: Annotated[str | None, typer.Option("--camp-name")] = None,
     year: Annotated[int | None, typer.Option("--year")] = None,
     infra_role: Annotated[str | None, typer.Option("--infra-role", help="seeking|offering")] = None,
-    infra_categories: Annotated[str | None, typer.Option("--infra-categories", help="Pipe-delimited")] = None,
+    infra_categories: Annotated[
+        str | None, typer.Option("--infra-categories", help="Pipe-delimited")
+    ] = None,
     quantity: Annotated[str | None, typer.Option("--quantity")] = None,
     condition: Annotated[str | None, typer.Option("--condition")] = None,
     note: Annotated[str | None, typer.Option("--note")] = None,
@@ -460,7 +462,9 @@ def posts_edit(
             rprint(f"[red]Signal {post_id!r} not found.[/red]")
             raise typer.Exit(1)
         if post.status != PostStatus.NEEDS_REVIEW:
-            rprint(f"[red]Signal {post_id[:8]} has status {post.status!r}. Only NEEDS_REVIEW signals can be refined.[/red]")
+            rprint(
+                f"[red]Signal {post_id[:8]} has status {post.status!r}. Only NEEDS_REVIEW signals can be refined.[/red]"
+            )
             raise typer.Exit(1)
 
         overrides = {
@@ -498,12 +502,18 @@ def posts_approve(
     post_id: str,
     note: Annotated[str | None, typer.Option("--note")] = None,
     role: Annotated[str | None, typer.Option("--role", help="seeker|camp|unknown")] = None,
-    vibes: Annotated[str | None, typer.Option("--vibes", help="Pipe-delimited, e.g. 'art|music'")] = None,
-    contribution_types: Annotated[str | None, typer.Option("--contribution-types", help="Pipe-delimited")] = None,
+    vibes: Annotated[
+        str | None, typer.Option("--vibes", help="Pipe-delimited, e.g. 'art|music'")
+    ] = None,
+    contribution_types: Annotated[
+        str | None, typer.Option("--contribution-types", help="Pipe-delimited")
+    ] = None,
     camp_name: Annotated[str | None, typer.Option("--camp-name")] = None,
     year: Annotated[int | None, typer.Option("--year")] = None,
     infra_role: Annotated[str | None, typer.Option("--infra-role", help="seeking|offering")] = None,
-    infra_categories: Annotated[str | None, typer.Option("--infra-categories", help="Pipe-delimited")] = None,
+    infra_categories: Annotated[
+        str | None, typer.Option("--infra-categories", help="Pipe-delimited")
+    ] = None,
     quantity: Annotated[str | None, typer.Option("--quantity")] = None,
     condition: Annotated[str | None, typer.Option("--condition")] = None,
 ) -> None:
@@ -515,7 +525,9 @@ def posts_approve(
             rprint(f"[red]Signal {post_id!r} not found.[/red]")
             raise typer.Exit(1)
         if post.status != PostStatus.NEEDS_REVIEW:
-            rprint(f"[red]Signal {post_id[:8]} has status {post.status!r}. Only NEEDS_REVIEW signals can be approved.[/red]")
+            rprint(
+                f"[red]Signal {post_id[:8]} has status {post.status!r}. Only NEEDS_REVIEW signals can be approved.[/red]"
+            )
             raise typer.Exit(1)
 
         overrides = {
@@ -562,7 +574,9 @@ def posts_approve(
 @app.command("dismiss")
 def posts_dismiss(
     post_id: str,
-    reason: Annotated[str | None, typer.Option("--reason", help="spam|off-topic|duplicate|other")] = None,
+    reason: Annotated[
+        str | None, typer.Option("--reason", help="spam|off-topic|duplicate|other")
+    ] = None,
 ) -> None:
     """Dismiss a signal (off-topic or noise)."""
 

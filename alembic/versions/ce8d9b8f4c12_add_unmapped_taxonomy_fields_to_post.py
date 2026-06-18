@@ -6,24 +6,26 @@ Create Date: 2026-03-09 00:00:00.000000
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 import sqlmodel
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "ce8d9b8f4c12"
-down_revision: Union[str, None] = "c3f7a1b2d901"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "c3f7a1b2d901"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
     op.add_column(
         "post",
-        sa.Column("vibes_other", sqlmodel.sql.sqltypes.AutoString(), nullable=False, server_default=""),
+        sa.Column(
+            "vibes_other", sqlmodel.sql.sqltypes.AutoString(), nullable=False, server_default=""
+        ),
     )
     op.add_column(
         "post",

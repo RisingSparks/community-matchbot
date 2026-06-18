@@ -5,6 +5,7 @@ Revises: cde0fbf70a21
 Create Date: 2026-05-08 13:06:21.016749
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -13,8 +14,8 @@ import sqlmodel
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'f3be4be71e0a'
-down_revision: str | None = 'cde0fbf70a21'
+revision: str = "f3be4be71e0a"
+down_revision: str | None = "cde0fbf70a21"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -19,7 +19,7 @@ from matchbot.settings import get_settings
 
 def test_is_missing_table_error_detects_undefined_table() -> None:
     err = ProgrammingError(
-        'SELECT post.platform_post_id FROM post',
+        "SELECT post.platform_post_id FROM post",
         {},
         Exception('relation "post" does not exist'),
     )
@@ -285,9 +285,7 @@ async def test_poll_reddit_json_once_persists_soft_match_without_llm(
     assert counts["skipped"] == 0
 
     async with get_session() as session:
-        row = (
-            await session.exec(select(Post).where(Post.platform_post_id == "soft_match"))
-        ).one()
+        row = (await session.exec(select(Post).where(Post.platform_post_id == "soft_match"))).one()
 
     assert row.status == PostStatus.NEEDS_REVIEW
     assert row.extraction_method == "keyword_soft"
@@ -733,9 +731,7 @@ async def test_backfill_reddit_json_retries_existing_raw_post(
     assert counts["extracted"] == 1
 
     async with get_session() as session:
-        row = (
-            await session.exec(select(Post).where(Post.platform_post_id == "raw01"))
-        ).one()
+        row = (await session.exec(select(Post).where(Post.platform_post_id == "raw01"))).one()
 
     assert row.status == PostStatus.INDEXED
     engine_module._engine = None

@@ -32,9 +32,7 @@ async def test_ingest_saves_raw_payload(tmp_path, sample_item, monkeypatch):
         rj,
         "keyword_filter",
         MagicMock(
-            return_value=KeywordResult(
-                matched=False, candidate_role="unknown", tier="no_match"
-            )
+            return_value=KeywordResult(matched=False, candidate_role="unknown", tier="no_match")
         ),
     )
 

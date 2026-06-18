@@ -122,11 +122,11 @@ async def test_transition_creates_event_record(db_session):
     from matchbot.db.models import Event
 
     match = await _make_match(db_session)
-    await transition(db_session, match, MatchStatus.APPROVED, actor="moderator:bob", note="great match")
+    await transition(
+        db_session, match, MatchStatus.APPROVED, actor="moderator:bob", note="great match"
+    )
 
-    events = (
-        await db_session.exec(select(Event).where(Event.match_id == match.id))
-    ).all()
+    events = (await db_session.exec(select(Event).where(Event.match_id == match.id))).all()
     assert len(events) >= 1
     event = events[-1]
     assert event.event_type == "match_status_changed"

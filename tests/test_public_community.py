@@ -3,8 +3,8 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime, timedelta
 
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy.exc import DBAPIError
 
 from matchbot.db import engine as engine_module
@@ -58,7 +58,7 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert 'href="/community/camps"' in response.text
         assert 'href="/community/gear?view=needs#need-panel"' in response.text
         assert 'href="/community/gear?view=offers#offer-panel"' in response.text
-        assert '/media/rising-sparks-logo.png' in response.text
+        assert "/media/rising-sparks-logo.png" in response.text
         assert 'rel="icon"' in response.text
         assert "/favicon.ico" in response.text
         assert "/site.webmanifest" in response.text
@@ -83,9 +83,7 @@ def test_community_page_renders(monkeypatch, tmp_path) -> None:
         assert "Matched Drill-Down" in trans.text
         assert "Metrics Summary" in trans.text
         assert 'rel="icon"' in trans.text
-        assert (
-            'property="og:title" content="Open Stats'
-        ) in trans.text
+        assert ('property="og:title" content="Open Stats') in trans.text
         assert 'name="twitter:card" content="summary_large_image"' in trans.text
     finally:
         _reset_engine()
@@ -117,10 +115,15 @@ def test_community_home_includes_share_meta_tags(monkeypatch, tmp_path) -> None:
         )
         assert response.status_code == 200
         assert 'property="og:title" content="Rising Sparks — Find Your Community"' in response.text
-        assert 'property="og:url" content="http://community.rising-sparks.org/community/"' in response.text
+        assert (
+            'property="og:url" content="http://community.rising-sparks.org/community/"'
+            in response.text
+        )
         assert 'property="og:image"' in response.text
         assert 'name="twitter:card" content="summary_large_image"' in response.text
-        assert 'rel="canonical" href="http://community.rising-sparks.org/community/"' in response.text
+        assert (
+            'rel="canonical" href="http://community.rising-sparks.org/community/"' in response.text
+        )
     finally:
         _reset_engine()
 
@@ -591,8 +594,7 @@ def test_community_data_redacts_story_and_feed_identifiers(monkeypatch, tmp_path
         feed = payload["live_feed"]
         assert len(feed) >= 2
         assert all(
-            feed[i]["occurred_at"] >= feed[i + 1]["occurred_at"]
-            for i in range(len(feed) - 1)
+            feed[i]["occurred_at"] >= feed[i + 1]["occurred_at"] for i in range(len(feed) - 1)
         )
         assert all(event["event_type"] != "post_raw" for event in feed)
         assert all(event["event_type"] != "post_indexed" for event in feed)
@@ -728,9 +730,7 @@ def test_live_feed_excludes_post_indexed_events(monkeypatch, tmp_path) -> None:
         _reset_engine()
 
 
-def test_live_feed_excludes_old_source_posts_imported_recently(
-    monkeypatch, tmp_path
-) -> None:
+def test_live_feed_excludes_old_source_posts_imported_recently(monkeypatch, tmp_path) -> None:
     _setup_sqlite_db(monkeypatch, tmp_path, "community_live_feed_old_source_post.db")
 
     now = datetime.now(UTC).replace(tzinfo=None)
@@ -773,9 +773,10 @@ def test_live_feed_excludes_old_source_posts_imported_recently(
         post_events = [item for item in feed if item["event_type"] == "post_needs_review"]
         assert len(post_events) == 1
         assert post_events[0]["summary"] == "This one should stay in the live feed."
-        assert post_events[0]["occurred_at"] == (
-            now - timedelta(days=1)
-        ).replace(tzinfo=UTC).isoformat()
+        assert (
+            post_events[0]["occurred_at"]
+            == (now - timedelta(days=1)).replace(tzinfo=UTC).isoformat()
+        )
     finally:
         _reset_engine()
 
@@ -1024,78 +1025,80 @@ def test_community_discovery_api_returns_camps_and_seekers(monkeypatch, tmp_path
 
     async def _seed() -> None:
         async with get_session() as session:
-            session.add_all([
-                Post(
-                    platform=Platform.REDDIT,
-                    platform_post_id="disc_camp_1",
-                    platform_author_id="camp_a",
-                    source_url="https://reddit.com/camp_a",
-                    title="Camp Solaris needs builders",
-                    raw_text="Camp Solaris has open spots for builders and artists.",
-                    role=PostRole.CAMP,
-                    post_type=PostType.MENTORSHIP,
-                    status=PostStatus.INDEXED,
-                    camp_name="Camp Solaris",
-                    vibes="inclusive|art",
-                    contribution_types="build|art",
-                    detected_at=now - timedelta(hours=5),
-                ),
-                Post(
-                    platform=Platform.DISCORD,
-                    platform_post_id="disc_seek_1",
-                    platform_author_id="seek_a",
-                    source_url="",
-                    title="Looking to join a camp",
-                    raw_text="Experienced builder seeking a creative camp.",
-                    role=PostRole.SEEKER,
-                    post_type=PostType.MENTORSHIP,
-                    status=PostStatus.INDEXED,
-                    vibes="inclusive",
-                    contribution_types="build",
-                    seeker_intent="join_camp",
-                    detected_at=now - timedelta(hours=3),
-                ),
-                Post(
-                    platform=Platform.REDDIT,
-                    platform_post_id="disc_infra_seek",
-                    platform_author_id="infra_s",
-                    source_url="https://reddit.com/infra_s",
-                    title="Need a generator",
-                    raw_text="Looking to borrow a generator for the event.",
-                    post_type=PostType.INFRASTRUCTURE,
-                    status=PostStatus.INDEXED,
-                    infra_role="seeking",
-                    infra_categories="power",
-                    quantity="1 unit",
-                    detected_at=now - timedelta(hours=2),
-                ),
-                Post(
-                    platform=Platform.REDDIT,
-                    platform_post_id="disc_infra_offer",
-                    platform_author_id="infra_o",
-                    source_url="https://reddit.com/infra_o",
-                    title="Offering shade hardware",
-                    raw_text="We have spare shade structures to lend.",
-                    post_type=PostType.INFRASTRUCTURE,
-                    status=PostStatus.INDEXED,
-                    infra_role="offering",
-                    infra_categories="shade",
-                    condition="good",
-                    detected_at=now - timedelta(hours=1),
-                ),
-                # Should NOT appear in mentorship_camps (infra type)
-                Post(
-                    platform=Platform.REDDIT,
-                    platform_post_id="disc_infra_camp",
-                    platform_author_id="infra_camp",
-                    title="Infra camp should not show",
-                    raw_text="Infra camp post",
-                    role=PostRole.CAMP,
-                    post_type=PostType.INFRASTRUCTURE,
-                    status=PostStatus.INDEXED,
-                    detected_at=now - timedelta(hours=4),
-                ),
-            ])
+            session.add_all(
+                [
+                    Post(
+                        platform=Platform.REDDIT,
+                        platform_post_id="disc_camp_1",
+                        platform_author_id="camp_a",
+                        source_url="https://reddit.com/camp_a",
+                        title="Camp Solaris needs builders",
+                        raw_text="Camp Solaris has open spots for builders and artists.",
+                        role=PostRole.CAMP,
+                        post_type=PostType.MENTORSHIP,
+                        status=PostStatus.INDEXED,
+                        camp_name="Camp Solaris",
+                        vibes="inclusive|art",
+                        contribution_types="build|art",
+                        detected_at=now - timedelta(hours=5),
+                    ),
+                    Post(
+                        platform=Platform.DISCORD,
+                        platform_post_id="disc_seek_1",
+                        platform_author_id="seek_a",
+                        source_url="",
+                        title="Looking to join a camp",
+                        raw_text="Experienced builder seeking a creative camp.",
+                        role=PostRole.SEEKER,
+                        post_type=PostType.MENTORSHIP,
+                        status=PostStatus.INDEXED,
+                        vibes="inclusive",
+                        contribution_types="build",
+                        seeker_intent="join_camp",
+                        detected_at=now - timedelta(hours=3),
+                    ),
+                    Post(
+                        platform=Platform.REDDIT,
+                        platform_post_id="disc_infra_seek",
+                        platform_author_id="infra_s",
+                        source_url="https://reddit.com/infra_s",
+                        title="Need a generator",
+                        raw_text="Looking to borrow a generator for the event.",
+                        post_type=PostType.INFRASTRUCTURE,
+                        status=PostStatus.INDEXED,
+                        infra_role="seeking",
+                        infra_categories="power",
+                        quantity="1 unit",
+                        detected_at=now - timedelta(hours=2),
+                    ),
+                    Post(
+                        platform=Platform.REDDIT,
+                        platform_post_id="disc_infra_offer",
+                        platform_author_id="infra_o",
+                        source_url="https://reddit.com/infra_o",
+                        title="Offering shade hardware",
+                        raw_text="We have spare shade structures to lend.",
+                        post_type=PostType.INFRASTRUCTURE,
+                        status=PostStatus.INDEXED,
+                        infra_role="offering",
+                        infra_categories="shade",
+                        condition="good",
+                        detected_at=now - timedelta(hours=1),
+                    ),
+                    # Should NOT appear in mentorship_camps (infra type)
+                    Post(
+                        platform=Platform.REDDIT,
+                        platform_post_id="disc_infra_camp",
+                        platform_author_id="infra_camp",
+                        title="Infra camp should not show",
+                        raw_text="Infra camp post",
+                        role=PostRole.CAMP,
+                        post_type=PostType.INFRASTRUCTURE,
+                        status=PostStatus.INDEXED,
+                        detected_at=now - timedelta(hours=4),
+                    ),
+                ]
+            )
             await session.commit()
 
     try:
@@ -1185,18 +1188,12 @@ def test_community_discovery_prefers_source_created_at_for_order_and_age(
 
         camps = payload["items"]
         assert [item["camp_name"] for item in camps[:2]] == ["Recent Camp", "Pepperland"]
-        assert camps[0]["occurred_at"] == (
-            now - timedelta(days=2)
-        ).replace(tzinfo=UTC).isoformat()
-        assert camps[0]["detected_at"] == (
-            now - timedelta(days=1)
-        ).replace(tzinfo=UTC).isoformat()
-        assert camps[1]["occurred_at"] == (
-            now - timedelta(days=21)
-        ).replace(tzinfo=UTC).isoformat()
-        assert camps[1]["detected_at"] == (
-            now - timedelta(hours=11)
-        ).replace(tzinfo=UTC).isoformat()
+        assert camps[0]["occurred_at"] == (now - timedelta(days=2)).replace(tzinfo=UTC).isoformat()
+        assert camps[0]["detected_at"] == (now - timedelta(days=1)).replace(tzinfo=UTC).isoformat()
+        assert camps[1]["occurred_at"] == (now - timedelta(days=21)).replace(tzinfo=UTC).isoformat()
+        assert (
+            camps[1]["detected_at"] == (now - timedelta(hours=11)).replace(tzinfo=UTC).isoformat()
+        )
     finally:
         _reset_engine()
 
@@ -1266,11 +1263,17 @@ def test_community_listings_prefers_source_created_at_for_order_and_age(
         assert camps[0]["occurred_at"] == (now - timedelta(days=1)).replace(tzinfo=UTC).isoformat()
         assert camps[0]["detected_at"] == (now - timedelta(hours=3)).replace(tzinfo=UTC).isoformat()
         assert camps[1]["occurred_at"] == (now - timedelta(days=5)).replace(tzinfo=UTC).isoformat()
-        assert camps[1]["detected_at"] == (now - timedelta(minutes=10)).replace(tzinfo=UTC).isoformat()
+        assert (
+            camps[1]["detected_at"] == (now - timedelta(minutes=10)).replace(tzinfo=UTC).isoformat()
+        )
 
         seekers = payload["seekers"]
-        assert seekers[0]["occurred_at"] == (now - timedelta(hours=2)).replace(tzinfo=UTC).isoformat()
-        assert seekers[0]["detected_at"] == (now - timedelta(hours=2)).replace(tzinfo=UTC).isoformat()
+        assert (
+            seekers[0]["occurred_at"] == (now - timedelta(hours=2)).replace(tzinfo=UTC).isoformat()
+        )
+        assert (
+            seekers[0]["detected_at"] == (now - timedelta(hours=2)).replace(tzinfo=UTC).isoformat()
+        )
     finally:
         _reset_engine()
 
@@ -1415,32 +1418,34 @@ def test_community_discovery_api_blocks_javascript_source_urls(monkeypatch, tmp_
 
     async def _seed() -> None:
         async with get_session() as session:
-            session.add_all([
-                Post(
-                    platform=Platform.REDDIT,
-                    platform_post_id="disc_js_url",
-                    platform_author_id="evil",
-                    source_url="javascript:alert('xss')",
-                    title="Malicious camp",
-                    raw_text="Legit looking text",
-                    role=PostRole.CAMP,
-                    post_type=PostType.MENTORSHIP,
-                    status=PostStatus.INDEXED,
-                    detected_at=now - timedelta(hours=1),
-                ),
-                Post(
-                    platform=Platform.REDDIT,
-                    platform_post_id="disc_https_url",
-                    platform_author_id="legit",
-                    source_url="https://reddit.com/r/ok",
-                    title="Legit camp",
-                    raw_text="Fine post",
-                    role=PostRole.CAMP,
-                    post_type=PostType.MENTORSHIP,
-                    status=PostStatus.INDEXED,
-                    detected_at=now - timedelta(hours=2),
-                ),
-            ])
+            session.add_all(
+                [
+                    Post(
+                        platform=Platform.REDDIT,
+                        platform_post_id="disc_js_url",
+                        platform_author_id="evil",
+                        source_url="javascript:alert('xss')",
+                        title="Malicious camp",
+                        raw_text="Legit looking text",
+                        role=PostRole.CAMP,
+                        post_type=PostType.MENTORSHIP,
+                        status=PostStatus.INDEXED,
+                        detected_at=now - timedelta(hours=1),
+                    ),
+                    Post(
+                        platform=Platform.REDDIT,
+                        platform_post_id="disc_https_url",
+                        platform_author_id="legit",
+                        source_url="https://reddit.com/r/ok",
+                        title="Legit camp",
+                        raw_text="Fine post",
+                        role=PostRole.CAMP,
+                        post_type=PostType.MENTORSHIP,
+                        status=PostStatus.INDEXED,
+                        detected_at=now - timedelta(hours=2),
+                    ),
+                ]
+            )
             await session.commit()
 
     try:
@@ -1466,18 +1471,20 @@ def test_community_discovery_api_sanitizes_snippets(monkeypatch, tmp_path) -> No
 
     async def _seed() -> None:
         async with get_session() as session:
-            session.add(Post(
-                platform=Platform.REDDIT,
-                platform_post_id="disc_pii",
-                platform_author_id="pii_user",
-                source_url="https://reddit.com/pii",
-                title="Seeker with PII",
-                raw_text="Email me at secret@example.com or u/MyUsername for details.",
-                role=PostRole.SEEKER,
-                post_type=PostType.MENTORSHIP,
-                status=PostStatus.INDEXED,
-                detected_at=now - timedelta(hours=1),
-            ))
+            session.add(
+                Post(
+                    platform=Platform.REDDIT,
+                    platform_post_id="disc_pii",
+                    platform_author_id="pii_user",
+                    source_url="https://reddit.com/pii",
+                    title="Seeker with PII",
+                    raw_text="Email me at secret@example.com or u/MyUsername for details.",
+                    role=PostRole.SEEKER,
+                    post_type=PostType.MENTORSHIP,
+                    status=PostStatus.INDEXED,
+                    detected_at=now - timedelta(hours=1),
+                )
+            )
             await session.commit()
 
     try:

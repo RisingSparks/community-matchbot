@@ -44,19 +44,11 @@ class GuideCamp:
 def _parse_camp(record: dict, year: int | None) -> GuideCamp:
     """Map a raw guide API record to a GuideCamp."""
     # The guide API uses different key names across years; handle common variants
-    name = (
-        record.get("name")
-        or record.get("camp_name")
-        or record.get("title")
-        or ""
-    )
+    name = record.get("name") or record.get("camp_name") or record.get("title") or ""
     uid = str(record.get("uid") or record.get("id") or record.get("entity_id") or name)
     description = record.get("description") or record.get("body") or ""
     location_string = (
-        record.get("location_string")
-        or record.get("location")
-        or record.get("address")
-        or ""
+        record.get("location_string") or record.get("location") or record.get("address") or ""
     )
     camp_size_raw = record.get("camp_size") or record.get("size")
     camp_size: int | None = None
@@ -127,6 +119,7 @@ async def fetch_guide_camps(url: str, year: int | None = None) -> list[GuideCamp
 def _normalise(name: str) -> str:
     """Lower-case, strip punctuation for fuzzy camp name matching."""
     import re
+
     return re.sub(r"[^a-z0-9 ]", "", name.lower()).strip()
 
 

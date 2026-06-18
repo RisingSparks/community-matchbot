@@ -132,6 +132,8 @@ _RV_RENTAL_SUPPRESSOR_PATTERNS = [
     r"\b(?:rent|rental|available|for\s+sale|sale|sell|selling)\b.{0,40}\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler)\b",
     r"\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler|recreational\s+vehicle)s?\b.{0,80}\b(?:pickup|delivery|deposit|sleeps)\b",
     r"\b(?:playa[- ]ready|camp[- ]ready)\b.{0,80}\b(?:rv|motorhome|camper)\b",
+    r"\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler|recreational\s+vehicle)s?\b[\s\S]{0,150}\b(?:\d+\s*k|\$\d+)\b",
+    r"\b(?:\d+\s*k|\$\d+)\b[\s\S]{0,150}\b(?:rv|motorhome|camper|travel\s+trailer|fifth\s+wheel|toy\s+hauler|recreational\s+vehicle)s?\b",
 ]
 
 _RV_RENTAL_LISTING_PATTERNS = [
@@ -451,23 +453,20 @@ def _score_mentorship_signals(text: str) -> tuple[int, list[str]]:
         score += 4
         reasons.append("object_contribution_proximity")
 
-    if (
-        _any_match(text, _TARGET_OBJECT_PATTERNS["camp_object"])
-        and _any_match(text, _TARGET_OBJECT_PATTERNS["experience"])
+    if _any_match(text, _TARGET_OBJECT_PATTERNS["camp_object"]) and _any_match(
+        text, _TARGET_OBJECT_PATTERNS["experience"]
     ):
         score += 2
         reasons.append("object_experience")
 
-    if (
-        _any_match(text, _TARGET_OBJECT_PATTERNS["camp_object"])
-        and _any_match(text, _TARGET_OBJECT_PATTERNS["preference"])
+    if _any_match(text, _TARGET_OBJECT_PATTERNS["camp_object"]) and _any_match(
+        text, _TARGET_OBJECT_PATTERNS["preference"]
     ):
         score += 2
         reasons.append("object_preference")
 
-    if (
-        _any_match(text, _TARGET_OBJECT_PATTERNS["experience"])
-        and _any_match(text, _TARGET_OBJECT_PATTERNS["contribution"])
+    if _any_match(text, _TARGET_OBJECT_PATTERNS["experience"]) and _any_match(
+        text, _TARGET_OBJECT_PATTERNS["contribution"]
     ):
         score += 2
         reasons.append("experience_contribution")

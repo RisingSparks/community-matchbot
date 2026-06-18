@@ -102,11 +102,14 @@ def _verify_signature(body: bytes, app_secret: str, signature_header: str) -> bo
         return True
     if not signature_header.startswith("sha256="):
         return False
-    expected = "sha256=" + hmac.new(
-        app_secret.encode(),
-        body,
-        hashlib.sha256,
-    ).hexdigest()
+    expected = (
+        "sha256="
+        + hmac.new(
+            app_secret.encode(),
+            body,
+            hashlib.sha256,
+        ).hexdigest()
+    )
     return hmac.compare_digest(expected, signature_header)
 
 
@@ -194,6 +197,7 @@ async def _handle_messages_change(value: dict) -> None:
         try:
             settings = get_settings()
             from matchbot.messaging.sender_facebook import _send_fb_message
+
             await _send_fb_message(
                 settings.facebook_page_access_token,
                 sender_id,

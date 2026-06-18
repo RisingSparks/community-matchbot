@@ -18,13 +18,9 @@ _QUIET_LOGGERS = (
     "openai",
 )
 
-_DISCORD_WARNING_FILTERS = (
-    "parameter 'timeout' of type 'float' is deprecated",
-)
+_DISCORD_WARNING_FILTERS = ("parameter 'timeout' of type 'float' is deprecated",)
 
-_DISCORD_LOG_SUPPRESSED = (
-    "PyNaCl is not installed",
-)
+_DISCORD_LOG_SUPPRESSED = ("PyNaCl is not installed",)
 
 
 class _DiscordWarningFilter(logging.Filter):

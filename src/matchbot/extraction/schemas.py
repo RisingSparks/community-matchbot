@@ -6,10 +6,10 @@ from matchbot.taxonomy import split_infra_categories
 
 class ExtractedPost(BaseModel):
     # --- shared fields ---
-    role: str = "unknown"          # seeker | camp | unknown (mentorship path)
+    role: str = "unknown"  # seeker | camp | unknown (mentorship path)
     post_type: str | None = None  # mentorship | infrastructure | None (irrelevant)
     display_title: str | None = None
-    confidence: float = 0.5        # 0.0–1.0
+    confidence: float = 0.5  # 0.0–1.0
     extraction_notes: str | None = None
 
     # join_camp | join_art_project | skills_learning | unknown | None
@@ -25,8 +25,8 @@ class ExtractedPost(BaseModel):
     contribution_types: list[str] = []
     contribution_types_other: list[str] = []
     location_preference: str | None = None
-    origin_location_raw: str | None = None    # verbatim geographic origin, e.g. "Oklahoma" or
-                                               # "Portland, OR"
+    origin_location_raw: str | None = None  # verbatim geographic origin, e.g. "Oklahoma" or
+    # "Portland, OR"
     origin_location_city: str | None = None
     origin_location_state: str | None = None  # 2-letter US code preferred, e.g. "OR"
     origin_location_county: str | None = None
@@ -35,19 +35,19 @@ class ExtractedPost(BaseModel):
     contact_method: str | None = None
 
     # --- infrastructure / "Bitch n Swap" fields ---
-    infra_role: str | None = None          # seeking | offering
-    infra_offer_type: str | None = None    # sell | rent | lend | give | swap | unknown
-    infra_categories: list[str] = []       # from INFRASTRUCTURE_CATEGORIES
+    infra_role: str | None = None  # seeking | offering
+    infra_offer_type: str | None = None  # sell | rent | lend | give | swap | unknown
+    infra_categories: list[str] = []  # from INFRASTRUCTURE_CATEGORIES
     infra_categories_other: list[str] = []
-    quantity: str | None = None            # "2 units", "~50 ft"
+    quantity: str | None = None  # "2 units", "~50 ft"
     pickup_location: str | None = None
     delivery_available: bool | None = None
     dimensions: str | None = None
     parts_included: str | None = None
     setup_notes: str | None = None
-    condition: str | None = None           # from INFRASTRUCTURE_CONDITIONS
+    condition: str | None = None  # from INFRASTRUCTURE_CONDITIONS
     condition_other: str | None = None
-    dates_needed: str | None = None        # near-verbatim from post
+    dates_needed: str | None = None  # near-verbatim from post
 
     # -----------------------------------------------------------------------
     # Validators

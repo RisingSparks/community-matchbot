@@ -6,8 +6,7 @@ from typing import Any, TypeVar
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from matchbot.db.engine import dispose_engine
-from matchbot.db.engine import get_session
+from matchbot.db.engine import dispose_engine, get_session
 
 T = TypeVar("T")
 

@@ -30,7 +30,9 @@ def report_metrics(
         metrics = await compute_metrics(session)
 
         if format == "csv":
-            rprint("[yellow]CSV not supported for metrics (use json or --format csv for matches).[/yellow]")
+            rprint(
+                "[yellow]CSV not supported for metrics (use json or --format csv for matches).[/yellow]"
+            )
             return
 
         if output:

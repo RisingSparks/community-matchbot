@@ -18,7 +18,9 @@ app = typer.Typer(help="Manually ingest posts")
 @app.command("text")
 def submit_text(
     text: str,
-    platform: Annotated[str, typer.Option("--platform", help="reddit|discord|facebook|manual")] = Platform.MANUAL,
+    platform: Annotated[
+        str, typer.Option("--platform", help="reddit|discord|facebook|manual")
+    ] = Platform.MANUAL,
     community: Annotated[str, typer.Option("--community")] = "",
     title: Annotated[str, typer.Option("--title")] = "",
     extract: Annotated[bool, typer.Option("--extract/--no-extract")] = True,
@@ -49,9 +51,7 @@ def submit_text(
 
             settings = get_settings()
             extractor = (
-                AnthropicExtractor()
-                if settings.llm_provider == "anthropic"
-                else OpenAIExtractor()
+                AnthropicExtractor() if settings.llm_provider == "anthropic" else OpenAIExtractor()
             )
             try:
                 post = await process_post(session, post, extractor)
@@ -88,9 +88,7 @@ def submit_file(
         extractor = None
         if extract:
             extractor = (
-                AnthropicExtractor()
-                if settings.llm_provider == "anthropic"
-                else OpenAIExtractor()
+                AnthropicExtractor() if settings.llm_provider == "anthropic" else OpenAIExtractor()
             )
 
         count = 0

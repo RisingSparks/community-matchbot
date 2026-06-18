@@ -56,20 +56,20 @@ class Platform:
 
 
 class PostType:
-    MENTORSHIP = "mentorship"      # camp-finding / seeker matching
+    MENTORSHIP = "mentorship"  # camp-finding / seeker matching
     INFRASTRUCTURE = "infrastructure"  # gear / camp_admin exchange ("Bitch n Swap")
 
 
 class InfraRole:
-    SEEKING = "seeking"    # needs the thing
+    SEEKING = "seeking"  # needs the thing
     OFFERING = "offering"  # has the thing to lend/give/swap
 
 
 class SeekerIntent:
-    JOIN_CAMP = "join_camp"           # wants to join a camp
-    JOIN_ART_PROJECT = "join_art_project"           # wants to join an art team
+    JOIN_CAMP = "join_camp"  # wants to join a camp
+    JOIN_ART_PROJECT = "join_art_project"  # wants to join an art team
     SKILLS_LEARNING = "skills_learning"  # wants to learn a skill / find a mentor
-    UNKNOWN = "unknown"               # seeker but intent unclear
+    UNKNOWN = "unknown"  # seeker but intent unclear
 
 
 # ---------------------------------------------------------------------------
@@ -104,9 +104,7 @@ class Profile(SQLModel, table=True):
 
     def contribution_types_list(self) -> list[str]:
         return (
-            [v for v in self.contribution_types.split("|") if v]
-            if self.contribution_types
-            else []
+            [v for v in self.contribution_types.split("|") if v] if self.contribution_types else []
         )
 
 
@@ -148,8 +146,8 @@ class Post(SQLModel, table=True):
     camp_size_max: int | None = Field(default=None)
     year: int | None = Field(default=None)
     location_preference: str | None = Field(default=None)
-    origin_location_raw: str | None = Field(default=None)   # verbatim from post, e.g. "Oklahoma" or
-                                                            # "Portland, OR"
+    origin_location_raw: str | None = Field(default=None)  # verbatim from post, e.g. "Oklahoma" or
+    # "Portland, OR"
     origin_location_city: str | None = Field(default=None)
     origin_location_state: str | None = Field(default=None)  # 2-letter code preferred, e.g. "OR"
     origin_location_county: str | None = Field(default=None)
@@ -166,20 +164,20 @@ class Post(SQLModel, table=True):
     post_type: str | None = Field(default=None, index=True)  # mentorship | infrastructure
 
     # Infrastructure-specific fields (post_type == infrastructure)
-    infra_role: str | None = Field(default=None)          # seeking | offering
-    infra_offer_type: str | None = Field(default=None)    # sell | rent | lend | give | swap |
-                                                          # unknown
-    infra_categories: str = Field(default="")             # pipe-delimited infra category list
-    infra_categories_other: str = Field(default="")       # pipe-delimited unmapped infra labels
-    quantity: str | None = Field(default=None)            # e.g. "2 units", "approx 50ft"
+    infra_role: str | None = Field(default=None)  # seeking | offering
+    infra_offer_type: str | None = Field(default=None)  # sell | rent | lend | give | swap |
+    # unknown
+    infra_categories: str = Field(default="")  # pipe-delimited infra category list
+    infra_categories_other: str = Field(default="")  # pipe-delimited unmapped infra labels
+    quantity: str | None = Field(default=None)  # e.g. "2 units", "approx 50ft"
     pickup_location: str | None = Field(default=None)
     delivery_available: bool | None = Field(default=None)
     dimensions: str | None = Field(default=None)
     parts_included: str | None = Field(default=None)
     setup_notes: str | None = Field(default=None)
-    condition: str | None = Field(default=None)           # new | good | fair | worn | needs_repair
-    condition_other: str | None = Field(default=None)     # raw unmapped condition term
-    dates_needed: str | None = Field(default=None)        # near-verbatim from post
+    condition: str | None = Field(default=None)  # new | good | fair | worn | needs_repair
+    condition_other: str | None = Field(default=None)  # raw unmapped condition term
+    dates_needed: str | None = Field(default=None)  # near-verbatim from post
 
     # FK
     profile_id: str | None = Field(default=None, foreign_key="profile.id")
@@ -189,9 +187,7 @@ class Post(SQLModel, table=True):
 
     def contribution_types_list(self) -> list[str]:
         return (
-            [v for v in self.contribution_types.split("|") if v]
-            if self.contribution_types
-            else []
+            [v for v in self.contribution_types.split("|") if v] if self.contribution_types else []
         )
 
     def vibes_other_list(self) -> list[str]:

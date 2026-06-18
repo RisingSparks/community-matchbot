@@ -94,7 +94,7 @@ async def find_canonical_post(
 ) -> Post | None:
     """
     Search for a canonical post that matches the new post (exact or fuzzy).
-    
+
     Returns the oldest matching post (canonical) or None if unique.
     """
     dedup_text = get_dedup_text(post)
@@ -104,14 +104,18 @@ async def find_canonical_post(
     # 1. Exact Match via Hash
     if not post.content_hash:
         post.content_hash = generate_content_hash(dedup_text)
-    
-    exact_q = select(Post).where(
-        Post.content_hash == post.content_hash,
-        Post.id != post.id,
-        Post.parent_post_id.is_(None),  # Only match against canonicals
-        Post.status != PostStatus.SKIPPED,
-    ).order_by(Post.detected_at.asc())
-    
+
+    exact_q = (
+        select(Post)
+        .where(
+            Post.content_hash == post.content_hash,
+            Post.id != post.id,
+            Post.parent_post_id.is_(None),  # Only match against canonicals
+            Post.status != PostStatus.SKIPPED,
+        )
+        .order_by(Post.detected_at.asc())
+    )
+
     exact_match = (await session.exec(exact_q)).first()
     if exact_match:
         return exact_match
@@ -137,7 +141,7 @@ async def find_canonical_post(
         return None
 
     # Use LSH for efficient querying
-    # We use a slightly lower threshold for LSH to ensure better recall, 
+    # We use a slightly lower threshold for LSH to ensure better recall,
     # then we can verify with a strict check if needed.
     lsh = MinHashLSH(threshold=DEFAULT_LSH_THRESHOLD, num_perm=DEFAULT_NUM_PERM)
     candidate_rows: dict[str, Post] = {}

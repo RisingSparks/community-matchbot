@@ -110,7 +110,10 @@ async def _backfill_from_cache(
 
     logger.info(
         "Cache replay complete: processed=%d skipped=%d errors=%d dry_run=%s",
-        processed, skipped, errors, dry_run,
+        processed,
+        skipped,
+        errors,
+        dry_run,
     )
 
 
@@ -247,7 +250,10 @@ async def _main_async(
             )
             try:
                 await _backfill_from_cache(
-                    cached_ids, dry_run=dry_run, since_datetime=since_datetime, concurrency=concurrency
+                    cached_ids,
+                    dry_run=dry_run,
+                    since_datetime=since_datetime,
+                    concurrency=concurrency,
                 )
             finally:
                 await dispose_engine()

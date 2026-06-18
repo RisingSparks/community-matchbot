@@ -239,9 +239,7 @@ class TestRenderIntroDispatch:
         output = render_intro(seeker, camp, "reddit")
         # Skills template should mention learning/hands-on, not generic join-camp copy
         assert (
-            "learn" in output.lower()
-            or "skill" in output.lower()
-            or "hands-on" in output.lower()
+            "learn" in output.lower() or "skill" in output.lower() or "hands-on" in output.lower()
         )
 
     def test_skills_camp_intro_contains_skills_copy(self):

@@ -12,7 +12,10 @@ def test_to_async_db_url_converts_standard_postgres_url() -> None:
 
 def test_to_async_db_url_leaves_existing_async_url_unchanged() -> None:
     url = "postgresql+asyncpg://user:pass@host.neon.tech:5432/dbname?sslmode=require"
-    assert engine_module._to_async_db_url(url) == "postgresql+asyncpg://user:pass@host.neon.tech:5432/dbname"
+    assert (
+        engine_module._to_async_db_url(url)
+        == "postgresql+asyncpg://user:pass@host.neon.tech:5432/dbname"
+    )
 
 
 def test_get_engine_prefers_neon_database_url(monkeypatch) -> None:

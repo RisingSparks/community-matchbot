@@ -644,9 +644,7 @@ def test_posts_re_extract_many_raw_facebook_without_type_filter(cli_env):
     assert "Re-analyzed 1 signal(s)." in result.output
 
     async def check():
-        row = (
-            await session.exec(select(Post).where(Post.platform_post_id == "fb-raw-1"))
-        ).one()
+        row = (await session.exec(select(Post).where(Post.platform_post_id == "fb-raw-1"))).one()
         return row.status, row.post_type, row.role
 
     assert run_in(loop, check()) == (PostStatus.INDEXED, PostType.MENTORSHIP, "seeker")

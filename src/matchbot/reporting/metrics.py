@@ -19,14 +19,18 @@ async def compute_metrics(session: AsyncSession) -> dict:
 
     # Profile counts
     active_camps = len(
-        (await session.exec(
-            select(Profile).where(Profile.role == PostRole.CAMP, Profile.is_active)
-        )).all()
+        (
+            await session.exec(
+                select(Profile).where(Profile.role == PostRole.CAMP, Profile.is_active)
+            )
+        ).all()
     )
     active_seekers = len(
-        (await session.exec(
-            select(Profile).where(Profile.role == PostRole.SEEKER, Profile.is_active)
-        )).all()
+        (
+            await session.exec(
+                select(Profile).where(Profile.role == PostRole.SEEKER, Profile.is_active)
+            )
+        ).all()
     )
 
     # Post counts
@@ -104,25 +108,35 @@ async def export_matches_csv(session: AsyncSession, path: str | Path) -> None:
         writer = csv.DictWriter(
             f,
             fieldnames=[
-                "id", "status", "score", "match_method", "confidence",
-                "seeker_post_id", "camp_post_id",
-                "intro_sent_at", "intro_platform",
-                "mismatch_reason", "created_at", "updated_at",
+                "id",
+                "status",
+                "score",
+                "match_method",
+                "confidence",
+                "seeker_post_id",
+                "camp_post_id",
+                "intro_sent_at",
+                "intro_platform",
+                "mismatch_reason",
+                "created_at",
+                "updated_at",
             ],
         )
         writer.writeheader()
         for m in matches:
-            writer.writerow({
-                "id": m.id,
-                "status": m.status,
-                "score": m.score,
-                "match_method": m.match_method,
-                "confidence": m.confidence,
-                "seeker_post_id": m.seeker_post_id,
-                "camp_post_id": m.camp_post_id,
-                "intro_sent_at": m.intro_sent_at,
-                "intro_platform": m.intro_platform,
-                "mismatch_reason": m.mismatch_reason,
-                "created_at": m.created_at,
-                "updated_at": m.updated_at,
-            })
+            writer.writerow(
+                {
+                    "id": m.id,
+                    "status": m.status,
+                    "score": m.score,
+                    "match_method": m.match_method,
+                    "confidence": m.confidence,
+                    "seeker_post_id": m.seeker_post_id,
+                    "camp_post_id": m.camp_post_id,
+                    "intro_sent_at": m.intro_sent_at,
+                    "intro_platform": m.intro_platform,
+                    "mismatch_reason": m.mismatch_reason,
+                    "created_at": m.created_at,
+                    "updated_at": m.updated_at,
+                }
+            )

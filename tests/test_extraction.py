@@ -71,9 +71,7 @@ class TestExtractedPostSchema:
 
 class TestTaxonomyCompatibility:
     def test_legacy_contribution_labels_normalize_to_camp_admin(self):
-        assert normalize_contribution_types(["admin", "logistics", "camp_admin"]) == [
-            "camp_admin"
-        ]
+        assert normalize_contribution_types(["admin", "logistics", "camp_admin"]) == ["camp_admin"]
 
     def test_camp_logistics_is_still_suppressed(self):
         result = keyword_filter(
@@ -118,6 +116,30 @@ async def test_process_post_rv_rental_skips(db_session, mock_extractor):
         raw_text=(
             "Renting out my RV for Burning Man 2026, based in LA. "
             "This thing already survived the playa in 2025."
+        ),
+        status=PostStatus.RAW,
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    result = await process_post(db_session, post, mock_extractor)
+
+    assert result.status == PostStatus.SKIPPED
+    assert result.skipped_reason == "keyword_filter"
+    assert result.post_type is None
+    mock_extractor.extract.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_process_post_rv_sale_skips(db_session, mock_extractor):
+    post = Post(
+        platform=Platform.FACEBOOK,
+        platform_post_id="rv_sale_001",
+        title="Selling our RV",
+        raw_text=(
+            "We are moving and need to sell our remodeled RV. "
+            "Figured somebody here might be interested as it seems to be cheaper than renting."
         ),
         status=PostStatus.RAW,
     )

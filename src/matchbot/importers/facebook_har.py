@@ -137,10 +137,7 @@ def _is_post_node(node: dict) -> bool:
     typename = str(node.get("__typename") or "")
     if (
         isinstance(platform_id, str)
-        and (
-            platform_id.startswith("comment:")
-            or platform_id.startswith("Y29tbWVudDo")
-        )
+        and (platform_id.startswith("comment:") or platform_id.startswith("Y29tbWVudDo"))
     ) or "Comment" in typename:
         return False
     if any(key in node for key in _COMMENT_NODE_KEYS):
@@ -148,9 +145,7 @@ def _is_post_node(node: dict) -> bool:
 
     # Must have some form of timestamp
     if not (
-        node.get("creation_time")
-        or node.get("created_time")
-        or _extract_story_creation_time(node)
+        node.get("creation_time") or node.get("created_time") or _extract_story_creation_time(node)
     ):
         return False
 
@@ -198,9 +193,7 @@ def parse_facebook_post_fields(node: dict) -> dict | None:
 
     # Timestamp extraction
     created_ts = (
-        node.get("creation_time")
-        or node.get("created_time")
-        or _extract_story_creation_time(node)
+        node.get("creation_time") or node.get("created_time") or _extract_story_creation_time(node)
     )
     if not created_ts:
         return None
@@ -418,7 +411,9 @@ async def _process_existing_or_new_facebook_post(
 
     source_url = fields["source_url"]
     if not source_url and group_id:
-        source_url = f"https://www.facebook.com/groups/{group_id}/posts/{fields['platform_post_id']}"
+        source_url = (
+            f"https://www.facebook.com/groups/{group_id}/posts/{fields['platform_post_id']}"
+        )
 
     post = Post(
         platform=Platform.FACEBOOK,
@@ -481,9 +476,7 @@ async def backfill_facebook_posts(
             processed += 1
             if since_datetime and fields["source_created_at"] < since_datetime:
                 counts["before_cutoff"] += 1
-                if should_log_progress(
-                    processed, total, every=_FACEBOOK_BACKFILL_PROGRESS_EVERY
-                ):
+                if should_log_progress(processed, total, every=_FACEBOOK_BACKFILL_PROGRESS_EVERY):
                     log_backfill_progress(
                         logger,
                         label=f"Facebook backfill for {group_name}",

@@ -5,6 +5,7 @@ Revises: 53561b998723
 Create Date: 2026-05-12 14:30:00.000000
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -28,11 +29,15 @@ def upgrade() -> None:
             sa.Column("pickup_location", sqlmodel.sql.sqltypes.AutoString(), nullable=True)
         )
         batch_op.add_column(sa.Column("delivery_available", sa.Boolean(), nullable=True))
-        batch_op.add_column(sa.Column("dimensions", sqlmodel.sql.sqltypes.AutoString(), nullable=True))
+        batch_op.add_column(
+            sa.Column("dimensions", sqlmodel.sql.sqltypes.AutoString(), nullable=True)
+        )
         batch_op.add_column(
             sa.Column("parts_included", sqlmodel.sql.sqltypes.AutoString(), nullable=True)
         )
-        batch_op.add_column(sa.Column("setup_notes", sqlmodel.sql.sqltypes.AutoString(), nullable=True))
+        batch_op.add_column(
+            sa.Column("setup_notes", sqlmodel.sql.sqltypes.AutoString(), nullable=True)
+        )
 
 
 def downgrade() -> None:

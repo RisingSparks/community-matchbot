@@ -25,7 +25,9 @@ def _short_text(text: str, max_len: int = 60) -> str:
 
 
 def _match_party_labels(seeker: Post | None, camp: Post | None) -> tuple[str, str]:
-    if (seeker and seeker.post_type == "infrastructure") or (camp and camp.post_type == "infrastructure"):
+    if (seeker and seeker.post_type == "infrastructure") or (
+        camp and camp.post_type == "infrastructure"
+    ):
         return "Seeking snippet", "Offering snippet"
     return "Seeker snippet", "Camp snippet"
 
@@ -35,7 +37,9 @@ def queue_list(
     status: Annotated[str, typer.Option("--status")] = MatchStatus.PROPOSED,
     min_score: Annotated[float, typer.Option("--min-score")] = 0.0,
     limit: Annotated[int, typer.Option("--limit")] = 25,
-    post_type: Annotated[str | None, typer.Option("--type", help="mentorship|infrastructure")] = None,
+    post_type: Annotated[
+        str | None, typer.Option("--type", help="mentorship|infrastructure")
+    ] = None,
 ) -> None:
     """List pending connection opportunities."""
 
@@ -53,7 +57,9 @@ def queue_list(
             matches = filtered
 
         if not matches:
-            rprint(f"[yellow]No potential connections with status={status!r} and score≥{min_score}[/yellow]")
+            rprint(
+                f"[yellow]No potential connections with status={status!r} and score≥{min_score}[/yellow]"
+            )
             return
 
         title = f"Potential Connections  [{status}]  ≥{min_score:.2f}"
@@ -168,7 +174,9 @@ def queue_reject(
 @app.command("send-intro")
 def queue_send_intro(
     match_id: str,
-    platform: Annotated[str | None, typer.Option("--platform", help="reddit|discord|facebook")] = None,
+    platform: Annotated[
+        str | None, typer.Option("--platform", help="reddit|discord|facebook")
+    ] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
 ) -> None:
     """Facilitate a handshake between parties."""
@@ -179,7 +187,9 @@ def queue_send_intro(
             rprint(f"[red]Connection {match_id!r} not found.[/red]")
             raise typer.Exit(1)
         if match.status != MatchStatus.APPROVED:
-            rprint(f"[red]Connection must be VERIFIED before sending intro (current: {match.status}).[/red]")
+            rprint(
+                f"[red]Connection must be VERIFIED before sending intro (current: {match.status}).[/red]"
+            )
             raise typer.Exit(1)
 
         seeker = await session.get(Post, match.seeker_post_id)
@@ -337,7 +347,9 @@ def queue_send_feedback(
             raise typer.Exit(1)
 
         if not match.moderator_notes or "[feedback pending]" not in match.moderator_notes:
-            rprint(f"[red]Connection {match_id[:8]} does not have [feedback pending] in notes.[/red]")
+            rprint(
+                f"[red]Connection {match_id[:8]} does not have [feedback pending] in notes.[/red]"
+            )
             raise typer.Exit(1)
 
         seeker = await session.get(Post, match.seeker_post_id)
@@ -353,8 +365,20 @@ def queue_send_feedback(
         seeker_text = render_feedback(seeker, camp, platform)
         camp_text = render_feedback(camp, seeker, platform)
 
-        console.print(Panel(seeker_text, title=f"[cyan]Check-in → {seeker.author_display_name or seeker.platform_author_id}[/cyan]", expand=False))
-        console.print(Panel(camp_text, title=f"[cyan]Check-in → {camp.author_display_name or camp.platform_author_id}[/cyan]", expand=False))
+        console.print(
+            Panel(
+                seeker_text,
+                title=f"[cyan]Check-in → {seeker.author_display_name or seeker.platform_author_id}[/cyan]",
+                expand=False,
+            )
+        )
+        console.print(
+            Panel(
+                camp_text,
+                title=f"[cyan]Check-in → {camp.author_display_name or camp.platform_author_id}[/cyan]",
+                expand=False,
+            )
+        )
 
         if dry_run:
             rprint("[dim]--dry-run: not sending.[/dim]")

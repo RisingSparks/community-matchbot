@@ -339,8 +339,7 @@ def test_intake_landing_page():
     assert '<link rel="canonical" href="http://testserver/forms/">' in response.text
     assert (
         'property="og:title" content="Rising Sparks | Community Finder for Camps, '
-        'Art Projects, and Infra"'
-        in response.text
+        'Art Projects, and Infra"' in response.text
     )
     assert "/forms/seeker" in response.text
     assert "/forms/camp" in response.text
@@ -361,9 +360,8 @@ def test_intake_seeker_form_renders():
     assert '<link rel="canonical" href="http://testserver/forms/seeker">' in response.text
     assert (
         'name="description" content="Share your skills, interests, and availability '
-        'to find aligned camps or art projects through Rising Sparks&#x27; '
-        'human-reviewed discovery flow."'
-        in response.text
+        "to find aligned camps or art projects through Rising Sparks&#x27; "
+        'human-reviewed discovery flow."' in response.text
     )
     assert 'name="display_name"' in response.text
     assert 'name="homebase"' in response.text

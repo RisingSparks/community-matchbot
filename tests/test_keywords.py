@@ -1,6 +1,5 @@
 """Tests for keyword pre-filter (no LLM calls)."""
 
-
 import pytest
 
 from matchbot.db.models import PostRole
@@ -185,6 +184,11 @@ class TestNoMatch:
             ("burning man rv rentals", ""),
             ("rv rental group", ""),
             ("rvs available", ""),
+            ("rv for sale", ""),
+            ("rv sale", ""),
+            ("selling our rv", ""),
+            ("selling my camper", ""),
+            ("Trailers/ RVs in gerlach", "Various different sizes that start from 5 k for 1-2 weeks"),
         ],
     )
     def test_common_rv_rental_phrases_are_suppressed(self, title, body):
