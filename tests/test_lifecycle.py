@@ -9,9 +9,11 @@ from matchbot.lifecycle.status import InvalidTransitionError, transition
 
 
 async def _make_match(session, status: str = MatchStatus.PROPOSED) -> Match:
+    import uuid
+
     match = Match(
-        seeker_post_id="seeker_post_id_placeholder",
-        camp_post_id="camp_post_id_placeholder",
+        seeker_post_id=f"seeker_{uuid.uuid4()}",
+        camp_post_id=f"camp_{uuid.uuid4()}",
         status=status,
         score=0.75,
     )

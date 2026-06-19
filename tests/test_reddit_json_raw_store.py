@@ -25,7 +25,7 @@ async def test_ingest_saves_raw_payload(tmp_path, sample_item, monkeypatch):
 
     store = RawStore(base_dir=tmp_path)
     monkeypatch.setattr(rj, "_raw_store", store)
-    monkeypatch.setattr(rj, "_post_exists", AsyncMock(return_value=False))
+    monkeypatch.setattr(rj, "_get_existing_post", AsyncMock(return_value=None))
 
     # Keyword filter returns no_match so we skip DB session complexity
     monkeypatch.setattr(
@@ -54,12 +54,15 @@ async def test_ingest_saves_raw_payload(tmp_path, sample_item, monkeypatch):
 @pytest.mark.asyncio
 async def test_ingest_skips_save_when_deduped(tmp_path, sample_item, monkeypatch):
     """Already-seen posts should not be saved again."""
+    from matchbot.db.models import Post, PostStatus
     from matchbot.listeners import reddit_json as rj
     from matchbot.storage.raw_store import RawStore
 
     store = RawStore(base_dir=tmp_path)
     monkeypatch.setattr(rj, "_raw_store", store)
-    monkeypatch.setattr(rj, "_post_exists", AsyncMock(return_value=True))
+
+    mock_post = Post(status=PostStatus.INDEXED)
+    monkeypatch.setattr(rj, "_get_existing_post", AsyncMock(return_value=mock_post))
 
     outcome, _ = await rj._ingest_reddit_json_item(sample_item, extractor=None, dry_run=False)
 

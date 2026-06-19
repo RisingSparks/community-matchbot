@@ -92,16 +92,10 @@ def test_get_engine_uses_sqlite_when_backend_is_sqlite_even_if_neon_url_exists(m
 
 
 def test_get_engine_raises_if_neon_backend_without_neon_url(monkeypatch) -> None:
+    from pydantic import ValidationError
+    import pytest
+
     engine_module._engine = None
-    settings = Settings(database_backend="neon", db_path="local.db", neon_database_url="")
-
-    monkeypatch.setattr(engine_module, "get_settings", lambda: settings)
-
-    try:
-        engine_module.get_engine()
-    except ValueError as exc:
-        assert "DATABASE_BACKEND is set to 'neon'" in str(exc)
-    else:
-        raise AssertionError(
-            "Expected ValueError when neon backend is enabled without NEON_DATABASE_URL"
-        )
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(database_backend="neon", db_path="local.db", neon_database_url="")
+    assert "DATABASE_BACKEND is 'neon'" in str(exc_info.value)

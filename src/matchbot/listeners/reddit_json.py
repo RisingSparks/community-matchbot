@@ -280,6 +280,10 @@ async def _ingest_reddit_json_item(
     if not post_id:
         return "ignored", extractor
 
+    existing = await _get_existing_post(post_id)
+    if existing is not None and existing.status != PostStatus.RAW:
+        return "deduped", extractor
+
     # Persist the raw API payload before any transformation or truncation.
     _get_raw_store().save("reddit", datetime.now(UTC).date().isoformat(), post_id, data)
 
