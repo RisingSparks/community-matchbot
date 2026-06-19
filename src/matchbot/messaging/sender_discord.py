@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import httpx
 
-from matchbot.db.models import Match, Post
+from matchbot.db.models import Match, Post, PostType
 from matchbot.messaging.renderer import render_intro
 from matchbot.settings import get_settings
 
@@ -38,17 +38,25 @@ async def _send_to_channel(token: str, channel_id: str, content: str) -> None:
         resp.raise_for_status()
 
 
-async def send_discord_intro(seeker: Post, camp: Post, match: Match) -> None:
+async def send_discord_intro(
+    seeker: Post,
+    camp: Post,
+    match: Match,
+    custom_intro_text: str | None = None,
+) -> None:
     """Send intro DMs to both seeker and camp contact via Discord REST API."""
     settings = get_settings()
     token = settings.discord_bot_token
 
     if seeker.platform_author_id and seeker.platform_author_id.isdigit():
-        seeker_text = render_intro(seeker, camp, "discord", for_camp=False)
+        seeker_text = custom_intro_text or render_intro(seeker, camp, "discord", for_camp=False)
         seeker_channel = await _create_dm_channel(token, seeker.platform_author_id)
         await _send_to_channel(token, seeker_channel, seeker_text)
 
     if camp.platform_author_id and camp.platform_author_id.isdigit():
-        camp_text = render_intro(seeker, camp, "discord", for_camp=True)
+        if seeker.post_type == PostType.INFRASTRUCTURE or camp.post_type == PostType.INFRASTRUCTURE:
+            camp_text = custom_intro_text or render_intro(seeker, camp, "discord", for_camp=True)
+        else:
+            camp_text = render_intro(seeker, camp, "discord", for_camp=True)
         camp_channel = await _create_dm_channel(token, camp.platform_author_id)
         await _send_to_channel(token, camp_channel, camp_text)

@@ -127,6 +127,10 @@ class Settings(BaseSettings):
     moderator_name: str = Field(default="Matchbot Moderator")
     mod_password: str = Field(default="", description="Password for /api/mod auth")
     mod_secret_key: str = Field(default="", description="HMAC secret for mod_session cookie")
+    mod_cors_origins: list[str] = Field(
+        default=["https://matchbotmod.rising-sparks.org"],
+        description="Allowed CORS origins for the Moderator API.",
+    )
 
     # WWW Guide enrichment
     www_guide_url: str = Field(

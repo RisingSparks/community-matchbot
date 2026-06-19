@@ -21,6 +21,7 @@ from matchbot.log_config import configure_logging
 from matchbot.mod.router import router as mod_router
 from matchbot.public.router import community_home
 from matchbot.public.router import router as community_router
+from matchbot.settings import get_settings
 
 
 def _build_lifespan(run_migrations_on_startup: bool):
@@ -50,9 +51,22 @@ def create_app(enable_scheduler: bool = True, run_migrations_on_startup: bool = 
     lifespan = _build_lifespan(run_migrations_on_startup) if enable_scheduler else None
     app = FastAPI(title="Matchbot API", version="0.1.0", lifespan=lifespan)
 
+    settings = get_settings()
+    origins = list(settings.mod_cors_origins)
+    for local_origin in [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8000",
+    ]:
+        if local_origin not in origins:
+            origins.append(local_origin)
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["https://matchbotmod.rising-sparks.org"],
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

@@ -584,3 +584,102 @@ async def test_stats_counts(mod_client, db_session):
     assert data["oldest_needs_review_age_hours"] is not None
     assert data["approved_today"] == 0
     assert data["dismissed_today"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Match Edit & Custom Intro tests
+# ---------------------------------------------------------------------------
+
+
+async def test_edit_match(mod_client, db_session):
+    from matchbot.db.models import Match, MatchStatus
+
+    seeker = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="seeker_edit",
+        title="seeker",
+        status=PostStatus.INDEXED,
+        role=PostRole.SEEKER,
+    )
+    camp = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="camp_edit",
+        title="camp",
+        status=PostStatus.INDEXED,
+        role=PostRole.CAMP,
+    )
+    db_session.add(seeker)
+    db_session.add(camp)
+    await db_session.commit()
+
+    match = Match(
+        seeker_post_id=seeker.id,
+        camp_post_id=camp.id,
+        status=MatchStatus.PROPOSED,
+    )
+    db_session.add(match)
+    await db_session.commit()
+    await db_session.refresh(match)
+
+    resp = await mod_client.post(
+        f"/api/mod/matches/{match.id}/edit",
+        json={"intro_draft": "Custom draft text", "moderator_notes": "Custom notes"},
+    )
+    assert resp.status_code == 200
+
+    await db_session.refresh(match)
+    assert match.intro_draft == "Custom draft text"
+    assert match.moderator_notes == "Custom notes"
+
+    events = (await db_session.exec(select(Event).where(Event.match_id == match.id))).all()
+    assert len(events) == 1
+    assert events[0].event_type == "match_edited"
+
+
+async def test_send_intro_custom_text(mod_client, db_session, monkeypatch):
+    from matchbot.db.models import Match, MatchStatus
+
+    sent_text = None
+
+    async def mock_send_reddit_intro(seeker, camp, match, custom_intro_text=None):
+        nonlocal sent_text
+        sent_text = custom_intro_text
+
+    monkeypatch.setattr(
+        "matchbot.messaging.sender_reddit.send_reddit_intro",
+        mock_send_reddit_intro,
+    )
+
+    seeker = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="seeker_send",
+        title="seeker",
+        status=PostStatus.INDEXED,
+        role=PostRole.SEEKER,
+    )
+    camp = Post(
+        platform=Platform.REDDIT,
+        platform_post_id="camp_send",
+        title="camp",
+        status=PostStatus.INDEXED,
+        role=PostRole.CAMP,
+    )
+    db_session.add(seeker)
+    db_session.add(camp)
+    await db_session.commit()
+
+    match = Match(
+        seeker_post_id=seeker.id,
+        camp_post_id=camp.id,
+        status=MatchStatus.APPROVED,
+    )
+    db_session.add(match)
+    await db_session.commit()
+    await db_session.refresh(match)
+
+    resp = await mod_client.post(
+        f"/api/mod/matches/{match.id}/send-intro",
+        json={"intro_text": "Custom body text"},
+    )
+    assert resp.status_code == 200
+    assert sent_text == "Custom body text"

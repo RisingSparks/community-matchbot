@@ -168,6 +168,12 @@ class DeclineMatchRequest(BaseModel):
 
 class SendIntroRequest(BaseModel):
     platform: str | None = None  # defaults to seeker.platform
+    intro_text: str | None = None
+
+
+class MatchEditFields(BaseModel):
+    intro_draft: str | None = None
+    moderator_notes: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -768,16 +774,60 @@ async def send_match_intro(
 
     from matchbot.messaging.renderer import render_intro
 
-    intro_text = match.intro_draft or render_intro(seeker, camp, target_platform)
+    intro_text = body.intro_text or match.intro_draft or render_intro(seeker, camp, target_platform)
 
     if dry_run:
         return {"dry_run": True, "platform": target_platform, "intro_text": intro_text}
 
     from matchbot.messaging import send_intro_message
 
-    await send_intro_message(session, match, seeker, camp, target_platform)
+    custom_text = body.intro_text or match.intro_draft
+    await send_intro_message(
+        session,
+        match,
+        seeker,
+        camp,
+        target_platform,
+        custom_intro_text=custom_text,
+    )
     match.intro_sent_at = datetime.now(UTC).replace(tzinfo=None)
     match.intro_platform = target_platform
     session.add(match)
     await transition(session, match, MatchStatus.INTRO_SENT, actor="moderator")
     return {"ok": True, "match_id": match_id, "platform": target_platform}
+
+
+@router.post("/matches/{match_id}/edit")
+async def edit_match(
+    match_id: str,
+    body: MatchEditFields,
+    _: None = Depends(_require_mod),
+    session: AsyncSession = Depends(_get_session),
+) -> dict:
+    match = await _get_match(session, match_id)
+    if not match:
+        raise HTTPException(404, "Match not found")
+
+    fields = body.model_dump(exclude_none=True)
+    if not fields:
+        raise HTTPException(422, "At least one field must be provided")
+
+    if body.intro_draft is not None:
+        match.intro_draft = body.intro_draft
+    if body.moderator_notes is not None:
+        match.moderator_notes = body.moderator_notes
+
+    session.add(match)
+
+    # Log the edit event
+    event = Event(
+        event_type="match_edited",
+        match_id=match_id,
+        actor="moderator",
+        payload=json.dumps({"match_id": match_id, "fields": list(fields.keys())}),
+    )
+    session.add(event)
+
+    await session.commit()
+    await session.refresh(match)
+    return {"ok": True, "match_id": match.id}
