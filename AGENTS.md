@@ -18,7 +18,7 @@
 - `uv run python scripts/query_db.py "SELECT ..."`: execute arbitrary SQL queries on the active database (SQLite/Neon).
 
 ## Coding Style & Naming Conventions
-- Python 3.12+; 4-space indentation; prefer type hints on public interfaces.
+- Python 3.14+; 4-space indentation; prefer type hints on public interfaces.
 - Keep line length within Ruff’s configured limit (`100`).
 - Use `snake_case` for functions/modules, `PascalCase` for classes, and explicit, domain-based names (`infra_scorer.py`, `cmd_queue.py`).
 - Keep modules focused by feature area; add new CLI commands under `src/matchbot/cli/` as `cmd_<topic>.py`.

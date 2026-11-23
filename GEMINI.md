@@ -15,7 +15,7 @@ The **Burning Man Matchbot** is a community-driven tool designed to facilitate c
 - **Moderator Control:** Provide a FastAPI-based **Moderator API** and CLI for reviewing, approving, and sending match introductions.
 
 ### Core Tech Stack:
-- **Language:** Python 3.12+
+- **Language:** Python 3.14+
 - **Dependency Management:** `uv`
 - **Data Layer:** `SQLModel` (SQLAlchemy + Pydantic) with `alembic` for migrations. Supports SQLite and Postgres.
 - **API Framework:** `fastapi` with routers for moderation, public community pages, and form-based submissions.
